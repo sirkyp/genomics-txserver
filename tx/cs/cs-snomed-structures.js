@@ -1315,6 +1315,7 @@ class SnomedFileReader {
       cacheVersion: this.readString(),  // This is "16" or "17" - the cache format version
       versionUri: this.readString(),
       versionDate: this.readString(),
+      isTesting: false,
 
       // Version-dependent settings
       hasLangs: false,  // Default for older versions
@@ -1343,6 +1344,7 @@ class SnomedFileReader {
       defaultLanguage: null // Will be read last
     };
 
+    result.isTesting = result.versionUri.includes("/xsct/");
     // Parse edition and version from URI
     const uriParts = result.versionUri.split('/');
     if (uriParts.length >= 7) {

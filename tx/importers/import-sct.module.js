@@ -749,6 +749,7 @@ class SnomedImporter {
     this.processedRefSetCount = 0;
 
     this.isAIndex = null;
+    this.isTesting = false;
 
     // File lists
     this.files = null;
@@ -943,6 +944,8 @@ class SnomedImporter {
             this.conceptMap.set(concept.id, concept);
           }
         }
+
+        this.isTesting = this.conceptMap.has(BigInt(31000003106));
 
         processedLines++;
         if (processedLines % 1000 === 0) {
@@ -2313,7 +2316,7 @@ class SnomedImporter {
 
     await writer.writeCache({
       version: '17', // Current version
-      versionUri: this.config.uri,
+      versionUri: this.isTesting ? this.config.uri.replace("/sct/", "/xsct/") : this.config.uri,
       versionDate: this.extractDateFromUri(this.config.uri),
 
       strings: this.strings.master,

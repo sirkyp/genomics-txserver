@@ -104,7 +104,7 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
    * @param {CodeSystem} codeSystem - The primary CodeSystem
    * @param {CodeSystem[]} supplements - Array of supplement CodeSystems
    */
-  constructor(opContext, supplements, codeSystem) {
+  constructor(opContext, codeSystem, supplements) {
     super(opContext, supplements);
 
     this.codeSystem = codeSystem;
@@ -1505,7 +1505,7 @@ class FhirCodeSystemFactory extends CodeSystemFactoryProvider {
       });
     }
 
-    return new FhirCodeSystemProvider(opContext, supplements, codeSystem);
+    return new FhirCodeSystemProvider(opContext, codeSystem, supplements);
   }
 }
 

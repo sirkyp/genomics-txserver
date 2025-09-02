@@ -417,6 +417,23 @@ class Languages {
     }
     return true;
   }
+
+  /**
+   * Convert to string representation (similar to Accept-Language header format)
+   */
+  toString() {
+    if (this.languages.length === 0) {
+      return '';
+    }
+
+    return this.languages.map(lang => {
+      if (lang.quality === 1.0) {
+        return lang.code;
+      } else {
+        return `${lang.code};q=${lang.quality}`;
+      }
+    }).join(',');
+  }
 }
 
 /**

@@ -107,6 +107,7 @@ class SnomedServices {
     this.activeRoots = sharedData.activeRoots;
     this.inactiveRoots = sharedData.inactiveRoots;
     this.defaultLanguage = sharedData.defaultLanguage;
+    this.isTesting = sharedData.isTesting;
 
     // Expression services
     this.expressionServices = new SnomedExpressionServices({
@@ -122,7 +123,6 @@ class SnomedServices {
       refSetIndex: this.refSetIndex
     }, this.isAIndex);
 
-    this.expressionParser = new SnomedExpressionParser();
   }
 
   close() {
@@ -130,7 +130,7 @@ class SnomedServices {
   }
 
   getSystemUri() {
-    return 'http://snomed.info/sct';
+    return this.isTesting ? 'http://snomed.info/xsct' : 'http://snomed.info/sct';
   }
 
   getVersion() {
@@ -631,7 +631,7 @@ class SnomedProvider extends CodeSystemProvider {
     if (conceptId === 0n) {
       // Try parsing as expression
       try {
-        const expression = this.sct.expressionParser.parse(code);
+        const expression = new SnomedExpressionParser().parse(code);
         this.sct.expressionServices.checkExpression(expression);
         return {
           context: SnomedExpressionContext.fromExpression(code, expression),
@@ -893,8 +893,8 @@ class SnomedProvider extends CodeSystemProvider {
     
 
     try {
-      const exprA = this.sct.expressionParser.parse(codeA);
-      const exprB = this.sct.expressionParser.parse(codeB);
+      const exprA = new SnomedExpressionParser().parse(codeA);
+      const exprB = new SnomedExpressionParser().parse(codeB);
 
       if (exprA.isSimple() && exprB.isSimple()) {
         const refA = exprA.concepts[0].reference;
@@ -963,7 +963,7 @@ class SnomedServicesFactory extends CodeSystemFactoryProvider {
   }
 
   system() {
-    return 'http://snomed.info/sct';
+    return this._sharedData.isTesting ? 'http://snomed.info/xsct' : 'http://snomed.info/sct';
   }
 
   version() {
@@ -979,6 +979,7 @@ class SnomedServicesFactory extends CodeSystemFactoryProvider {
   async load() {
     const reader = new SnomedFileReader(this.filePath);
     this._sharedData = await reader.loadSnomedData();
+    this.snomedServices = new SnomedServices(this._sharedData);
     this._loaded = true;
   }
 
@@ -989,9 +990,7 @@ class SnomedServicesFactory extends CodeSystemFactoryProvider {
   async build(opContext, supplements = []) {
     await this.#ensureLoaded();
     this.recordUse();
-
-    const snomedServices = new SnomedServices(this._sharedData);
-    return new SnomedProvider(opContext, supplements, snomedServices);
+    return new SnomedProvider(opContext, supplements, this.snomedServices);
   }
 
   useCount() {

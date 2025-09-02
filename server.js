@@ -5,7 +5,7 @@
 //
 
 const express = require('express');
-const cors = require('cors');
+// const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
@@ -47,7 +47,7 @@ const PORT = process.env.PORT || config.server.port || 3000;
 app.use(express.json());
 app.use(express.raw({ type: 'application/fhir+json', limit: '10mb' }));
 app.use(express.raw({ type: 'application/fhir+xml', limit: '10mb' }));
-app.use(cors(config.server.cors));
+// app.use(cors(config.server.cors));
 
 // Module instances
 const modules = {};

@@ -146,7 +146,7 @@ describe('SNOMED CT Module Import', () => {
 
     // Verify basic metadata
     expect(data.cacheVersion).toBeDefined();
-    expect(data.versionUri).toBe('http://snomed.info/sct/900000000000207008/version/20250814');
+    expect(data.versionUri).toBe('http://snomed.info/xsct/900000000000207008/version/20250814');
     expect(data.versionDate).toBe('20250814');
     expect(data.edition).toBeDefined();
     expect(data.version).toBeDefined();

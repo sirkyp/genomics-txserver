@@ -824,8 +824,6 @@ class SnomedExpressionServices {
     this.defaultLanguage = 1; // Default to English
     this.building = false; // Set to true during import
     this.assumeClassified = true; // Optimization flag
-
-    this.parser = new SnomedExpressionParser();
   }
 
   /**
@@ -919,7 +917,8 @@ class SnomedExpressionServices {
    * Parse expression string
    */
   parseExpression(source) {
-    const result = this.parser.parse(source);
+    const parser = new SnomedExpressionParser();
+    const result = parser.parse(source);
     this.checkExpression(result);
     return result;
   }
@@ -1013,7 +1012,7 @@ class SnomedExpressionServices {
         source = this.strings.getEntry(normalFormIndex);
       }
 
-      const result = this.parser.parse(source);
+      const result = new SnomedExpressionParser().parse(source);
       this.checkExpression(result);
       return result;
     }
