@@ -130,7 +130,7 @@ class SnomedServices {
   }
 
   getSystemUri() {
-    return this.isTesting ? 'http://snomed.info/xsct' : 'http://snomed.info/sct';
+    return 'http://snomed.info/sct';
   }
 
   getVersion() {
@@ -963,7 +963,7 @@ class SnomedServicesFactory extends CodeSystemFactoryProvider {
   }
 
   system() {
-    return this._sharedData.isTesting ? 'http://snomed.info/xsct' : 'http://snomed.info/sct';
+    return 'http://snomed.info/sct';
   }
 
   version() {
