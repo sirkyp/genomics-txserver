@@ -1,19 +1,30 @@
+const {CanonicalResource} = require("./canonical-resource");
+
 /**
  * Represents a FHIR ValueSet resource with version conversion support
  * @class
  */
-class ValueSet {
-  /**
-   * The original JSON object (always stored in R5 format internally)
-   * @type {Object}
-   */
-  jsonObj = null;
+class ValueSet extends CanonicalResource {
 
   /**
-   * FHIR version of the loaded ValueSet
-   * @type {string}
+   * Creates a new ValueSet instance
+   * @param {Object} jsonObj - The JSON object containing ValueSet data
+   * @param {string} [fhirVersion='R5'] - FHIR version ('R3', 'R4', or 'R5')
+   * @param {string} jsonObj.resourceType - Must be "ValueSet"
+   * @param {string} jsonObj.url - Canonical URL for the value set
+   * @param {string} [jsonObj.version] - Version of the value set
+   * @param {string} jsonObj.name - Name for this value set
+   * @param {string} jsonObj.status - Publication status (draft|active|retired|unknown)
+   * @param {Object} [jsonObj.compose] - Content logical definition of the value set
+   * @param {Object} [jsonObj.expansion] - Used when the value set is "expanded"
    */
-  version = 'R5';
+  constructor(jsonObj, fhirVersion = 'R5') {
+    super(jsonObj, fhirVersion);
+    // Convert to R5 format internally (modifies input for performance)
+    this.jsonObj = this._convertToR5(jsonObj, fhirVersion);
+    this.validate();
+    this.buildMaps();
+  }
 
   /**
    * Map of system(#version)|code to expansion contains item for fast lookup
@@ -31,25 +42,6 @@ class ValueSet {
     return new ValueSet(JSON.parse(jsonString), version);
   }
 
-  /**
-   * Creates a new ValueSet instance
-   * @param {Object} jsonObj - The JSON object containing ValueSet data
-   * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
-   * @param {string} jsonObj.resourceType - Must be "ValueSet"
-   * @param {string} jsonObj.url - Canonical URL for the value set
-   * @param {string} [jsonObj.version] - Version of the value set
-   * @param {string} jsonObj.name - Name for this value set
-   * @param {string} jsonObj.status - Publication status (draft|active|retired|unknown)
-   * @param {Object} [jsonObj.compose] - Content logical definition of the value set
-   * @param {Object} [jsonObj.expansion] - Used when the value set is "expanded"
-   */
-  constructor(jsonObj, version = 'R5') {
-    this.version = version;
-    // Convert to R5 format internally (modifies input for performance)
-    this.jsonObj = this._convertToR5(jsonObj, version);
-    this.validate();
-    this.buildMaps();
-  }
 
   /**
    * Returns JSON string representation

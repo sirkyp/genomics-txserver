@@ -1,4 +1,5 @@
 const { Language } = require("../../library/languages");
+const {CanonicalResource} = require("./canonical-resource");
 
 const CodeSystemContentMode = Object.freeze({
   Complete: 'complete',
@@ -12,18 +13,26 @@ const CodeSystemContentMode = Object.freeze({
  * Represents a FHIR CodeSystem resource with version conversion support
  * @class
  */
-class CodeSystem {
-  /**
-   * The original JSON object (always stored in R5 format internally)
-   * @type {Object}
-   */
-  jsonObj = null;
+class CodeSystem extends CanonicalResource {
 
   /**
-   * FHIR version of the loaded CodeSystem
-   * @type {string}
+   * Creates a new CodeSystem instance
+   * @param {Object} jsonObj - The JSON object containing CodeSystem data
+   * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
+   * @param {string} jsonObj.resourceType - Must be "CodeSystem"
+   * @param {string} jsonObj.url - Canonical URL for the code system
+   * @param {string} [jsonObj.version] - Version of the code system
+   * @param {string} jsonObj.name - Name for this code system
+   * @param {string} jsonObj.status - Publication status (draft|active|retired|unknown)
+   * @param {Object[]} [jsonObj.concept] - Array of concept definitions
    */
-  version = 'R5';
+  constructor(jsonObj, fhirVersion = 'R5') {
+    super(jsonObj, fhirVersion);
+    // Convert to R5 format internally (modifies input for performance)
+    this.jsonObj = this._convertToR5(this.jsonObj, fhirVersion);
+    this.validate();
+    this.buildMaps();
+  }
 
   /**
    * Map of code to concept object for fast lookup
@@ -50,11 +59,6 @@ class CodeSystem {
   childToParentsMap = new Map();
 
   /**
-   * The source package the CodeSystem was loaded from
-   * @type {String}
-   */
-  sourcePackage = null;
-  /**
    * Static factory method for convenience
    * @param {string} jsonString - JSON string representation of CodeSystem
    * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
@@ -62,25 +66,6 @@ class CodeSystem {
    */
   static fromJSON(jsonString, version = 'R5') {
     return new CodeSystem(JSON.parse(jsonString), version);
-  }
-
-  /**
-   * Creates a new CodeSystem instance
-   * @param {Object} jsonObj - The JSON object containing CodeSystem data
-   * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
-   * @param {string} jsonObj.resourceType - Must be "CodeSystem"
-   * @param {string} jsonObj.url - Canonical URL for the code system
-   * @param {string} [jsonObj.version] - Version of the code system
-   * @param {string} jsonObj.name - Name for this code system
-   * @param {string} jsonObj.status - Publication status (draft|active|retired|unknown)
-   * @param {Object[]} [jsonObj.concept] - Array of concept definitions
-   */
-  constructor(jsonObj, version = 'R5') {
-    this.version = version;
-    // Convert to R5 format internally (modifies input for performance)
-    this.jsonObj = this._convertToR5(jsonObj, version);
-    this.validate();
-    this.buildMaps();
   }
 
   /**
@@ -256,14 +241,6 @@ class CodeSystem {
       'exists',      // Property exists
     ];
     return r3CompatibleOperators.includes(operator);
-  }
-
-  /**
-   * Gets the FHIR version this CodeSystem was loaded from
-   * @returns {string} FHIR version ('R3', 'R4', or 'R5')
-   */
-  getFHIRVersion() {
-    return this.version;
   }
 
   /**
@@ -740,7 +717,7 @@ class CodeSystem {
       name: this.jsonObj.name,
       title: this.jsonObj.title,
       status: this.jsonObj.status,
-      fhirVersion: this.version,
+      fhirVersion: this.fhirVersion,
       conceptCount: this.codeMap.size,
       rootConceptCount: this.getRootConcepts().length,
       leafConceptCount: this.getLeafConcepts().length

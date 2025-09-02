@@ -25,6 +25,9 @@ const {PackageValueSetProvider} = require("./vs/vs-package");
 const {IETFLanguageCodeFactory} = require("./cs/cs-lang");
 const {LanguageDefinitions} = require("../library/languages");
 const {VersionUtilities} = require("../library/version-utilities");
+const { FhirCodeSystemProvider} = require("./cs/cs-cs");
+const {OperationContext, TerminologyError} = require("./operation-context");
+const {validateParameter, validateOptionalParameter, validateArrayParameter} = require("../library/utilities");
 
 class Provider {
   /**
@@ -54,7 +57,8 @@ class Provider {
     if (isDefault || !this.codeSystemFactories.has(factory.system())) {
       this.codeSystemFactories.set(factory.system(), factory);
     }
-    this.codeSystemFactories.set(factory.system()+"|"+factory.version(), factory);
+    const ver = factory.version() ?? "";
+    this.codeSystemFactories.set(factory.system()+"|"+ver, factory);
   }
 
 
@@ -559,6 +563,67 @@ class Provider {
     }
     throw new Error(`Unsupported FHIR version: ${ver}. Supported versions: R3, R4, R5`);
   }
+
+  /**
+   * get a code system provider for a known code system
+   *
+   * @param {OperationContext} opContext - The code system resource
+   * @param {String} system - The URL - might include a |version
+   * @param {String} version - The version, if seperate from the system
+   * @param {String[]} supplements - Applicable supplements
+   * @returns {CodeSystemProvider} Provider instance
+   */
+  async getCodeSystemProvider(opContext, system, version, supplements) {
+    validateParameter(opContext, "opContext", OperationContext);
+    validateParameter(system, "system", String);
+    validateArrayParameter(supplements, "supplements", CodeSystem);
+    validateOptionalParameter(version, "version", String);
+
+    if (system.includes("|")) {
+      const url = system.substring(0, system.indexOf("|"));
+      const v = system.substring(system.indexOf("|")+1);
+      if (version == null || v === version) {
+        version = v;
+      } else {
+        throw new TerminologyError(`Version inconsistent in ${system}: ${v} vs ${version}`);
+      }
+      system = url;
+    } else if (version === '') {
+      version = null;
+    }
+    const vurl = system+(version ? "|"+version : "");
+    const vurlMM = VersionUtilities.isSemVer(version) ? system+"|"+VersionUtilities.getMajMin(version) : null;
+    let factory = this.codeSystemFactories.get(vurl);
+    if (factory == null && vurlMM) {
+      factory = this.codeSystemFactories.get(vurlMM);
+    }
+    if (factory != null) {
+      return factory.build(opContext, supplements);
+    }
+    let cs = this.codeSystems.get(vurl);
+    if (cs == null && vurlMM) {
+      cs = this.codeSystems.get(vurlMM);
+    }
+    if (cs != null) {
+      return this.createCodeSystemProvider(opContext, cs, supplements);
+    }
+    return null;
+  }
+
+  /**
+   * Create a code system provider from a CodeSystem resource
+   * @param {OperationContext} opContext - The code system resource
+   * @param {CodeSystem} codeSystem - The code system resource
+   * @param {CodeSystem[]} supplements - The code system resource
+   * @returns {CodeSystemProvider} Provider instance
+   */
+  async createCodeSystemProvider(opContext, codeSystem, supplements) {
+    validateParameter(opContext, "opContext", OperationContext);
+    validateParameter(codeSystem, "codeSystem", CodeSystem);
+    validateArrayParameter(supplements, "supplements", CodeSystem);
+    return new FhirCodeSystemProvider(opContext, codeSystem, supplements);
+  }
+
 }
 
 module.exports = { Providers: Provider };

@@ -49,10 +49,24 @@ function validateParameter(param, name, type) {
 
 function validateOptionalParameter(param, name, type) {
   if (param != null) {
-    if (!(param instanceof type)) {
-      throw new Error(`${name} must be a valid ${type}`);
-    }
+    validateParameter(param, name, type);
   }
 }
 
-module.exports = { Utilities, validateParameter, validateOptionalParameter };
+function validateArrayParameter(param, name, type, optional) {
+  if (param == null) {
+    if (optional) {
+      return;
+    } else {
+      throw new Error(`${name} must be a provided`);
+    }
+  }
+  if (!Array.isArray(param)) {
+    throw new Error(`${name} must be an array`);
+  }
+  for (let i = 0; i < param.length; i++) {
+    validateParameter(param[i], name+`[${i}]`, type);
+  }
+}
+
+module.exports = { Utilities, validateParameter, validateOptionalParameter, validateArrayParameter };
