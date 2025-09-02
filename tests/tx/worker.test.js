@@ -1,21 +1,16 @@
-const {
-  TerminologyWorker,
-  CodeSystemInformationProvider,
-  TerminologySetupError,
-  isLaterVersion,
-  ExtendedCodeSystem,
-  ExtendedValueSet
-} = require('../../tx/worker');
+const { TerminologyWorker, TerminologySetupError } = require('../../tx/worker');
 const { OperationContext } = require('../../tx/operation-context');
 const {CodeSystem} = require("../../tx/library/codesystem");
 const ValueSet = require("../../tx/library/valueset");
 
 // Mock classes for testing
 class MockProvider {
+  // eslint-disable-next-line no-unused-vars
   async getCodeSystemProvider(url, version, params, nullOk) {
     return null; // Override in specific tests
   }
 
+  // eslint-disable-next-line no-unused-vars
   async listCodeSystemVersions(url) {
     return []; // Override in specific tests
   }
@@ -28,6 +23,7 @@ class MockLanguageDefinitions {
 }
 
 class MockI18nSupport {
+  // eslint-disable-next-line no-unused-vars
   formatMessage(languages, messageId, parameters = []) {
     return messageId;
   }

@@ -65,7 +65,7 @@ function validateArrayParameter(param, name, type, optional) {
     throw new Error(`${name} must be an array`);
   }
   for (let i = 0; i < param.length; i++) {
-    validateParameter(p[i], name+`[${i}]`, type);
+    validateParameter(param[i], name+`[${i}]`, type);
   }
 }
 

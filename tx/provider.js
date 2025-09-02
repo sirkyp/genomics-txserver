@@ -25,8 +25,7 @@ const {PackageValueSetProvider} = require("./vs/vs-package");
 const {IETFLanguageCodeFactory} = require("./cs/cs-lang");
 const {LanguageDefinitions} = require("../library/languages");
 const {VersionUtilities} = require("../library/version-utilities");
-const {CodeSystemProvider} = require("./cs/cs-api");
-const {FhirCodeSystemFactory, FhirCodeSystemProvider} = require("./cs/cs-cs");
+const { FhirCodeSystemProvider} = require("./cs/cs-cs");
 const {OperationContext, TerminologyError} = require("./operation-context");
 const {validateParameter, validateOptionalParameter, validateArrayParameter} = require("../library/utilities");
 

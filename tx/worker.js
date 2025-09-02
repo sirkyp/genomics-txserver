@@ -212,8 +212,32 @@ class TerminologyWorker {
         const cs = resource;
         // Check if this code system supplements the target URL
         const supplementsUrl = cs.jsonObj.supplements;
-        if (supplementsUrl === url || (supplementsUrl && supplementsUrl.startsWith(`${url}|`))) {
-          supplements.push(cs);
+
+        if (!supplementsUrl) {
+          continue;
+        }
+
+        // Handle exact URL match (no version specified in supplements)
+        if (supplementsUrl === url) {
+          // If we're looking for a specific version, only include if no version in supplements URL
+          if (!version) {
+            supplements.push(cs);
+          }
+          continue;
+        }
+
+        // Handle versioned URL (format: url|version)
+        if (supplementsUrl.startsWith(`${url}|`)) {
+          if (!version) {
+            // No version specified in search, include all supplements for this URL
+            supplements.push(cs);
+          } else {
+            // Version specified, check if it matches the tail of supplements URL
+            const supplementsVersion = supplementsUrl.substring(`${url}|`.length);
+            if (supplementsVersion === version) {
+              supplements.push(cs);
+            }
+          }
         }
       }
     }
