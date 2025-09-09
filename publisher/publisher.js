@@ -1,10 +1,8 @@
 const express = require('express');
-const path = require('path');
 const fs = require('fs');
 const Database = require('sqlite3').Database;
 const bcrypt = require('bcrypt');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
 const lusca = require('lusca');
 class PublisherModule {
   constructor() {
