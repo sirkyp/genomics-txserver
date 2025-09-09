@@ -13,7 +13,7 @@
  */
 
 const { SnomedServicesFactory } = require('../../tx/cs/cs-snomed');
-const {ECLTokenType, ECLLexer, ECLValidator, ECLNodeType} = require("../../tx/cs/cs-snomed-ecl");
+const {ECLTokenType, ECLLexer, ECLValidator, ECLNodeType} = require("../../tx/sct/ecl");
 const {join} = require("node:path");
 
 describe('ECL Validator Test Suite', () => {

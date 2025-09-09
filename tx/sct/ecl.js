@@ -7,7 +7,7 @@
  * Supports ECL v2.1 specification from SNOMED International
  */
 
-const { SnomedServices, SnomedFilterContext } = require('./cs-snomed');
+const { SnomedFilterContext } = require('../cs/cs-snomed');
 
 // ECL Token Types
 const ECLTokenType = {
@@ -995,7 +995,7 @@ class ECLValidator {
   /**
    * Evaluate AST node and return filter context
    */
-  async evaluateAST(node, options = {}) {
+  async evaluateAST(node = {}) {
     if (!node) {
       throw new Error('Cannot evaluate null AST node');
     }

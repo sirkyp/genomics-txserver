@@ -4,11 +4,11 @@ const {
   SnomedDescriptions, SnomedDescriptionIndex, SnomedConceptList,
   SnomedRelationshipList, SnomedReferenceSetMembers, SnomedReferenceSetIndex,
   SnomedFileReader
-} = require('./cs-snomed-structures');
+} = require('../sct/structures');
 const {
   SnomedExpressionServices, SnomedExpression, SnomedConcept,
   SnomedExpressionParser, NO_REFERENCE, SnomedServicesRenderOption
-} = require('./cs-snomed-expressions');
+} = require('../sct/expressions');
 
 // Context kinds matching Pascal enum
 const SnomedProviderContextKind = {

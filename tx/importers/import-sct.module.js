@@ -10,8 +10,8 @@ const {
   SnomedStrings, SnomedWords, SnomedStems, SnomedReferences,
   SnomedDescriptions, SnomedDescriptionIndex, SnomedConceptList,
   SnomedRelationshipList, SnomedReferenceSetMembers, SnomedReferenceSetIndex
-} = require('../cs/cs-snomed-structures');
-const {SnomedExpressionServices} = require("../cs/cs-snomed-expressions");
+} = require('../sct/structures');
+const {SnomedExpressionServices} = require("../sct/expressions");
 
 class SnomedModule extends BaseTerminologyModule {
 
@@ -2260,7 +2260,7 @@ class SnomedImporter {
     for (const concept of this.conceptList) {
       try {
         // Create expression with just this concept
-        const { SnomedExpression, SnomedConcept } = require('../cs/cs-snomed-expressions');
+        const { SnomedExpression, SnomedConcept } = require('../sct/expressions');
         const exp = new SnomedExpression();
         const snomedConcept = new SnomedConcept(concept.index);
         snomedConcept.code = concept.id.toString();
@@ -2270,7 +2270,7 @@ class SnomedImporter {
         const normalizedExp = services.normaliseExpression(exp);
 
         // Render with minimal formatting
-        const { SnomedServicesRenderOption } = require('../cs/cs-snomed-expressions');
+        const { SnomedServicesRenderOption } = require('../sct/expressions');
         const rendered = services.renderExpression(normalizedExp, SnomedServicesRenderOption.Minimal);
 
         // If the rendered form is different from just the concept ID, store it
