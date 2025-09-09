@@ -26,7 +26,7 @@ class PublisherModule {
       secret: this.config.sessionSecret || 'your-secret-key-change-this',
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+      cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 } // 24 hours
       // Not using SQLiteStore to avoid the database conflict
     }));
 
