@@ -714,7 +714,7 @@ class PackageCrawler {
   }
 
   genHash(data) {
-    return crypto.createHash('sha256').update(data).digest('hex');
+    return crypto.createHash('sha1').update(data).digest('hex');
   }
 
   async commit(packageBuffer, npmPackage, date, guid, id, version, canonical, urls) {
