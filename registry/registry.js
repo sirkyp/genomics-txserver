@@ -941,7 +941,7 @@ class RegistryModule {
    * @param {Array} allowedProtocols - Array of allowed protocols (default: ['http:', 'https:'])
    * @returns {boolean} True if URL is valid and safe
    */
-  _isValidUrl(url, allowedProtocols = ['http:', 'https:']) {
+  _isValidUrl(url, allowedProtocols = ['http:', 'https:', 'urn:']) {
     if (!url || typeof url !== 'string') {
       return false;
     }
@@ -967,8 +967,10 @@ class RegistryModule {
       // Convert authoritativeOnly to boolean
       const authoritativeOnly = params.authoritativeOnly === 'true';
 
+      let cleanUrl = url.split('|')[0];
+
       // Validate URL parameters if provided
-      if (url && !this._isValidUrl(url)) {
+      if (cleanUrl && !this._isValidUrl(cleanUrl)) {
         return res.status(400).json({ error: 'Invalid code system URL format' });
       }
 
@@ -979,7 +981,7 @@ class RegistryModule {
 
       // Check if this is a browser request (based on Accept header)
       const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
-      const hasRequiredParams = fhirVersion && (url || valueSet);
+      const hasRequiredParams = fhirVersion && (cleanUrl || valueSet);
 
       // If it's a browser and missing required params, show the form
       if (acceptsHtml && !hasRequiredParams) {
@@ -1020,7 +1022,7 @@ class RegistryModule {
         return res.status(400).json({ error: 'A FHIR version is required' });
       }
 
-      if (!url && !valueSet) {
+      if (!cleanUrl && !valueSet) {
         return res.status(400).json({ error: 'Either url or valueSet parameter is required' });
       }
 
@@ -1032,10 +1034,10 @@ class RegistryModule {
         this.logger.info(`Resolved ValueSet ${valueSet} for FHIR ${fhirVersion} (usage=${usage}): ${matches}`);
       } else {
         // Code system resolve
-        const resolveResult = this.api.resolveCodeSystem(fhirVersion, url, authoritativeOnly, usage);
+        const resolveResult = this.api.resolveCodeSystem(fhirVersion, cleanUrl, authoritativeOnly, usage);
         result = resolveResult.result;
         matches = resolveResult.matches;
-        this.logger.info(`Resolved CodeSystem ${url} for FHIR ${fhirVersion} (usage=${usage}): ${matches}`);
+        this.logger.info(`Resolved CodeSystem ${cleanUrl} for FHIR ${fhirVersion} (usage=${usage}): ${matches}`);
       }
 
       // If only authoritative servers are requested, filter results
@@ -1052,7 +1054,7 @@ class RegistryModule {
             htmlServer.loadTemplate('registry', templatePath);
           }
 
-          const content = this.buildResolveResultContent(result, fhirVersion, url || valueSet, usage);
+          const content = this.buildResolveResultContent(result, fhirVersion, cleanUrl || valueSet, usage);
           const stats = this.api.getStatistics();
           stats.processingTime = Date.now() - startTime;
 
