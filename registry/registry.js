@@ -981,7 +981,7 @@ class RegistryModule {
 
       // Check if this is a browser request (based on Accept header)
       const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
-      const hasRequiredParams = fhirVersion && (cleanUrl || valueSet);
+      const hasRequiredParams = fhirVersion && (url || valueSet);
 
       // If it's a browser and missing required params, show the form
       if (acceptsHtml && !hasRequiredParams) {
@@ -1022,7 +1022,7 @@ class RegistryModule {
         return res.status(400).json({ error: 'A FHIR version is required' });
       }
 
-      if (!cleanUrl && !valueSet) {
+      if (!url && !valueSet) {
         return res.status(400).json({ error: 'Either url or valueSet parameter is required' });
       }
 
@@ -1034,10 +1034,10 @@ class RegistryModule {
         this.logger.info(`Resolved ValueSet ${valueSet} for FHIR ${fhirVersion} (usage=${usage}): ${matches}`);
       } else {
         // Code system resolve
-        const resolveResult = this.api.resolveCodeSystem(fhirVersion, cleanUrl, authoritativeOnly, usage);
+        const resolveResult = this.api.resolveCodeSystem(fhirVersion, url, authoritativeOnly, usage);
         result = resolveResult.result;
         matches = resolveResult.matches;
-        this.logger.info(`Resolved CodeSystem ${cleanUrl} for FHIR ${fhirVersion} (usage=${usage}): ${matches}`);
+        this.logger.info(`Resolved CodeSystem ${url} for FHIR ${fhirVersion} (usage=${usage}): ${matches}`);
       }
 
       // If only authoritative servers are requested, filter results
@@ -1054,7 +1054,7 @@ class RegistryModule {
             htmlServer.loadTemplate('registry', templatePath);
           }
 
-          const content = this.buildResolveResultContent(result, fhirVersion, cleanUrl || valueSet, usage);
+          const content = this.buildResolveResultContent(result, fhirVersion, url || valueSet, usage);
           const stats = this.api.getStatistics();
           stats.processingTime = Date.now() - startTime;
 
