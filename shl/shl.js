@@ -241,7 +241,7 @@ class SHLModule {
     try {
       const parsed = new URL(url);
       
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
+      if (!['http:', 'https:', 'shlink:'].includes(parsed.protocol)) {
         throw new Error(`Protocol ${parsed.protocol} not allowed`);
       }
       
