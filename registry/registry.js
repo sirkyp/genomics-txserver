@@ -967,17 +967,17 @@ class RegistryModule {
       // Convert authoritativeOnly to boolean
       const authoritativeOnly = params.authoritativeOnly === 'true';
 
-      let cleanUrl = url.split('|')[0];
+      let cleanUrl = url == null ? null : url.split('|')[0];
+      let cleanVS = valueSet == null ? null : valueSet.split('|')[0];
 
       // Validate URL parameters if provided
       if (cleanUrl && !this._isValidUrl(cleanUrl)) {
         return res.status(400).json({ error: 'Invalid code system URL format' });
       }
 
-      if (valueSet && !this._isValidUrl(valueSet)) {
+      if (valueSet && !this._isValidUrl(cleanVS)) {
         return res.status(400).json({ error: 'Invalid value set URL format' });
       }
-
 
       // Check if this is a browser request (based on Accept header)
       const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
