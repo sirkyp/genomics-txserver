@@ -1,6 +1,10 @@
 const fs = require('fs').promises;
 const sqlite3 = require('sqlite3').verbose();
 const { VersionUtilities } = require('../../library/version-utilities');
+const ValueSet = require("../library/valueset");
+
+// Columns that can be returned directly without parsing JSON
+const INDEXED_COLUMNS = ['id', 'url', 'version', 'date', 'description', 'name', 'publisher', 'status', 'title'];
 
 /**
  * Shared database layer for ValueSet providers
@@ -43,55 +47,55 @@ class ValueSetDatabase {
         db.serialize(() => {
           // Main value sets table
           db.run(`
-            CREATE TABLE valuesets (
-              id TEXT PRIMARY KEY,
-              url TEXT,
-              version TEXT,
-              date TEXT,
-              description TEXT,
-              effectivePeriod_start TEXT,
-              effectivePeriod_end TEXT,
-              expansion_identifier TEXT,
-              name TEXT,
-              publisher TEXT,
-              status TEXT,
-              title TEXT,
-              content TEXT NOT NULL,
-              last_seen INTEGER DEFAULT (strftime('%s', 'now'))
-            )
+              CREATE TABLE valuesets (
+                                         id TEXT PRIMARY KEY,
+                                         url TEXT,
+                                         version TEXT,
+                                         date TEXT,
+                                         description TEXT,
+                                         effectivePeriod_start TEXT,
+                                         effectivePeriod_end TEXT,
+                                         expansion_identifier TEXT,
+                                         name TEXT,
+                                         publisher TEXT,
+                                         status TEXT,
+                                         title TEXT,
+                                         content TEXT NOT NULL,
+                                         last_seen INTEGER DEFAULT (strftime('%s', 'now'))
+              )
           `);
 
           // Identifiers table (0..* Identifier)
           db.run(`
-            CREATE TABLE valueset_identifiers (
-              valueset_id TEXT,
-              system TEXT,
-              value TEXT,
-              use_code TEXT,
-              type_system TEXT,
-              type_code TEXT,
-              FOREIGN KEY (valueset_url) REFERENCES valuesets(url)
-            )
+              CREATE TABLE valueset_identifiers (
+                                                    valueset_id TEXT,
+                                                    system TEXT,
+                                                    value TEXT,
+                                                    use_code TEXT,
+                                                    type_system TEXT,
+                                                    type_code TEXT,
+                                                    FOREIGN KEY (valueset_id) REFERENCES valuesets(url)
+              )
           `);
 
           // Jurisdictions table (0..* CodeableConcept with 0..* Coding)
           db.run(`
-            CREATE TABLE valueset_jurisdictions (
-              valueset_id TEXT,
-              system TEXT,
-              code TEXT,
-              display TEXT,
-              FOREIGN KEY (valueset_url) REFERENCES valuesets(url)
-            )
+              CREATE TABLE valueset_jurisdictions (
+                                                      valueset_id TEXT,
+                                                      system TEXT,
+                                                      code TEXT,
+                                                      display TEXT,
+                                                      FOREIGN KEY (valueset_id) REFERENCES valuesets(url)
+              )
           `);
 
           // Systems table (from compose.include[].system)
           db.run(`
-            CREATE TABLE valueset_systems (
-              valueset_id TEXT,
-              system TEXT,
-              FOREIGN KEY (valueset_url) REFERENCES valuesets(url)
-            )
+              CREATE TABLE valueset_systems (
+                                                valueset_id TEXT,
+                                                system TEXT,
+                                                FOREIGN KEY (valueset_id) REFERENCES valuesets(url)
+              )
           `);
 
           // Create indexes for better search performance
@@ -138,21 +142,21 @@ class ValueSetDatabase {
         }
 
         // Step 1: Delete existing related records
-        db.run('DELETE FROM valueset_identifiers WHERE valueset_url = ?', [valueSet.url], (err) => {
+        db.run('DELETE FROM valueset_identifiers WHERE valueset_id = ?', [valueSet.id], (err) => {
           if (err) {
             db.close();
             reject(new Error(`Failed to delete identifiers: ${err.message}`));
             return;
           }
 
-          db.run('DELETE FROM valueset_jurisdictions WHERE valueset_url = ?', [valueSet.url], (err) => {
+          db.run('DELETE FROM valueset_jurisdictions WHERE valueset_id = ?', [valueSet.id], (err) => {
             if (err) {
               db.close();
               reject(new Error(`Failed to delete jurisdictions: ${err.message}`));
               return;
             }
 
-            db.run('DELETE FROM valueset_systems WHERE valueset_url = ?', [valueSet.url], (err) => {
+            db.run('DELETE FROM valueset_systems WHERE valueset_id = ?', [valueSet.id], (err) => {
               if (err) {
                 db.close();
                 reject(new Error(`Failed to delete systems: ${err.message}`));
@@ -165,10 +169,10 @@ class ValueSetDatabase {
               const expansionId = valueSet.expansion?.identifier || null;
 
               db.run(`
-                INSERT OR REPLACE INTO valuesets (
+                  INSERT OR REPLACE INTO valuesets (
                   id, url, version, date, description, effectivePeriod_start, effectivePeriod_end,
                   expansion_identifier, name, publisher, status, title, content, last_seen
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
               `, [
                 valueSet.id,
                 valueSet.url,
@@ -237,9 +241,9 @@ class ValueSetDatabase {
         const typeCode = id.type?.coding?.[0]?.code || null;
 
         db.run(`
-          INSERT INTO valueset_identifiers (
-            valueset_id, system, value, use_code, type_system, type_code
-          ) VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO valueset_identifiers (
+                valueset_id, system, value, use_code, type_system, type_code
+            ) VALUES (?, ?, ?, ?, ?, ?)
         `, [
           valueSet.id,
           id.system || null,
@@ -261,9 +265,9 @@ class ValueSetDatabase {
           for (const coding of jurisdiction.coding) {
             pendingOperations++;
             db.run(`
-              INSERT INTO valueset_jurisdictions (
-                valueset_id, system, code, display
-              ) VALUES (?, ?, ?, ?)
+                INSERT INTO valueset_jurisdictions (
+                    valueset_id, system, code, display
+                ) VALUES (?, ?, ?, ?)
             `, [
               valueSet.id,
               coding.system || null,
@@ -285,7 +289,7 @@ class ValueSetDatabase {
           pendingOperations++;
 
           db.run(`
-            INSERT INTO valueset_systems (valueset_id, system) VALUES (?, ?)
+              INSERT INTO valueset_systems (valueset_id, system) VALUES (?, ?)
           `, [valueSet.id, include.system], function(err) {
             if (err) {
               operationError(new Error(`Failed to insert system: ${err.message}`));
@@ -332,7 +336,7 @@ class ValueSetDatabase {
           return;
         }
 
-        db.all('SELECT url, version, content FROM valuesets', [], (err, rows) => {
+        db.all('SELECT id, url, version, content FROM valuesets', [], (err, rows) => {
           if (err) {
             db.close();
             reject(new Error(`Failed to load value sets: ${err.message}`));
@@ -343,10 +347,11 @@ class ValueSetDatabase {
             const valueSetMap = new Map();
 
             for (const row of rows) {
-              const valueSet = JSON.parse(row.content);
+              const valueSet = new ValueSet(JSON.parse(row.content));
 
-              // Store by URL alone
+              // Store by URL and id alone
               valueSetMap.set(row.url, valueSet);
+              valueSetMap.set(row.id, valueSet);
 
               if (row.version) {
                 // Store by url|version
@@ -387,12 +392,18 @@ class ValueSetDatabase {
   /**
    * Search for ValueSets based on criteria
    * @param {Array<{name: string, value: string}>} searchParams - Search criteria
+   * @param {Array<string>|null} elements - Optional list of elements to return (for optimization)
    * @returns {Promise<Array<Object>>} List of matching ValueSets
    */
-  async search(searchParams) {
-    if (searchParams.length === 0) {
-      return [];
-    }
+  async search(spaceId, searchParams, elements = null) {
+    // Check if we can optimize by selecting only indexed columns
+    const canOptimize = elements && elements.length > 0 &&
+      elements.every(e => INDEXED_COLUMNS.includes(e));
+
+    // Always include 'id' in the columns to select when optimizing
+    const columnsToSelect = canOptimize
+      ? (elements.includes('id') ? elements : ['id', ...elements])
+      : null;
 
     return new Promise((resolve, reject) => {
       const db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READONLY, (err) => {
@@ -401,7 +412,7 @@ class ValueSetDatabase {
           return;
         }
 
-        const { query, params } = this._buildSearchQuery(searchParams);
+        const { query, params } = this._buildSearchQuery(searchParams, columnsToSelect);
 
         db.all(query, params, (err, rows) => {
           if (err) {
@@ -411,7 +422,34 @@ class ValueSetDatabase {
           }
 
           try {
-            const results = rows.map(row => JSON.parse(row.content));
+            let results;
+            if (canOptimize) {
+              // Construct objects directly from columns - much faster!
+              results = rows.map(row => {
+                const obj = { resourceType: 'ValueSet' };
+                for (const elem of columnsToSelect) {
+                  if (row[elem] !== null && row[elem] !== undefined) {
+                    if (elem === 'id' && spaceId) {
+                      obj[elem] = `${spaceId}-${row[elem]}`;
+                    } else {
+                      obj[elem] = row[elem];
+                    }
+                  }
+                }
+                return obj;
+              });
+            } else {
+              // Fall back to parsing JSON
+              results = rows.map(row => {
+                const parsed = JSON.parse(row.content);
+                // Prefix id with spaceId if provided
+                if (spaceId && parsed.id) {
+                  parsed.id = `${spaceId}-${parsed.id}`;
+                }
+                return parsed;
+              });
+            }
+
             db.close((err) => {
               if (err) {
                 reject(new Error(`Failed to close database after search: ${err.message}`));
@@ -455,7 +493,7 @@ class ValueSetDatabase {
             return;
           }
 
-          const urlsToDelete = rows.map(row => row.url);
+          const idsToDelete = rows.map(row => row.id);
           let deletedCount = 0;
           let pendingDeletes = 0;
           let hasError = false;
@@ -486,21 +524,21 @@ class ValueSetDatabase {
           };
 
           // Delete related records first
-          const placeholders = urlsToDelete.map(() => '?').join(',');
+          const placeholders = idsToDelete.map(() => '?').join(',');
 
           pendingDeletes = 3; // identifiers, jurisdictions, systems
 
-          db.run(`DELETE FROM valueset_identifiers WHERE valueset_url IN (${placeholders})`, urlsToDelete, (err) => {
+          db.run(`DELETE FROM valueset_identifiers WHERE valueset_id IN (${placeholders})`, idsToDelete, (err) => {
             if (err) deleteError(new Error(`Failed to delete identifier records: ${err.message}`));
             else deleteComplete();
           });
 
-          db.run(`DELETE FROM valueset_jurisdictions WHERE valueset_url IN (${placeholders})`, urlsToDelete, (err) => {
+          db.run(`DELETE FROM valueset_jurisdictions WHERE valueset_id IN (${placeholders})`, idsToDelete, (err) => {
             if (err) deleteError(new Error(`Failed to delete jurisdiction records: ${err.message}`));
             else deleteComplete();
           });
 
-          db.run(`DELETE FROM valueset_systems WHERE valueset_url IN (${placeholders})`, urlsToDelete, (err) => {
+          db.run(`DELETE FROM valueset_systems WHERE valueset_id IN (${placeholders})`, idsToDelete, (err) => {
             if (err) deleteError(new Error(`Failed to delete system records: ${err.message}`));
             else deleteComplete();
           });
@@ -580,10 +618,11 @@ class ValueSetDatabase {
   /**
    * Build SQL query for search parameters
    * @param {Array<{name: string, value: string}>} searchParams - Search parameters
+   * @param {Array<string>|null} elements - If provided, select only these columns (optimization)
    * @returns {{query: string, params: Array}} Query and parameters
    * @private
    */
-  _buildSearchQuery(searchParams) {
+  _buildSearchQuery(searchParams, elements = null) {
     const conditions = [];
     const params = [];
     const joins = new Set();
@@ -593,13 +632,13 @@ class ValueSetDatabase {
 
       switch (name.toLowerCase()) {
         case 'url':
-          conditions.push('v.url = ?');
-          params.push(value);
+          conditions.push('v.url LIKE ?');
+          params.push(`%${value}%`);
           break;
 
         case 'version':
-          conditions.push('v.version = ?');
-          params.push(value);
+          conditions.push('v.version LIKE ?');
+          params.push(`%${value}%`);
           break;
 
         case 'name':
@@ -613,8 +652,8 @@ class ValueSetDatabase {
           break;
 
         case 'status':
-          conditions.push('v.status = ?');
-          params.push(value);
+          conditions.push('v.status LIKE ?');
+          params.push(`%${value}%`);
           break;
 
         case 'publisher':
@@ -628,26 +667,26 @@ class ValueSetDatabase {
           break;
 
         case 'date':
-          conditions.push('v.date = ?');
-          params.push(value);
+          conditions.push('v.date LIKE ?');
+          params.push(`%${value}%`);
           break;
 
         case 'identifier':
-          joins.add('JOIN valueset_identifiers vi ON v.url = vi.valueset_url');
-          conditions.push('(vi.system = ? OR vi.value = ?)');
-          params.push(value, value);
+          joins.add('JOIN valueset_identifiers vi ON v.id = vi.valueset_id');
+          conditions.push('(vi.system = ? OR vi.value LIKE ?)');
+          params.push(value, `%${value}%`);
           break;
 
         case 'jurisdiction':
-          joins.add('JOIN valueset_jurisdictions vj ON v.url = vj.valueset_url');
-          conditions.push('(vj.system = ? OR vj.code = ?)');
-          params.push(value, value);
+          joins.add('JOIN valueset_jurisdictions vj ON v.id = vj.valueset_id');
+          conditions.push('(vj.system = ? OR vj.code LIKE ?)');
+          params.push(value, `%${value}%`);
           break;
 
         case 'system':
-          joins.add('JOIN valueset_systems vs ON v.url = vs.valueset_url');
-          conditions.push('vs.system = ?');
-          params.push(value);
+          joins.add('JOIN valueset_systems vs ON v.id = vs.valueset_id');
+          conditions.push('vs.system LIKE ?');
+          params.push(`%${value}%`);
           break;
 
         default:
@@ -660,8 +699,20 @@ class ValueSetDatabase {
 
     const joinClause = Array.from(joins).join(' ');
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Select columns based on optimization
+    let selectClause;
+    if (elements) {
+      // Optimized: select only the columns we need
+      const columns = elements.map(e => `v.${e}`).join(', ');
+      selectClause = `SELECT DISTINCT ${columns}`;
+    } else {
+      // Full content needed
+      selectClause = 'SELECT DISTINCT v.content';
+    }
+
     const query = `
-        SELECT DISTINCT v.content
+        ${selectClause}
         FROM valuesets v
             ${joinClause}
             ${whereClause}
@@ -669,6 +720,11 @@ class ValueSetDatabase {
     `;
 
     return { query, params };
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  assignIds(ids) {
+    // nothing - we don't do any assigning.
   }
 }
 

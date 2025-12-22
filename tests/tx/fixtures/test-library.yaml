@@ -1,0 +1,6 @@
+# Minimal test library - relies on automatic R5 core loading
+
+base:
+  url: https://storage.googleapis.com/tx-fhir-org
+
+sources: []

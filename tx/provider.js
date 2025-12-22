@@ -3,6 +3,10 @@ const {VersionUtilities} = require("../library/version-utilities");
 const { FhirCodeSystemProvider} = require("./cs/cs-cs");
 const {OperationContext, TerminologyError} = require("./operation-context");
 const {validateParameter, validateOptionalParameter, validateArrayParameter} = require("../library/utilities");
+const path = require("path");
+const {PackageContentLoader} = require("../library/package-manager");
+const {ListCodeSystemProvider} = require("./cs/cs-provider-list");
+const {PackageValueSetProvider} = require("./vs/vs-package");
 
 /**
  * This class holds what information is in context
@@ -97,6 +101,28 @@ class Provider {
     validateArrayParameter(supplements, "supplements", CodeSystem);
     return new FhirCodeSystemProvider(opContext, codeSystem, supplements);
   }
+
+
+  async loadNpm(packageManager, cacheFolder,  details, isDefault, mode) {
+    const packagePath = await packageManager.fetch(details, null);
+    if (mode === "fetch" || mode === "cs") {
+      return;
+    }
+    const fullPackagePath = path.join(cacheFolder, packagePath);
+    const contentLoader = new PackageContentLoader(fullPackagePath);
+    await contentLoader.initialize();
+
+    const resources = await contentLoader.getResourcesByType("CodeSystem");
+    for (const resource of resources) {
+      const cs = new CodeSystem(await contentLoader.loadFile(resource, contentLoader.fhirVersion()));
+      this.codeSystems.set(cs.url, cs);
+      this.codeSystems.set(cs.vurl, cs);
+    }
+    const vs = new PackageValueSetProvider(contentLoader);
+    await vs.initialize();
+    this.valueSetProviders.push(vs);
+  }
+
 
 }
 

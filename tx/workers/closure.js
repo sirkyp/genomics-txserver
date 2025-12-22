@@ -1,0 +1,33 @@
+//
+// Closure Worker - Handles ConceptMap $closure operation
+//
+// GET /ConceptMap/$closure?{params}
+// POST /ConceptMap/$closure
+//
+
+class ClosureWorker {
+  /**
+   * Handle a $closure request
+   * @param {express.Request} req - Express request (with txProvider attached)
+   * @param {express.Response} res - Express response
+   * @param {Object} log - Logger instance
+   */
+  static handle(req, res, log) {
+    const provider = req.txProvider;
+    const params = req.method === 'POST' ? req.body : req.query;
+
+    log.debug('ConceptMap $closure with params:', params);
+
+    // TODO: Implement closure logic using provider
+    res.status(501).json({
+      resourceType: 'OperationOutcome',
+      issue: [{
+        severity: 'error',
+        code: 'not-supported',
+        diagnostics: 'ConceptMap $closure operation not yet implemented'
+      }]
+    });
+  }
+}
+
+module.exports = ClosureWorker;

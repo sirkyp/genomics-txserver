@@ -299,6 +299,7 @@ class ValueSet extends CanonicalResource {
    * @private
    */
   buildMaps() {
+    this.id = this.jsonObj.id;
     this.codeMap.clear();
 
     if (!this.jsonObj.expansion || !this.jsonObj.expansion.contains) {

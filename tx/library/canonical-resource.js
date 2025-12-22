@@ -42,6 +42,10 @@ class CanonicalResource {
     return this.jsonObj.name;
   }
 
+  get title() {
+    return this.jsonObj.title;
+  }
+
   get status() {
     return this.jsonObj.status;
   }

@@ -16,17 +16,19 @@ class TerminologySetupError extends Error {
  * Abstract base class for terminology operations
  */
 class TerminologyWorker {
+  additionalResources = []; // to be documented
+
   /**
    * @param {OperationContext} opContext - Operation context
+   * @param {Logger} log - Provider for code systems and resources
    * @param {Provider} provider - Provider for code systems and resources
-   * @param {Array} additionalResources - Additional CodeSystem/ValueSet resources
    * @param {LanguageDefinitions} languages - Language definitions
    * @param {I18nSupport} i18n - Internationalization support
    */
-  constructor(opContext, provider, additionalResources = [], languages, i18n) {
+  constructor(opContext, log, provider, languages, i18n) {
     this.opContext = opContext;
+    this.log = log;
     this.provider = provider;
-    this.additionalResources = additionalResources;
     this.languages = languages;
     this.i18n = i18n;
     this.noCacheThisOne = false;
@@ -144,7 +146,7 @@ class TerminologyWorker {
 
     // If no provider from additional resources, try main provider
     if (!provider) {
-      provider = await this.provider.getCodeSystemProvider(url, version, params, true, supplements);
+      provider = await this.provider.getCodeSystemProvider(this.opContext, url, version, supplements);
     }
 
     // If still no provider but we have a code system with allowed content mode

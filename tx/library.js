@@ -78,6 +78,11 @@ class Library {
     this.codeSystemFactories = new Map();
     this.codeSystemProviders = [];
     this.valueSetProviders = [];
+
+    // Create package manager for FHIR packages
+    const packageServers = ['https://packages2.fhir.org/packages'];
+    this.cacheFolder = path.join(__dirname, '..', '.package-cache');
+    this.packageManager = new PackageManager(packageServers, this.cacheFolder);
   }
 
   #logSystemHeader() {
@@ -123,13 +128,9 @@ class Library {
 
   async load() {
     this.startTime = Date.now();
-    //this.startMemory = process.memoryUsage();
-    const packageServers = ['https://packages2.fhir.org/packages'];
-    this.cacheFolder = path.join(__dirname, '..', '.package-cache');
-    const packageManager = new PackageManager(packageServers,  this.cacheFolder);
 
     // Read and parse YAML configuration
-    const yamlPath = path.join(__dirname, '..', 'tx', 'tx.fhir.org.yml');
+    const yamlPath = this.configFile ? this.configFile :  path.join(__dirname, '..', 'tx', 'tx.fhir.org.yml');
     const yamlContent = await fs.readFile(yamlPath, 'utf8');
     const config = yaml.parse(yamlContent);
     this.baseUrl = config.base.url;
@@ -137,22 +138,22 @@ class Library {
     console.log('Fetching Data');
 
     for (const source of config.sources) {
-      await this.processSource(source, packageManager, "fetch");
+      await this.processSource(source, this.packageManager, "fetch");
     }
 
-    console.log("Downloaded "+((this.totalDownloaded + packageManager.totalDownloaded)/ 1024)+" kB");
+    console.log("Downloaded "+((this.totalDownloaded + this.packageManager.totalDownloaded)/ 1024)+" kB");
 
     console.log('Loading Code Systems');
     this.#logSystemHeader();
 
     for (const source of config.sources) {
-      await this.processSource(source, packageManager, "cs");
+      await this.processSource(source, this.packageManager, "cs");
     }
     console.log('Loading Packages');
     this.#logPackagesHeader();
 
     for (const source of config.sources) {
-      await this.processSource(source, packageManager, "npm");
+      await this.processSource(source, this.packageManager, "npm");
     }
 
     const endMemory = process.memoryUsage();
@@ -391,8 +392,9 @@ class Library {
     const resources = await contentLoader.getResourcesByType("CodeSystem");
     let csc = 0;
     for (const resource of resources) {
-      const cs = await contentLoader.loadFile(resource, contentLoader.fhirVersion());
-      cp.codeSystems.set(cs.url, new CodeSystem(cs));
+      const cs = new CodeSystem(await contentLoader.loadFile(resource, contentLoader.fhirVersion()));
+      cp.codeSystems.set(cs.url, cs);
+      cp.codeSystems.set(cs.vurl, cs);
       csc++;
     }
     this.codeSystemProviders.push(cp);
@@ -526,11 +528,21 @@ class Library {
   async cloneWithFhirVersion(fhirVersion, context) {
     // Create new provider instance
     const provider = new Provider();
-
-    // Clone the maps/arrays (shallow clone of containers, but same underlying objects)
     provider.codeSystemFactories = new Map(this.codeSystemFactories); // all of them
     provider.codeSystems = new Map();
     provider.valueSetProviders = [];
+
+    // Load FHIR core packages first
+    const fhirPackages = this.#getFhirPackagesForVersion(fhirVersion);
+
+    console.log(`Loading FHIR ${fhirVersion} packages`);
+    this.#logPackagesHeader();
+
+    // Load FHIR packages - these will be added to valueSetProviders first
+    for (const packageId of fhirPackages) {
+      await provider.loadNpm(this.packageManager, this.cacheFolder, packageId, false, "npm");
+    }
+
 
     for (const cp of this.codeSystemProviders) {
       const csMap = await cp.listCodeSystems(fhirVersion, context);
@@ -549,20 +561,6 @@ class Library {
     provider.lastMemory = this.lastMemory;
     provider.totalDownloaded = this.totalDownloaded;
 
-    // Create package manager for FHIR packages
-    const packageServers = ['https://packages2.fhir.org/packages'];
-    const packageManager = new PackageManager(packageServers, this.cacheFolder);
-
-    // Load FHIR core packages first
-    const fhirPackages = this.#getFhirPackagesForVersion(fhirVersion);
-
-    console.log(`Loading FHIR ${fhirVersion} packages`);
-    this.#logPackagesHeader();
-
-    // Load FHIR packages - these will be added to valueSetProviders first
-    for (const packageId of fhirPackages) {
-      await this.loadNpm(packageManager, packageId, false, "npm");
-    }
 
     // Now add the existing value set providers after the FHIR core packages
     provider.valueSetProviders.push(...this.valueSetProviders);
@@ -600,12 +598,12 @@ class Library {
     // these don't have ids - not available directly for (const cs of this.codeSystemFactories) { .. }
     let i = 0;
     for (const cp of this.codeSystemProviders) {
-      cp.spaceId = ++i;
+      cp.spaceId = String(++i);
       cp.assignIds(ids);
     }
     i = 0;
     for (const vp of this.valueSetProviders) {
-      vp.spaceId = ++i;
+      vp.spaceId = String(++i);
       vp.assignIds(ids);
     }
 

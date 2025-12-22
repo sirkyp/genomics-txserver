@@ -275,7 +275,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
    * @param {Array<{name: string, value: string}>} searchParams - Search criteria
    * @returns {Promise<Array<Object>>} List of matching value sets
    */
-  async searchValueSets(searchParams) {
+  async searchValueSets(searchParams, elements) {
     await this.initialize();
     this._validateSearchParams(searchParams);
 
@@ -283,7 +283,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
       return [];
     }
 
-    return await this.database.search(searchParams);
+    return await this.database.search(this.spaceId, searchParams, elements);
   }
 
   /**

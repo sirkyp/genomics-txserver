@@ -218,7 +218,7 @@ describe('PackageValueSetProvider', () => {
     test('should handle empty search criteria', async () => {
       const results = await provider.searchValueSets([]);
       expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+      expect(results.length).toBeGreaterThan(0);
     });
 
     test('should validate search parameters', async () => {
@@ -243,10 +243,10 @@ describe('PackageValueSetProvider', () => {
       expect(valueSet.name).toBe('PrimitiveTypesVS');
       expect(valueSet.title).toBe('Primitive Types ValueSet');
       expect(valueSet.status).toBe('active');
-      expect(valueSet.experimental).toBe(false);
-      expect(valueSet.compose.include).toHaveLength(1);
-      expect(valueSet.compose.include[0].system).toBe('http://hl7.org/fhir/fhir-types');
-      expect(valueSet.compose.include[0].concept).toHaveLength(20); // Should have 20 primitive types
+      expect(valueSet.jsonObj.experimental).toBe(false);
+      expect(valueSet.jsonObj.compose.include).toHaveLength(1);
+      expect(valueSet.jsonObj.compose.include[0].system).toBe('http://hl7.org/fhir/fhir-types');
+      expect(valueSet.jsonObj.compose.include[0].concept).toHaveLength(20); // Should have 20 primitive types
     });
 
     test('should correctly load retired ValueSet', async () => {
@@ -257,13 +257,13 @@ describe('PackageValueSetProvider', () => {
 
       expect(valueSet.id).toBe('select-by-map-filter');
       expect(valueSet.status).toBe('retired');
-      expect(valueSet.compose.include).toHaveLength(2);
+      expect(valueSet.jsonObj.compose.include).toHaveLength(2);
 
       // Check the valueSet include
-      expect(valueSet.compose.include[0].valueSet).toContain('http://hl7.org/fhir/ValueSet/concept-map-relationship');
+      expect(valueSet.jsonObj.compose.include[0].valueSet).toContain('http://hl7.org/fhir/ValueSet/concept-map-relationship');
 
       // Check the system include
-      expect(valueSet.compose.include[1].system).toBe('http://hl7.org/fhir/tools/CodeSystem/r4-equivalence');
+      expect(valueSet.jsonObj.compose.include[1].system).toBe('http://hl7.org/fhir/tools/CodeSystem/r4-equivalence');
     });
 
     test('should handle ValueSets with identifiers', async () => {
@@ -271,9 +271,9 @@ describe('PackageValueSetProvider', () => {
 
       const valueSet = await provider.fetchValueSet(url, '0.8.0');
 
-      expect(valueSet.identifier).toHaveLength(1);
-      expect(valueSet.identifier[0].system).toBe('urn:ietf:rfc:3986');
-      expect(valueSet.identifier[0].value).toBe('urn:oid:2.16.840.1.113883.4.642.40.1.48.5');
+      expect(valueSet.jsonObj.identifier).toHaveLength(1);
+      expect(valueSet.jsonObj.identifier[0].system).toBe('urn:ietf:rfc:3986');
+      expect(valueSet.jsonObj.identifier[0].value).toBe('urn:oid:2.16.840.1.113883.4.642.40.1.48.5');
     });
 
     test('should handle ValueSets with jurisdictions', async () => {
@@ -281,10 +281,10 @@ describe('PackageValueSetProvider', () => {
 
       const valueSet = await provider.fetchValueSet(url, '0.8.0');
 
-      expect(valueSet.jurisdiction).toHaveLength(1);
-      expect(valueSet.jurisdiction[0].coding).toHaveLength(1);
-      expect(valueSet.jurisdiction[0].coding[0].system).toBe('http://unstats.un.org/unsd/methods/m49/m49.htm');
-      expect(valueSet.jurisdiction[0].coding[0].code).toBe('001');
+      expect(valueSet.jsonObj.jurisdiction).toHaveLength(1);
+      expect(valueSet.jsonObj.jurisdiction[0].coding).toHaveLength(1);
+      expect(valueSet.jsonObj.jurisdiction[0].coding[0].system).toBe('http://unstats.un.org/unsd/methods/m49/m49.htm');
+      expect(valueSet.jsonObj.jurisdiction[0].coding[0].code).toBe('001');
     });
   });
 

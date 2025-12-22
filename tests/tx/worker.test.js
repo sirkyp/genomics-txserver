@@ -29,10 +29,14 @@ class MockI18nSupport {
   }
 }
 
+class MockLogger {
+
+}
+
 // Concrete test implementation of TerminologyWorker
 class TestTerminologyWorker extends TerminologyWorker {
-  constructor(opContext, provider, additionalResources = [], languages, i18n) {
-    super(opContext, provider, additionalResources, languages, i18n);
+  constructor(opContext, logger, provider, languages, i18n) {
+    super(opContext, logger, provider, languages, i18n);
     this._vsHandle = null;
   }
 
@@ -63,17 +67,19 @@ describe('TerminologyWorker', () => {
   let mockLanguages;
   let mockI18n;
   let worker;
+  let mockLogger;
 
   beforeEach(() => {
     mockOpContext = new OperationContext('en-US', 'test-123');
     mockProvider = new MockProvider();
     mockLanguages = new MockLanguageDefinitions();
     mockI18n = new MockI18nSupport();
+    mockLogger = new MockLogger();
 
     worker = new TestTerminologyWorker(
       mockOpContext,
+      mockLogger,
       mockProvider,
-      [],
       mockLanguages,
       mockI18n
     );

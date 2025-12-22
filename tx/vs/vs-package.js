@@ -9,6 +9,8 @@ const {validateParameter} = require("../../library/utilities");
  * Package-based ValueSet provider using shared database layer
  */
 class PackageValueSetProvider extends AbstractValueSetProvider {
+  USE_DATABASE_SEARCH = true;
+
   /**
    * @param {PackageContentLoader} packageLoader - Path to the extracted package folder
    */
@@ -113,15 +115,155 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
    * @param {Array<{name: string, value: string}>} searchParams - Search criteria
    * @returns {Promise<Array<Object>>} List of matching value sets
    */
-  async searchValueSets(searchParams) {
+  async searchValueSets(searchParams, elements = null) {
     await this.initialize();
     this._validateSearchParams(searchParams);
 
-    if (searchParams.length === 0) {
-      return [];
-    }
+    if (this.USE_DATABASE_SEARCH) {
+      return await this.database.search(this.spaceId, searchParams, elements);
+    } else {
+      const matches = [];
+      const seen = new Set(); // Track by URL to avoid duplicates from versioned keys
 
-    return await this.database.search(searchParams);
+      // Convert array format to object for easier access
+      const params = {};
+      for (const {name, value} of searchParams) {
+        params[name] = value.toLowerCase();
+      }
+
+      const hasSearchParams = Object.keys(params).length > 0;
+
+      for (const [key, vs] of this.valueSetMap) {
+        const json = vs.jsonObj || vs;
+
+        // Only process each ValueSet once (use URL to deduplicate)
+        const vsUrl = json.url;
+        if (seen.has(vsUrl)) {
+          continue;
+        }
+
+        if (!hasSearchParams) {
+          seen.add(vsUrl);
+          matches.push(vs);
+          continue;
+        }
+
+        // Check each search parameter
+        let isMatch = true;
+        for (const [param, searchValue] of Object.entries(params)) {
+          // Ignore content-mode and supplements for ValueSet search
+          if (param === 'content-mode' || param === 'supplements') {
+            continue;
+          }
+
+          if (param === 'system') {
+            // Special handling: match against compose.include[].system
+            if (!this._matchSystem(json, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          } else if (param === 'jurisdiction') {
+            // Special handling for jurisdiction - array of CodeableConcept
+            if (!this._matchJurisdiction(json.jurisdiction, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          } else if (param === 'identifier') {
+            // Special handling for identifier
+            if (!this._matchIdentifier(json.identifier, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          } else {
+            // Standard partial text match on property
+            const propValue = json[param];
+            if (!this._matchValue(propValue, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          }
+        }
+
+        if (isMatch) {
+          seen.add(vsUrl);
+          // Return with prefixed id
+          const result = { ...json, id: `${this.spaceId}-${json.id}` };
+          matches.push(result);
+        }
+      }
+
+      return matches;
+    }
+  }
+
+  /**
+   * Check if a value matches the search term (partial, case-insensitive)
+   */
+  _matchValue(propValue, searchValue) {
+    if (propValue === undefined || propValue === null) {
+      return false;
+    }
+    const strValue = String(propValue).toLowerCase();
+    return strValue.includes(searchValue);
+  }
+
+  /**
+   * Check if system matches any compose.include[].system
+   */
+  _matchSystem(json, searchValue) {
+    if (!json.compose?.include || !Array.isArray(json.compose.include)) {
+      return false;
+    }
+    for (const include of json.compose.include) {
+      if (include.system && include.system.toLowerCase().includes(searchValue)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if jurisdiction matches - jurisdiction is an array of CodeableConcept
+   */
+  _matchJurisdiction(jurisdictions, searchValue) {
+    if (!jurisdictions || !Array.isArray(jurisdictions)) {
+      return false;
+    }
+    for (const cc of jurisdictions) {
+      if (cc.coding && Array.isArray(cc.coding)) {
+        for (const coding of cc.coding) {
+          if (coding.code && coding.code.toLowerCase().includes(searchValue)) {
+            return true;
+          }
+          if (coding.display && coding.display.toLowerCase().includes(searchValue)) {
+            return true;
+          }
+        }
+      }
+      if (cc.text && cc.text.toLowerCase().includes(searchValue)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if identifier matches
+   */
+  _matchIdentifier(identifiers, searchValue) {
+    if (!identifiers) {
+      return false;
+    }
+    const idArray = Array.isArray(identifiers) ? identifiers : [identifiers];
+    for (const id of idArray) {
+      if (id.system && id.system.toLowerCase().includes(searchValue)) {
+        return true;
+      }
+      if (id.value && id.value.toLowerCase().includes(searchValue)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -145,6 +287,22 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
       }
     }
     return uniqueUrls.size;
+  }
+
+  async fetchValueSetById(id) {
+    if (!this.spaceId) {
+      return this.valueSetMap.get(id);
+    } else if (id.startsWith(this.spaceId+"-")) {
+      let key = id.substring(this.spaceId.length + 1);
+      return this.valueSetMap.get(key);
+    } else {
+      return null;
+    }
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  assignIds(ids) {
+    // nothing - we don't do any assigning.
   }
 }
 

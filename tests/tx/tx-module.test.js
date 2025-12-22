@@ -1,0 +1,159 @@
+/**
+ * TX Module Integration Tests
+ * 
+ * Tests basic TX module functionality, metadata, and error handling
+ */
+
+const request = require('supertest');
+const { getTestApp, shutdownTestApp, getTxModule } = require('./setup');
+
+describe('TX Module', () => {
+  let app;
+
+  beforeAll(async () => {
+    app = await getTestApp();
+  }, 60000);
+
+  afterAll(async () => {
+    await shutdownTestApp();
+  });
+
+  describe('Initialization', () => {
+    test('should initialize successfully', () => {
+      const txModule = getTxModule();
+      expect(txModule).toBeDefined();
+      expect(txModule.endpoints.length).toBe(1);
+      expect(txModule.endpoints[0].path).toBe('/tx/r5');
+      expect(txModule.endpoints[0].fhirVersion).toBe('5.0');
+    });
+
+    test('should have languages loaded', () => {
+      const txModule = getTxModule();
+      expect(txModule.languages).toBeDefined();
+    });
+
+    test('should have i18n loaded', () => {
+      const txModule = getTxModule();
+      expect(txModule.i18n).toBeDefined();
+    });
+  });
+
+  describe('GET /tx/r5/metadata', () => {
+    test('should return CapabilityStatement', async () => {
+      const response = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      expect(response.status).toBe(200);
+      expect(response.body.resourceType).toBe('CapabilityStatement');
+      expect(response.body.fhirVersion).toBe('5.0.0');
+      expect(response.body.status).toBe('active');
+      expect(response.body.kind).toBe('instance');
+    });
+
+    test('should list supported resource types', async () => {
+      const response = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      expect(response.status).toBe(200);
+      
+      const rest = response.body.rest[0];
+      expect(rest.mode).toBe('server');
+      
+      const resourceTypes = rest.resource.map(r => r.type);
+      expect(resourceTypes).toContain('CodeSystem');
+      expect(resourceTypes).toContain('ValueSet');
+      expect(resourceTypes).toContain('ConceptMap');
+    });
+
+    test('should list supported operations', async () => {
+      const response = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      expect(response.status).toBe(200);
+      
+      const rest = response.body.rest[0];
+      const codeSystem = rest.resource.find(r => r.type === 'CodeSystem');
+      
+      expect(codeSystem.operation).toBeDefined();
+      const opNames = codeSystem.operation.map(o => o.name);
+      expect(opNames).toContain('lookup');
+      expect(opNames).toContain('validate-code');
+      expect(opNames).toContain('subsumes');
+    });
+  });
+
+  describe('GET /tx/r5/', () => {
+    test('should return informational OperationOutcome', async () => {
+      const response = await request(app)
+        .get('/tx/r5/')
+        .set('Accept', 'application/json');
+
+      expect(response.status).toBe(200);
+      expect(response.body.resourceType).toBe('OperationOutcome');
+      expect(response.body.issue[0].severity).toBe('information');
+      expect(response.body.issue[0].diagnostics).toContain('FHIR v5');
+    });
+  });
+
+  describe('CORS', () => {
+    test('should include CORS headers', async () => {
+      const response = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      expect(response.headers['access-control-allow-origin']).toBe('*');
+    });
+
+    test('should handle OPTIONS request', async () => {
+      const response = await request(app)
+        .options('/tx/r5/metadata');
+
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe('Request ID', () => {
+    test('should include X-Request-Id in all responses', async () => {
+      const response = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      expect(response.headers['x-request-id']).toBeDefined();
+      expect(response.headers['x-request-id']).toMatch(/^tx-\d+$/);
+    });
+
+    test('should generate unique request IDs', async () => {
+      const response1 = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      const response2 = await request(app)
+        .get('/tx/r5/metadata')
+        .set('Accept', 'application/json');
+
+      expect(response1.headers['x-request-id']).not.toBe(response2.headers['x-request-id']);
+    });
+  });
+
+  describe('Unknown resources/operations', () => {
+    test('should return 404 for unknown resource type path', async () => {
+      const response = await request(app)
+        .get('/tx/r5/UnknownResource')
+        .set('Accept', 'application/json');
+
+      expect(response.status).toBe(404);
+    });
+
+    test('should return 404 for unknown operation', async () => {
+      const response = await request(app)
+        .get('/tx/r5/CodeSystem/$unknown-operation')
+        .set('Accept', 'application/json');
+
+      expect(response.status).toBe(404);
+      expect(response.body.resourceType).toBe('OperationOutcome');
+    });
+  });
+});

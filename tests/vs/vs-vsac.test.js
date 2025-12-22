@@ -51,6 +51,7 @@ describe('VSACValueSetProvider', () => {
         refreshIntervalHours: 24, // Set high to prevent auto-refresh during tests
         baseUrl: 'http://cts.nlm.nih.gov/fhir'
       });
+      provider.initialize();
 
       // DON'T record the test run yet - only do it when tests actually succeed
 

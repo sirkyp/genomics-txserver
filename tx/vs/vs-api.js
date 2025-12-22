@@ -16,7 +16,7 @@ class AbstractValueSetProvider {
    */
   // eslint-disable-next-line no-unused-vars
   assignIds(ids) {
-    throw new Error('assignIds must be implemented by subclass');
+    throw new Error('assignIds must be implemented by AbstractValueSetProvider subclass');
   }
 
   /**
@@ -32,13 +32,26 @@ class AbstractValueSetProvider {
   }
 
   /**
+   * Fetches a specific value set by id. ValueSet providers must enforce that value set ids are unique
+   * either globally (as enforced by assignIds) or in their space
+   *
+   * @param {string} id - The id of the value set
+   * @returns {Promise<ValueSet>} The requested value set
+   * @throws {Error} Must be implemented by subclasses
+   */
+  // eslint-disable-next-line no-unused-vars
+  async fetchValueSetById(url, version) {
+    throw new Error('fetchValueSetById must be implemented by subclass');
+  }
+
+  /**
    * Searches for value sets based on provided criteria
    * @param {Array<{name: string, value: string}>} searchParams - List of name/value pairs for search criteria
    * @returns {Promise<Array<ValueSet>>} List of matching value sets
    * @throws {Error} Must be implemented by subclasses
    */
   // eslint-disable-next-line no-unused-vars
-  async searchValueSets(searchParams) {
+  async searchValueSets(searchParams, elements = null) {
     throw new Error('searchValueSets must be implemented by subclass');
   }
 

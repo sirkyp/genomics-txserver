@@ -1,0 +1,374 @@
+//
+// Search Worker - Handles resource search operations
+//
+// GET /{type}?{params}
+// POST /{type}/_search
+//
+
+const { TerminologyWorker } = require('./worker');
+
+class SearchWorker extends TerminologyWorker {
+  /**
+   * @param {OperationContext} opContext - Operation context
+   * @param {Logger} log - Logger instance
+   * @param {Provider} provider - Provider for code systems and resources
+   * @param {LanguageDefinitions} languages - Language definitions
+   * @param {I18nSupport} i18n - Internationalization support
+   */
+  constructor(opContext, log, provider, languages, i18n) {
+    super(opContext, log, provider, languages, i18n);
+  }
+
+  /**
+   * Get operation name
+   * @returns {string}
+   */
+  opName() {
+    return 'search';
+  }
+
+
+  // Allowed search parameters
+  static ALLOWED_PARAMS = [
+    '_offset', '_count', '_elements', '_sort',
+    'url', 'version', 'content-mode', 'date', 'description',
+    'supplements', 'identifier', 'jurisdiction', 'name',
+    'publisher', 'status', 'system', 'title'
+  ];
+
+  // Sortable fields
+  static SORT_FIELDS = ['id', 'url', 'version', 'date', 'name', 'vurl'];
+
+  /**
+   * Handle a search request
+   * @param {express.Request} req - Express request (with txProvider attached)
+   * @param {express.Response} res - Express response
+   * @param {string} resourceType - The resource type (CodeSystem, ValueSet, ConceptMap)
+   * @param {Object} log - Logger instance
+   */
+  async handle(req, res, resourceType) {
+    const params = req.method === 'POST' ? req.body : req.query;
+
+    this.log.debug(`Search ${resourceType} with params:`, params);
+
+    try {
+      // Parse pagination parameters
+      const offset = Math.max(0, parseInt(params._offset) || 0);
+      const elements = params._elements ? decodeURIComponent(params._elements).split(',').map(e => e.trim()) : null;
+      const count = Math.min(elements ? 2000 : 200, Math.max(1, parseInt(params._count) || 20));
+      const sort = params._sort || "id";
+
+      // Get matching resources
+      let matches = [];
+      switch (resourceType) {
+        case 'CodeSystem':
+          matches = this.searchCodeSystems(params);
+          break;
+
+        case 'ValueSet':
+          matches = await this.searchValueSets(params, elements);
+          break;
+
+        case 'ConceptMap':
+          // Not implemented yet - return empty set
+          matches = [];
+          break;
+
+        default:
+          matches = [];
+      }
+
+      // Sort results
+      matches = this.sortResults(matches, sort);
+
+      // Build and return the bundle
+      const bundle = this.buildSearchBundle(
+        req, resourceType, matches, offset, count, elements
+      );
+
+      return res.json(bundle);
+
+    } catch (error) {
+      this.log.error(`Error searching ${resourceType}:`, error);
+      return res.status(500).json({
+        resourceType: 'OperationOutcome',
+        issue: [{
+          severity: 'error',
+          code: 'exception',
+          diagnostics: error.message
+        }]
+      });
+    }
+  }
+
+  /**
+   * Search CodeSystems
+   */
+  searchCodeSystems(params) {
+    const matches = [];
+
+    // Extract search parameters (excluding special params)
+    const searchParams = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (!key.startsWith('_') && value && SearchWorker.ALLOWED_PARAMS.includes(key)) {
+        searchParams[key] = value.toLowerCase();
+      }
+    }
+
+    // If no search params, return all
+    const hasSearchParams = Object.keys(searchParams).length > 0;
+
+    for (const [key, cs] of this.provider.codeSystems) {
+      if (key == cs.vurl) {
+        const json = cs.jsonObj;
+
+        if (!hasSearchParams) {
+          matches.push(json);
+          continue;
+        }
+
+        // Check each search parameter for partial match
+        let isMatch = true;
+        for (const [param, searchValue] of Object.entries(searchParams)) {
+          // 'system' doesn't do anything for CodeSystem search
+          if (param === 'system') {
+            continue;
+          }
+
+          // Map content-mode to content property
+          const jsonProp = param === 'content-mode' ? 'content' : param;
+
+          if (param === 'jurisdiction') {
+            // Special handling for jurisdiction - array of CodeableConcept
+            if (!this.matchJurisdiction(json.jurisdiction, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          } else {
+            // Standard partial text match
+            const propValue = json[jsonProp];
+            if (!this.matchValue(propValue, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          }
+        }
+
+        if (isMatch) {
+          matches.push(json);
+        }
+      }
+    }
+
+    return matches;
+  }
+
+  /**
+   * Search ValueSets by delegating to providers
+   */
+  async searchValueSets(params, elements) {
+    const allMatches = [];
+
+    // Convert params object to array format expected by ValueSet providers
+    // Exclude control params (_offset, _count, _elements, _sort)
+    const searchParams = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (!key.startsWith('_') && value && SearchWorker.ALLOWED_PARAMS.includes(key)) {
+        searchParams.push({ name: key, value: value });
+      }
+    }
+
+    for (const vsp of this.provider.valueSetProviders) {
+      const results = await vsp.searchValueSets(searchParams, elements);
+      if (results && Array.isArray(results)) {
+        for (const vs of results) {
+          allMatches.push(vs.jsonObj || vs);
+        }
+      }
+    }
+
+    return allMatches;
+  }
+
+  /**
+   * Check if a value matches the search term (partial, case-insensitive)
+   */
+  matchValue(propValue, searchValue) {
+    if (propValue === undefined || propValue === null) {
+      return false;
+    }
+
+    const strValue = String(propValue).toLowerCase();
+    return strValue.includes(searchValue);
+  }
+
+  /**
+   * Check if jurisdiction matches - jurisdiction is an array of CodeableConcept
+   */
+  matchJurisdiction(jurisdictions, searchValue) {
+    if (!jurisdictions || !Array.isArray(jurisdictions)) {
+      return false;
+    }
+
+    for (const cc of jurisdictions) {
+      // Check coding array
+      if (cc.coding && Array.isArray(cc.coding)) {
+        for (const coding of cc.coding) {
+          if (coding.code && coding.code.toLowerCase().includes(searchValue)) {
+            return true;
+          }
+          if (coding.display && coding.display.toLowerCase().includes(searchValue)) {
+            return true;
+          }
+        }
+      }
+      // Check text
+      if (cc.text && cc.text.toLowerCase().includes(searchValue)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Sort results by the specified field
+   */
+  sortResults(results, sortField) {
+    if (!SearchWorker.SORT_FIELDS.includes(sortField)) {
+      return results;
+    }
+
+    return results.sort((a, b) => {
+      if (sortField === 'vurl') {
+        // Sort by url then version
+        const urlCompare = (a.url || '').localeCompare(b.url || '');
+        if (urlCompare !== 0) return urlCompare;
+        return (a.version || '').localeCompare(b.version || '');
+      }
+
+      const aVal = a[sortField] || '';
+      const bVal = b[sortField] || '';
+      return String(aVal).localeCompare(String(bVal));
+    });
+  }
+
+  /**
+   * Build a FHIR search Bundle with pagination
+   */
+  buildSearchBundle(req, resourceType, allMatches, offset, count, elements) {
+    const total = allMatches.length;
+
+    // Get the slice for this page
+    const pageResults = allMatches.slice(offset, offset + count);
+
+    // Build base URL for pagination links
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const basePath = req.baseUrl + req.path;
+    const baseUrl = `${protocol}://${host}${basePath}`;
+
+    // Preserve search params for pagination links (excluding _offset)
+    const searchParams = new URLSearchParams();
+    const params = req.method === 'POST' ? req.body : req.query;
+    for (const [key, value] of Object.entries(params)) {
+      if (key !== '_offset' && value) {
+        searchParams.set(key, value);
+      }
+    }
+
+    // Build pagination links
+    const links = [];
+
+    // Self link
+    const selfParams = new URLSearchParams(searchParams);
+    selfParams.set('_offset', offset);
+    links.push({
+      relation: 'self',
+      url: `${baseUrl}?${selfParams.toString()}`
+    });
+
+    // First link
+    const firstParams = new URLSearchParams(searchParams);
+    firstParams.set('_offset', 0);
+    links.push({
+      relation: 'first',
+      url: `${baseUrl}?${firstParams.toString()}`
+    });
+
+    // Previous link (if not on first page)
+    if (offset > 0) {
+      const prevParams = new URLSearchParams(searchParams);
+      prevParams.set('_offset', Math.max(0, offset - count));
+      links.push({
+        relation: 'previous',
+        url: `${baseUrl}?${prevParams.toString()}`
+      });
+    }
+
+    // Next link (if more results)
+    if (offset + count < total) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('_offset', offset + count);
+      links.push({
+        relation: 'next',
+        url: `${baseUrl}?${nextParams.toString()}`
+      });
+    }
+
+    // Last link
+    const lastOffset = Math.max(0, Math.floor((total - 1) / count) * count);
+    const lastParams = new URLSearchParams(searchParams);
+    lastParams.set('_offset', lastOffset);
+    links.push({
+      relation: 'last',
+      url: `${baseUrl}?${lastParams.toString()}`
+    });
+
+    // Build entries
+    const entries = pageResults.map(resource => {
+      // Apply _elements filter if specified
+      let filteredResource = resource;
+      if (elements) {
+        filteredResource = this.filterElements(resource, elements);
+      }
+
+      return {
+        fullUrl: `${protocol}://${host}${req.baseUrl}/${resourceType}/${resource.id}`,
+        resource: filteredResource,
+        search: {
+          mode: 'match'
+        }
+      };
+    });
+
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total: total,
+      link: links,
+      entry: entries
+    };
+  }
+
+  /**
+   * Filter resource to only include specified elements
+   */
+  filterElements(resource, elements) {
+    // Always include resourceType and id
+    const filtered = {
+      resourceType: resource.resourceType,
+      id: resource.id
+    };
+
+    for (const element of elements) {
+      if (resource[element] !== undefined) {
+        filtered[element] = resource[element];
+      }
+    }
+
+    return filtered;
+  }
+}
+
+module.exports = SearchWorker;

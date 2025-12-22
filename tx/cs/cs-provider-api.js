@@ -29,7 +29,7 @@ class AbstractCodeSystemProvider {
   */
   // eslint-disable-next-line no-unused-vars
   async listCodeSystems(fhirVersion, context) {
-    throw new Error('listCodeSystems must be implemented by subclass');
+    throw new Error('listCodeSystems must be implemented by AbstractCodeSystemProvider subclass');
   }
 }
 

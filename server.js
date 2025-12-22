@@ -21,6 +21,7 @@ const RegistryModule = require('./registry/registry.js');
 const PublisherModule = require('./publisher/publisher.js');
 const TokenModule = require('./token/token.js');
 const NpmProjectorModule = require('./npmprojector/npmprojector.js');
+const TXModule = require('./tx/tx.js');
 
 const htmlServer = require('./common/html-server');
 htmlServer.useLog(serverLog);
@@ -155,6 +156,19 @@ async function initializeModules() {
       throw error;
     }
   }
+
+  // Initialize TX module
+  // Note: TX module registers its own endpoints directly on the app
+  // because it supports multiple endpoints at different paths
+  if (config.modules.tx && config.modules.tx.enabled) {
+    try {
+      modules.tx = new TXModule();
+      await modules.tx.initialize(config.modules.tx, app);
+    } catch (error) {
+      serverLog.error('Failed to initialize TX module:', error);
+      throw error;
+    }
+  }
 }
 
 async function loadTemplates() {
@@ -241,12 +255,28 @@ function buildRootPageContent() {
     content += 'OAuth authentication and API key management for FHIR services';
     content += '</li>';
   }
+
   if (config.modules.npmprojector && config.modules.npmprojector.enabled) {
     content += '<li class="list-group-item">';
     content += '<a href="/npmprojector" class="text-decoration-none">NpmProjector</a>: ';
     content += 'Hot-reloading FHIR server with FHIRPath-based search indexes';
     content += '</li>';
   }
+
+  if (config.modules.tx && config.modules.tx.enabled) {
+    content += '<li class="list-group-item">';
+    content += '<strong>TX Terminology Server</strong>: ';
+    content += 'FHIR terminology services (CodeSystem, ValueSet, ConceptMap)';
+    if (config.modules.tx.endpoints && config.modules.tx.endpoints.length > 0) {
+      content += '<ul class="mt-2 mb-0">';
+      for (const endpoint of config.modules.tx.endpoints) {
+        content += `<li><a href="${endpoint.path}/metadata" class="text-decoration-none">${endpoint.path}</a> (FHIR v${endpoint.fhirVersion}${endpoint.context ? ', context: ' + endpoint.context : ''})</li>`;
+      }
+      content += '</ul>';
+    }
+    content += '</li>';
+  }
+
   content += '</ul>';
   content += '</div>';
 
@@ -288,10 +318,22 @@ app.get('/', async (req, res) => {
     const enabledModules = {};
     Object.keys(config.modules).forEach(moduleName => {
       if (config.modules[moduleName].enabled) {
-        enabledModules[moduleName] = {
-          enabled: true,
-          endpoint: moduleName === 'vcl' ? '/VCL' : `/${moduleName}`
-        };
+        if (moduleName === 'tx') {
+          // TX module has multiple endpoints
+          enabledModules[moduleName] = {
+            enabled: true,
+            endpoints: config.modules.tx.endpoints.map(e => ({
+              path: e.path,
+              fhirVersion: e.fhirVersion,
+              context: e.context || null
+            }))
+          };
+        } else {
+          enabledModules[moduleName] = {
+            enabled: true,
+            endpoint: moduleName === 'vcl' ? '/VCL' : `/${moduleName}`
+          };
+        }
       }
     });
 
@@ -302,11 +344,17 @@ app.get('/', async (req, res) => {
       endpoints: {
         health: '/health',
         ...Object.fromEntries(
-          Object.keys(enabledModules).map(m => [
-            m, 
-            m === 'vcl' ? '/VCL' : `/${m}`
-          ])
-        )
+          Object.keys(enabledModules)
+            .filter(m => m !== 'tx')
+            .map(m => [
+              m, 
+              m === 'vcl' ? '/VCL' : `/${m}`
+            ])
+        ),
+        // Add TX endpoints separately
+        ...(enabledModules.tx ? {
+          tx: config.modules.tx.endpoints.map(e => e.path)
+        } : {})
       }
     });
   }
