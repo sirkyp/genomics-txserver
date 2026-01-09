@@ -22,6 +22,7 @@ const {SnomedServicesFactory} = require("./cs/cs-snomed");
 const {CPTServicesFactory} = require("./cs/cs-cpt");
 const {OMOPServicesFactory} = require("./cs/cs-omop");
 const {PackageValueSetProvider} = require("./vs/vs-package");
+const {PackageConceptMapProvider} = require("./cm/cm-package");
 const {IETFLanguageCodeFactory} = require("./cs/cs-lang");
 const {LanguageDefinitions} = require("../library/languages");
 const {VersionUtilities} = require("../library/version-utilities");
@@ -53,6 +54,11 @@ class Library {
    */
   valueSetProviders;
 
+  /**
+   * {List<AbstractConceptMapProvider>} A list of value set providers that know how to provide value sets by request
+   */
+  conceptMapProviders;
+
   baseUrl = null;
   cacheFolder = null;
   startTime = Date.now();
@@ -76,6 +82,7 @@ class Library {
     this.codeSystemFactories = new Map();
     this.codeSystemProviders = [];
     this.valueSetProviders = [];
+    this.conceptMapProviders = [];
 
     // Create package manager for FHIR packages
     const packageServers = ['https://packages2.fhir.org/packages'];
@@ -400,6 +407,9 @@ class Library {
     const vs = new PackageValueSetProvider(contentLoader);
     await vs.initialize();
     this.valueSetProviders.push(vs);
+    const cm = new PackageConceptMapProvider(contentLoader);
+    await cm.initialize();
+    this.conceptMapProviders.push(cm);
 
     this.#logPackage(contentLoader.id(), contentLoader.version(), csc, vs.valueSetMap.size);
   }
@@ -531,6 +541,7 @@ class Library {
     provider.codeSystemFactories = new Map(this.codeSystemFactories); // all of them
     provider.codeSystems = new Map();
     provider.valueSetProviders = [];
+    provider.conceptMapProviders = [];
 
     // Load FHIR core packages first
     const fhirPackages = this.#getFhirPackagesForVersion(fhirVersion);
@@ -564,6 +575,7 @@ class Library {
 
     // Now add the existing value set providers after the FHIR core packages
     provider.valueSetProviders.push(...this.valueSetProviders);
+    provider.conceptMapProviders.push(...this.conceptMapProviders);
 
     return provider;
   }
@@ -605,6 +617,11 @@ class Library {
     for (const vp of this.valueSetProviders) {
       vp.spaceId = String(++i);
       vp.assignIds(ids);
+    }
+    i = 0;
+    for (const cmp of this.conceptMapProviders) {
+      cmp.spaceId = String(++i);
+      cmp.assignIds(ids);
     }
 
   }

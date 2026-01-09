@@ -24,6 +24,7 @@ const LookupWorker = require('./workers/lookup');
 const SubsumesWorker = require('./workers/subsumes');
 const ClosureWorker = require('./workers/closure');
 const { MetadataHandler } = require('./workers/metadata');
+const BatchWorker = require('./workers/batch');
 
 class TXModule {
   constructor() {
@@ -326,18 +327,22 @@ class TXModule {
 
     // ConceptMap/$translate (GET and POST)
     router.get('/ConceptMap/\\$translate', (req, res) => {
-      TranslateWorker.handle(req, res, this.log);
+      let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handle(req, res, this.log);
     });
     router.post('/ConceptMap/\\$translate', (req, res) => {
-      TranslateWorker.handle(req, res, this.log);
+      let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handle(req, res, this.log);
     });
 
     // ConceptMap/$closure (GET and POST)
     router.get('/ConceptMap/\\$closure', (req, res) => {
-      ClosureWorker.handle(req, res, this.log);
+      let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handle(req, res, this.log);
     });
     router.post('/ConceptMap/\\$closure', (req, res) => {
-      ClosureWorker.handle(req, res, this.log);
+      let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handle(req, res, this.log);
     });
 
     // ===== Instance operations =====
@@ -394,10 +399,12 @@ class TXModule {
 
     // ConceptMap/[id]/$translate
     router.get('/ConceptMap/:id/\\$translate', (req, res) => {
-      TranslateWorker.handleInstance(req, res, this.log);
+      let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handleInstance(req, res, this.log);
     });
     router.post('/ConceptMap/:id/\\$translate', (req, res) => {
-      TranslateWorker.handleInstance(req, res, this.log);
+      let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handleInstance(req, res, this.log);
     });
 
     // ===== Read and Search =====

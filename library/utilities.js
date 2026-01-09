@@ -120,6 +120,27 @@ function getValuePrimitive(obj) {
   return null;
 }
 
+function getValueDT(obj) {
+  if (!obj) return null;
+
+  const primitiveTypes = [
+    'valueAddress', 'valueAge', 'valueAnnotation',
+    'valueAttachment', 'valueCodeableConcept', 'valueCodeableReference', 'valueCoding', 'valueContactPoint', 'valueCount',
+    'valueDistance', 'valueDuration', 'valueHumanName', 'valueIdentifier', 'valueMoney', 'valuePeriod', 'valueQuantity', 'valueRange',
+    'valueRatio', 'valueRatioRange', 'valueReference', 'valueSampledData', 'valueSignature', 'valueTiming', 'valueContactDetail',
+    'valueDataRequirement', 'valueExpression', 'valueParameterDefinition', 'valueRelatedArtifact', 'valueTriggerDefinition',
+    'valueUsageContext', 'valueAvailability', 'valueExtendedContactDetail', 'valueVirtualServiceDetail', 'valueDosage', 'valueMeta'
+  ];
+
+  for (const type of primitiveTypes) {
+    if (obj[type] !== undefined) {
+      return obj[type];
+    }
+  }
+  return null;
+}
+
+
 
 function getValueName(obj) {
   if (!obj) return null;
@@ -128,8 +149,12 @@ function getValueName(obj) {
     'valueString', 'valueCode', 'valueUri', 'valueUrl', 'valueCanonical',
     'valueBoolean', 'valueInteger', 'valueDecimal', 'valueDate', 'valueDateTime',
     'valueTime', 'valueInstant', 'valueId', 'valueOid', 'valueUuid',
-    'valueMarkdown', 'valueBase64Binary', 'valuePositiveInt', 'valueUnsignedInt', 'valueInteger64',
-    'valueCoding', 'valueCodeableConcept', 'valueAttachment'
+    'valueMarkdown', 'valueBase64Binary', 'valuePositiveInt', 'valueAddress', 'valueAge', 'valueAnnotation',
+    'valueAttachment', 'valueCodeableConcept', 'valueCodeableReference', 'valueCoding', 'valueContactPoint', 'valueCount',
+    'valueDistance', 'valueDuration', 'valueHumanName', 'valueIdentifier', 'valueMoney', 'valuePeriod', 'valueQuantity', 'valueRange',
+    'valueRatio', 'valueRatioRange', 'valueReference', 'valueSampledData', 'valueSignature', 'valueTiming', 'valueContactDetail',
+    'valueDataRequirement', 'valueExpression', 'valueParameterDefinition', 'valueRelatedArtifact', 'valueTriggerDefinition',
+    'valueUsageContext', 'valueAvailability', 'valueExtendedContactDetail', 'valueVirtualServiceDetail', 'valueDosage', 'valueMeta'
   ];
 
   for (const type of primitiveTypes) {
@@ -144,4 +169,4 @@ function isAbsoluteUrl(s) {
   return s && (s.startsWith('urn:') || s.startsWith('http:') || s.startsWith('https:') || s.startsWith('ftp:'));
 }
 
-module.exports = { Utilities, validateParameter, validateOptionalParameter, validateArrayParameter, validateResource, strToBool, getValuePrimitive, getValueName, isAbsoluteUrl };
+module.exports = { Utilities, validateParameter, validateOptionalParameter, validateArrayParameter, validateResource, strToBool, getValuePrimitive, getValueDT, getValueName, isAbsoluteUrl };

@@ -98,7 +98,7 @@ class MetadataHandler {
    * @param {Object} provider - Provider for code systems and resources
    * @returns {Object} CapabilityStatement resource
    */
-  buildCapabilityStatement(endpoint, provider) {
+  buildCapabilityStatement(endpoint) {
     const now = new Date().toISOString();
     const fhirVersion = this.mapFhirVersion(endpoint.fhirVersion);
     const baseUrl = this.config.baseUrl || `http://localhost${endpoint.path}`;
@@ -280,6 +280,7 @@ class MetadataHandler {
       id: this.config.id || 'FhirServer',
       url: `${baseUrl}/TerminologyCapabilities/tx`,
       version: serverVersion,
+      fhirVersion: fhirVersion,
       name: this.config.name || 'FHIRTerminologyServerCapabilities',
       title: this.config.title || 'FHIR Terminology Server Capability Statement',
       status: 'active',

@@ -209,8 +209,9 @@ describe('CPT Provider', () => {
   describe('Extended Lookup', () => {
     test('should extend lookup with properties and designations', async () => {
       for (const code of testData.allCodes) {
-        const params = { parameter: [] };
-        await provider.extendLookup(code, [], params);
+        const paramSet = [];
+        await provider.extendLookup(code, [], paramSet);
+        const params = { parameter: paramSet };
 
         expect(params.parameter).toBeDefined();
         expect(params.parameter.length).toBeGreaterThan(0);
@@ -228,8 +229,9 @@ describe('CPT Provider', () => {
 
     test('should include concept properties in extended lookup', async () => {
       for (const [code, expectedProps] of Object.entries(testData.properties)) {
-        const params = { parameter: [] };
-        await provider.extendLookup(code, Object.keys(expectedProps), params);
+        const paramSet = [];
+        await provider.extendLookup(code, Object.keys(expectedProps), paramSet);
+        const params = { parameter: paramSet };
 
         // Check for expected properties
         for (const [propName, propValue] of Object.entries(expectedProps)) {
@@ -283,8 +285,9 @@ describe('CPT Provider', () => {
 
     test('should extend lookup for expressions', async () => {
       const expression = testData.validExpressions[0];
-      const params = { parameter: [] };
-      await provider.extendLookup(expression, [], params);
+      const paramSet = [];
+      await provider.extendLookup(expression, [], paramSet);
+      const params = { parameter: paramSet };
 
       expect(params.parameter.length).toBeGreaterThan(0);
 

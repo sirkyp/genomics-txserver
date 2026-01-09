@@ -46,10 +46,10 @@ describe('Subsumes Worker', () => {
         })
         .set('Accept', 'application/json');
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(404);
       expect(response.body.resourceType).toBe('OperationOutcome');
-      expect(response.body.issue[0].code).toBe('invalid');
-      expect(response.body.issue[0].diagnostics).toContain('system');
+      expect(response.body.issue[0].code).toBe('not-found');
+      expect(response.body.issue[0].details.text).toContain('system');
     });
 
     test('should return 400 when codeA is missing', async () => {
@@ -201,7 +201,7 @@ describe('Subsumes Worker', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.resourceType).toBe('OperationOutcome');
-      expect(response.body.issue[0].diagnostics).toContain('same system');
+      expect(response.body.issue[0].details.text).toContain('same system');
     });
   });
 

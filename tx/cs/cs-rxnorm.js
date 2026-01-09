@@ -3,6 +3,7 @@ const assert = require('assert');
 const { CodeSystem } = require('../library/codesystem');
 const { CodeSystemProvider, CodeSystemFactoryProvider } = require('./cs-api');
 const {Designations} = require("../library/designations");
+const {validateArrayParameter} = require("../../library/utilities");
 
 // Context for RxNorm concepts
 class RxNormConcept {
@@ -598,7 +599,9 @@ class RxNormServices extends CodeSystemProvider {
 
   // Extension for lookup operation
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (typeof ctxt === 'string') {
       const located = await this.locate(ctxt);

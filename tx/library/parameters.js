@@ -1,3 +1,4 @@
+const {getValuePrimitive, getValueDT} = require("../../library/utilities");
 
 class Parameters {
   jsonObj;
@@ -87,6 +88,17 @@ class Parameters {
     this.jsonObj.parameter.push({ name: name, resource : resource });
   }
 
+  has(name) {
+    return this.jsonObj.parameter.find(x => x.name === name);
+  }
+  get(name) {
+    let p = this.jsonObj.parameter.find(x => x.name === name);
+    let v = p ? getValuePrimitive(p) : null;
+    if (p && !v) {
+      v = getValueDT(p);
+    }
+    return v;
+  }
 
 }
 

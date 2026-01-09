@@ -1,45 +1,34 @@
+const {CanonicalResource} = require("./canonical-resource");
+const {VersionUtilities} = require("../../library/version-utilities");
+
 /**
  * Represents a FHIR ConceptMap resource with version conversion support
  * @class
  */
-class ConceptMap {
-  /**
-   * The original JSON object (always stored in R5 format internally)
-   * @type {Object}
-   */
-  jsonObj = null;
+class ConceptMap extends CanonicalResource {
 
-  /**
-   * FHIR version of the loaded ConceptMap
-   * @type {string}
-   */
-  version = 'R5';
-
-  /**
-   * Static factory method for convenience
-   * @param {string} jsonString - JSON string representation of ConceptMap
-   * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
-   * @returns {ConceptMap} New ConceptMap instance
-   */
-  static fromJSON(jsonString, version = 'R5') {
-    return new ConceptMap(JSON.parse(jsonString), version);
-  }
 
   /**
    * Creates a new ConceptMap instance
    * @param {Object} jsonObj - The JSON object containing ConceptMap data
    * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
-   * @param {string} jsonObj.resourceType - Must be "ConceptMap"
-   * @param {string} jsonObj.url - Canonical URL for the concept map
-   * @param {string} jsonObj.name - Name for this concept map
-   * @param {string} jsonObj.status - Publication status (draft|active|retired|unknown)
-   * @param {Object[]} [jsonObj.group] - Group of mappings
    */
-  constructor(jsonObj, version = 'R5') {
-    this.version = version;
+  constructor(jsonObj, fhirVersion = 'R5') {
+    super(jsonObj, fhirVersion);
     // Convert to R5 format internally (modifies input for performance)
-    this.jsonObj = this._convertToR5(jsonObj, version);
+    this.jsonObj = this._convertToR5(jsonObj, fhirVersion);
     this.validate();
+    this.id = this.jsonObj.id;
+  }
+
+  /**
+   * Static factory method for convenience
+   * @param {string} jsonString - JSON string representation of ValueSet
+   * @param {string} [version='R5'] - FHIR version ('R3', 'R4', or 'R5')
+   * @returns {ValueSet} New ValueSet instance
+   */
+  static fromJSON(jsonString, version = 'R5') {
+    return new ValueSet(JSON.parse(jsonString), version);
   }
 
   /**
@@ -60,11 +49,11 @@ class ConceptMap {
    * @private
    */
   _convertToR5(jsonObj, version) {
-    if (version === 'R5') {
+    if (VersionUtilities.isR5Ver(version)) {
       return jsonObj; // Already R5, no conversion needed
     }
 
-    if (version === 'R3' || version === 'R4') {
+    if (VersionUtilities.isR3Ver(version) || VersionUtilities.isR4Ver(version)) {
       // Convert identifier from single object to array
       if (jsonObj.identifier && !Array.isArray(jsonObj.identifier)) {
         jsonObj.identifier = [jsonObj.identifier];
@@ -133,9 +122,9 @@ class ConceptMap {
     // Clone the object to avoid modifying the original
     const cloned = JSON.parse(JSON.stringify(r5Obj));
 
-    if (targetVersion === 'R4') {
+    if (VersionUtilities.isR4Ver(targetVersion)) {
       return this._convertR5ToR4(cloned);
-    } else if (targetVersion === 'R3') {
+    } else if (VersionUtilities.isR3Ver(targetVersion)) {
       return this._convertR5ToR3(cloned);
     }
 
@@ -292,8 +281,8 @@ class ConceptMap {
       throw new Error('Invalid ConceptMap: url is required and must be a string');
     }
 
-    if (!this.jsonObj.name || typeof this.jsonObj.name !== 'string') {
-      throw new Error('Invalid ConceptMap: name is required and must be a string');
+    if (this.jsonObj.name && typeof this.jsonObj.name !== 'string') {
+      throw new Error('Invalid ConceptMap: name must be a string if present');
     }
 
     if (!this.jsonObj.status || typeof this.jsonObj.status !== 'string') {
@@ -324,9 +313,6 @@ class ConceptMap {
 
         if (group.element) {
           group.element.forEach((element, elementIndex) => {
-            if (!element.code || typeof element.code !== 'string') {
-              throw new Error(`Invalid ConceptMap: group[${groupIndex}].element[${elementIndex}].code is required and must be a string`);
-            }
 
             if (element.target && !Array.isArray(element.target)) {
               throw new Error(`Invalid ConceptMap: group[${groupIndex}].element[${elementIndex}].target must be an array if present`);
@@ -337,20 +323,57 @@ class ConceptMap {
     }
   }
 
-  /**
+  providesTranslation(sourceSystem, sourceScope, targetScope, targetSystem) {
+    let source = this.sourceScope;
+    let target = this.targetScope;
+    if (this.canonicalMatches(source, sourceScope) && this.canonicalMatches(target, targetScope)) {
+      return true;
+    }
+    for (let grp of this.jsonObj.group || []) {
+      let source = grp.source;
+      let target = grp.target;
+      if (this.canonicalMatches(source, sourceSystem) && this.canonicalMatches(target, targetSystem)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+
+  listTranslations(coding, targetScope, targetSystem) {
+    let result = [];
+    let vurl = VersionUtilities.vurl(coding.system, coding.version);
+
+    let all = this.canonicalMatches(targetScope, this.targetScope);
+    for (const g of this.jsonObj.group || []) {
+      if (all || (this.canonicalMatches(vurl, g.source) && this.canonicalMatches(targetSystem, g.target) )) {
+        for (const em of g.element || []) {
+          if (em.code === coding.code) {
+            let match = {
+              group: g,
+              match: em
+            };
+            result.push(match);
+          }
+        }
+      }
+    }
+    return result;
+  }
+    /**
    * Gets the source scope (R5) or source system (R3/R4)
    * @returns {string|undefined} Source scope/system
    */
-  getSourceScope() {
-    return this.jsonObj.sourceScope;
+  get sourceScope() {
+    return this.jsonObj.sourceScopeUri ? this.jsonObj.sourceScopeUri : this.jsonObj.sourceScopeCanonical;
   }
 
   /**
    * Gets the target scope (R5) or target system (R3/R4)
    * @returns {string|undefined} Target scope/system
    */
-  getTargetScope() {
-    return this.jsonObj.targetScope;
+  get targetScope() {
+    return this.jsonObj.targetScopeUri ? this.jsonObj.targetScopeUri : this.jsonObj.targetScopeCanonical;
   }
 
   /**
@@ -522,6 +545,22 @@ class ConceptMap {
       targetSystems: this.getTargetSystems(),
       totalMappings: totalMappings
     };
+  }
+
+  canonicalMatches(value, pattern) {
+    if (!pattern || !value) {
+      return false;
+    }
+    const { url: vu, version: vv } = VersionUtilities.splitCanonical(value);
+    const { url: pu, version: pv } = VersionUtilities.splitCanonical(pattern);
+
+    if (!vu || !pu || vu != pu) {
+      return false;
+    }
+    if (!pv) {
+      return true;
+    }
+    return vv && VersionUtilities.versionMatchesByAlgorithm(pv, vv);
   }
 }
 

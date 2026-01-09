@@ -11,6 +11,10 @@ const { TerminologyWorker } = require('./worker');
 const { FhirCodeSystemProvider } = require('../cs/cs-cs');
 const { Designations} = require("../library/designations");
 const {TxParameters} = require("../params");
+const {Parameters} = require("../library/parameters");
+const {Issue, OperationOutcome} = require("../library/operation-outcome");
+
+const DEBUG_LOGGING = false;
 
 class LookupWorker extends TerminologyWorker {
   /**
@@ -88,60 +92,77 @@ class LookupWorker extends TerminologyWorker {
    * CodeSystem identified by system+version params or coding parameter
    */
   async handleTypeLevelLookup(req, res) {
-    this.deadCheck('lookup-type-level');
+    try {
+      this.deadCheck('lookup-type-level');
 
-    // Handle tx-resource and cache-id parameters from Parameters resource
-    if (req.body && req.body.resourceType === 'Parameters') {
-      this.setupAdditionalResources(req.body);
-    }
-
-    // Parse parameters from request
-    const params = this.buildParameters(req);
-    const txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n);
-    txp.readParams(params);
-
-    // Determine how the code system is identified
-    let csProvider;
-    let code;
-
-    if (params.coding) {
-      // Coding parameter provided - extract system, version, code
-      const coding = params.coding;
-      if (!coding.system) {
-        return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'Coding parameter must include a system'));
-      }
-      if (!coding.code) {
-        return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'Coding parameter must include a code'));
+      // Handle tx-resource and cache-id parameters from Parameters resource
+      if (req.body && req.body.resourceType === 'Parameters') {
+        this.setupAdditionalResources(req.body);
       }
 
-      // Allow complete or fragment content modes, nullOk = true to handle not-found ourselves
-      csProvider = await this.findCodeSystem(coding.system, coding.version || '', params, ['complete', 'fragment'], true);
-      code = coding.code;
+      // Parse parameters from request
+      const params = new Parameters(this.buildParameters(req));
+      const txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n);
+      txp.readParams(params.jsonObj);
 
-    } else if (params.system && params.code) {
-      // system + code parameters
-      csProvider = await this.findCodeSystem(params.system, params.version || '', params, ['complete', 'fragment'], true);
-      code = params.code;
+      // Determine how the code system is identified
+      let csProvider;
+      let code;
 
-    } else {
-      return res.status(400).json(this.operationOutcome('error', 'invalid',
-        'Must provide either coding parameter, or system and code parameters'));
+      if (params.has('coding')) {
+        // Coding parameter provided - extract system, version, code
+        const coding = params.get('coding');
+        if (!coding.system) {
+          return res.status(400).json(this.operationOutcome('error', 'invalid',
+            'Coding parameter must include a system'));
+        }
+        if (!coding.code) {
+          return res.status(400).json(this.operationOutcome('error', 'invalid',
+            'Coding parameter must include a code'));
+        }
+
+        // Allow complete or fragment content modes, nullOk = true to handle not-found ourselves
+        csProvider = await this.findCodeSystem(coding.system, coding.version || '', txp, ['complete', 'fragment'], true);
+        code = coding.code;
+
+      } else if (params.has('system') && params.has('code')) {
+        // system + code parameters
+        csProvider = await this.findCodeSystem(params.get('system'), params.get('version') || '', txp, ['complete', 'fragment'], true);
+        code = params.get('code');
+
+      } else {
+        return res.status(400).json(this.operationOutcome('error', 'invalid',
+          'Must provide either coding parameter, or system and code parameters'));
+      }
+
+      if (!csProvider) {
+        const systemUrl = params.system || params.coding?.system;
+        const versionStr = params.version || params.coding?.version;
+        const msg = versionStr
+          ? `CodeSystem not found: ${systemUrl} version ${versionStr}`
+          : `CodeSystem not found: ${systemUrl}`;
+        return res.status(404).json(this.operationOutcome('error', 'not-found', msg));
+      }
+
+      // Perform the lookup
+      const result = await this.doLookup(csProvider, code, txp);
+      console.dir(result, {depth: null});
+      return res.status(200).json(result);
+    } catch (error) {
+      this.log.error(`Error in CodeSystem $validate-code: ${error.message}`);
+      if (DEBUG_LOGGING) {
+        console.log('CodeSystem $validate-code error:', error);
+        console.log(error);
+      }
+      if (error instanceof Issue) {
+        let oo = new OperationOutcome();
+        oo.addIssue(error);
+        return res.status(error.statusCode || 500).json(oo.jsonObj);
+      } else {
+        return res.status(error.statusCode || 500).json(this.operationOutcome(
+          'error', error.issueCode || 'exception', error.message));
+      }
     }
-
-    if (!csProvider) {
-      const systemUrl = params.system || params.coding?.system;
-      const versionStr = params.version || params.coding?.version;
-      const msg = versionStr
-        ? `CodeSystem not found: ${systemUrl} version ${versionStr}`
-        : `CodeSystem not found: ${systemUrl}`;
-      return res.status(404).json(this.operationOutcome('error', 'not-found', msg));
-    }
-
-    // Perform the lookup
-    const result = await this.doLookup(csProvider, code, txp);
-    return res.json(result);
   }
 
   /**
@@ -149,48 +170,65 @@ class LookupWorker extends TerminologyWorker {
    * CodeSystem identified by resource ID
    */
   async handleInstanceLevelLookup(req, res) {
-    this.deadCheck('lookup-instance-level');
+    try {
+      this.deadCheck('lookup-instance-level');
 
-    const { id } = req.params;
+      const {id} = req.params;
 
-    // Find the CodeSystem by ID
-    let codeSystem = this.provider.getCodeSystemById(this.opContext, id);
+      // Find the CodeSystem by ID
+      let codeSystem = this.provider.getCodeSystemById(this.opContext, id);
 
-    if (!codeSystem) {
-      return res.status(404).json(this.operationOutcome('error', 'not-found',
-        `CodeSystem/${id} not found`));
+      if (!codeSystem) {
+        return res.status(404).json(this.operationOutcome('error', 'not-found',
+          `CodeSystem/${id} not found`));
+      }
+
+      // Handle tx-resource and cache-id parameters from Parameters resource
+      if (req.body && req.body.resourceType === 'Parameters') {
+        this.setupAdditionalResources(req.body);
+      }
+
+      // Parse parameters from request
+      const params = new Parameters(this.buildParameters(req));
+      const txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n);
+      txp.readParams(params.jsonObj);
+
+      // For instance-level, code is required (system/version come from the resource)
+      let code;
+      if (params.has('coding')) {
+        code = params.get('coding').code;
+      } else if (params.has('code')) {
+        code = params.get('code');
+      } else {
+        return res.status(400).json(this.operationOutcome('error', 'invalid',
+          'Must provide code parameter or coding parameter with code'));
+      }
+
+      // Load any supplements
+      const supplements = this.loadSupplements(codeSystem.url, codeSystem.version);
+
+      // Create a FhirCodeSystemProvider for this CodeSystem
+      const csProvider = new FhirCodeSystemProvider(this.opContext, codeSystem, supplements);
+
+      // Perform the lookup
+      const result = await this.doLookup(csProvider, code, txp);
+      console.dir(result, {depth: null});
+      return res.status(200).json(result);
+    } catch (error) {
+      this.log.error(`Error in CodeSystem $validate-code: ${error.message}`);
+      if (DEBUG_LOGGING) {
+        console.log('CodeSystem $validate-code error:', error);
+        console.log(error);
+      }
+      if (error instanceof Issue) {
+        let oo = new OperationOutcome();
+        oo.addIssue(error);
+        return res.status(error.statusCode || 500).json(oo.jsonObj);
+      } else {
+        return res.status(error.statusCode || 500).json(this.operationOutcome(
+          'error', error.issueCode || 'exception', error.message));
+      }
     }
-
-    // Handle tx-resource and cache-id parameters from Parameters resource
-    if (req.body && req.body.resourceType === 'Parameters') {
-      this.setupAdditionalResources(req.body);
-    }
-
-    // Parse parameters from request
-    const params = this.buildParameters(req);
-    const txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n);
-    txp.readParams(params);
-
-    // For instance-level, code is required (system/version come from the resource)
-    let code;
-    if (params.coding) {
-      code = params.coding.code;
-    } else if (params.code) {
-      code = params.code;
-    } else {
-      return res.status(400).json(this.operationOutcome('error', 'invalid',
-        'Must provide code parameter or coding parameter with code'));
-    }
-
-    // Load any supplements
-    const supplements = this.loadSupplements(codeSystem.url, codeSystem.version);
-
-    // Create a FhirCodeSystemProvider for this CodeSystem
-    const csProvider = new FhirCodeSystemProvider(this.opContext, codeSystem, supplements);
-
-    // Perform the lookup
-    const result = await this.doLookup(csProvider, code, txp);
-    return res.json(result);
   }
 
   /**
@@ -205,11 +243,11 @@ class LookupWorker extends TerminologyWorker {
 
     // Helper to check if a property should be included
     const hasProp = (name, defaultValue = true) => {
-      if (!params.property || params.property.length === 0) {
+      if (!params.properties || params.properties.length === 0) {
         return defaultValue;
       }
       const lowerName = name.toLowerCase();
-      return params.property.some(p =>
+      return params.properties.some(p =>
         p.toLowerCase() === lowerName || p === '*'
       );
     };
@@ -220,10 +258,7 @@ class LookupWorker extends TerminologyWorker {
     if (!locateResult || !locateResult.context) {
       const message = locateResult?.message ||
         `Unable to find code '${code}' in ${csProvider.system()} version ${csProvider.version() || 'unknown'}`;
-      const error = new Error(message);
-      error.statusCode = 404;
-      error.issueCode = 'not-found';
-      throw error;
+      throw new Issue('error', 'not-found', null, null, message, null, 404);
     }
 
     const ctxt = locateResult.context;
@@ -235,6 +270,15 @@ class LookupWorker extends TerminologyWorker {
     responseParams.push({
       name: 'name',
       valueString: csProvider.name()
+    });
+    responseParams.push({
+      name: 'code',
+      valueCode: code
+    });
+
+    responseParams.push({
+      name: 'system',
+      valueUri: csProvider.system()
     });
 
     // version (optional)
@@ -267,15 +311,10 @@ class LookupWorker extends TerminologyWorker {
     // abstract property (optional)
     if (hasProp('abstract', true)) {
       const isAbstract = await csProvider.isAbstract(ctxt);
-      if (isAbstract) {
-        responseParams.push({
-          name: 'property',
-          part: [
-            { name: 'code', valueCode: 'abstract' },
-            { name: 'value', valueBoolean: true }
-          ]
-        });
-      }
+      responseParams.push({
+        name: 'abstract',
+        valueBoolean: isAbstract
+      });
     }
 
     // inactive property (optional)
@@ -291,18 +330,18 @@ class LookupWorker extends TerminologyWorker {
     }
 
     // designations (optional)
-    if (hasProp('designation', false)) {
+    if (hasProp('designation', true)) {
       let designations = new Designations(this.languages);
       await csProvider.designations(ctxt, designations);
-      if (designations && Array.isArray(designations)) {
-        for (const designation of designations) {
+      if (designations && Array.isArray(designations.designations)) {
+        for (const designation of designations.designations) {
           this.deadCheck('doLookup-designations');
           const designationParts = [];
 
           if (designation.language) {
             designationParts.push({
               name: 'language',
-              valueCode: designation.language
+              valueCode: designation.language.code
             });
           }
 
@@ -327,9 +366,7 @@ class LookupWorker extends TerminologyWorker {
     }
 
     // Let the provider add additional properties
-    if (csProvider.extendLookup) {
-      await csProvider.extendLookup(ctxt, params.property || [], responseParams);
-    }
+    await csProvider.extendLookup(ctxt, params.property || [], responseParams);
 
     return {
       resourceType: 'Parameters',

@@ -236,11 +236,12 @@ describe('OMOP Provider', () => {
     test('should extend lookup with basic properties', async () => {
       if (testData.sampleConcepts.length > 0) {
         const conceptId = testData.sampleConcepts[0];
-        const params = { parameter: [] };
+        const paramSet = [];
 
         const requestedProps = ['domain-id', 'concept-class-id', 'standard-concept', 'vocabulary-id'];
-        await provider.extendLookup(conceptId, requestedProps, params);
+        await provider.extendLookup(conceptId, requestedProps, paramSet);
 
+        const params = { parameter: paramSet };
         expect(params.parameter).toBeDefined();
         expect(params.parameter.length).toBeGreaterThan(0);
 
@@ -260,14 +261,14 @@ describe('OMOP Provider', () => {
     test('should include extended properties when available', async () => {
       if (testData.sampleConcepts.length > 0) {
         const conceptId = testData.sampleConcepts[0];
-        const params = { parameter: [] };
-
+        const paramSet = [];
         const extendedProps = [
           'concept-class-concept-id', 'domain-concept-id',
           'valid-start-date', 'valid-end-date',
           'vocabulary-concept-id', 'invalid-reason'
         ];
-        await provider.extendLookup(conceptId, extendedProps, params);
+        await provider.extendLookup(conceptId, extendedProps, paramSet);
+        const params = { parameter: paramSet };
 
         const properties = params.parameter.filter(p => p.name === 'property');
         console.log(`✓ Extended properties for ${conceptId}: ${properties.length} found`);
@@ -277,10 +278,11 @@ describe('OMOP Provider', () => {
     test('should include relationships when available', async () => {
       if (testData.sampleConcepts.length > 0) {
         const conceptId = testData.sampleConcepts[0];
-        const params = { parameter: [] };
+        const paramSet = [];
 
         // Request all properties to potentially capture relationships
-        await provider.extendLookup(conceptId, [], params);
+        await provider.extendLookup(conceptId, [], paramSet);
+        const params = { parameter: paramSet };
 
         const relationships = params.parameter.filter(p =>
           p.name === 'property' &&

@@ -1022,6 +1022,32 @@ class VersionUtilities {
         // Default case
         return null;
     }
+
+    static splitCanonical(canonical) {
+        if (!canonical) {
+            return { url: null, version: null };
+        }
+
+        const pipeIndex = canonical.lastIndexOf('|');
+
+        if (pipeIndex === -1) {
+            return { url: canonical, version: null };
+        }
+
+        return {
+            url: canonical.substring(0, pipeIndex),
+            version: canonical.substring(pipeIndex + 1)
+        };
+    }
+
+
+    static vurl(url, version) {
+        if (version) {
+            return url + "|" + version;
+        } else {
+            return url;
+        }
+    }
 }
 
 module.exports = { VersionUtilities, VersionPrecision, SemverParser };

@@ -7,6 +7,8 @@ const path = require("path");
 const {PackageContentLoader} = require("../library/package-manager");
 const {PackageValueSetProvider} = require("./vs/vs-package");
 const ValueSet = require("./library/valueset");
+const {PackageConceptMapProvider} = require("./cm/cm-package");
+const {ConceptMap} = require("./library/conceptmap");
 
 /**
  * This class holds what information is in context
@@ -36,6 +38,10 @@ class Provider {
    * {List<AbstractValueSetProvider>} A list of value set providers that know how to provide value sets by request
    */
   valueSetProviders;
+  /**
+   * {List<AbstractConceptMapProvider>} A list of value set providers that know how to provide value sets by request
+   */
+  conceptMapProviders;
 
   baseUrl = null;
   cacheFolder = null;
@@ -123,6 +129,9 @@ class Provider {
     const vs = new PackageValueSetProvider(contentLoader);
     await vs.initialize();
     this.valueSetProviders.push(vs);
+    const cm = new PackageConceptMapProvider(contentLoader);
+    await cm.initialize();
+    this.conceptMapProviders.push(cm);
   }
 
   getCodeSystemById(opContext, id) {
@@ -159,6 +168,37 @@ class Provider {
     return vs;
   }
 
+  async getConceptMapById(opContext, id) {
+    for (const cmp of this.conceptMapProviders) {
+      if (opContext) opContext.deadCheck('getConceptMapById');
+      let cm = await cmp.fetchConceptMapById(id);
+      if (cm) {
+        return cm;
+      }
+    }
+    return null;
+  }
+
+  async findConceptMap(opContext, url, version) {
+    for (const cmp of this.conceptMapProviders) {
+      if (opContext) opContext.deadCheck('findConceptMap');
+      let cm = await cmp.fetchConceptMap(url, version);
+      if (cm) {
+        return cm;
+      }
+    }
+
+    let uris = new Set();
+    for (let csp of this.codeSystemFactories.values()) {
+      if (!uris.has(csp.system())) {
+        uris.add(csp.system());
+        await csp.findImplicitConceptMap(url, version);
+      }
+    }
+
+  }
+
+
   async listCodeSystemVersions(url) {
     let result = new Set();
     for (let cs of this.codeSystems) {
@@ -183,6 +223,24 @@ class Provider {
     }
     return null;
   }
+
+
+
+  async findConceptMapForTranslation(opContext, conceptMaps, sourceSystem, sourceScope, targetScope, targetSystem) {
+    for (let cmp of this.conceptMapProviders) {
+      await cmp.findConceptMapForTranslation(opContext, conceptMaps, sourceSystem, sourceScope, targetScope, targetSystem);
+    }
+    if (sourceSystem && targetSystem) {
+      let uris = new Set();
+      for (let csp of this.codeSystemFactories.values()) {
+        if (!uris.has(csp.system())) {
+          uris.add(csp.system());
+          await csp.findImplicitConceptMaps(conceptMaps, sourceSystem, targetSystem);
+        }
+      }
+    }
+  }
+
 }
 
 module.exports = { Provider };

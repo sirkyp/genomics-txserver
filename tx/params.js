@@ -65,18 +65,18 @@ class TxParameters {
     this.FMembershipOnly = false;
     this.FDiagnostics = false;
 
-    this.FHasActiveOnly = false;
-    this.FHasExcludeNested = false;
-    this.FHasGenerateNarrative = false;
-    this.FHasLimitedExpansion = false;
-    this.FHasExcludeNotForUI = false;
-    this.FHasExcludePostCoordinated = false;
-    this.FHasIncludeDesignations = false;
-    this.FHasIncludeDefinition = false;
-    this.FHasDefaultToLatestVersion = false;
-    this.FHasIncompleteOK = false;
-    this.FHasDisplayWarning = false;
-    this.FHasMembershipOnly = false;
+    this.hasActiveOnly = false;
+    this.hasExcludeNested = false;
+    this.hasGenerateNarrative = false;
+    this.hasLimitedExpansion = false;
+    this.hasExcludeNotForUI = false;
+    this.hasExcludePostCoordinated = false;
+    this.hasIncludeDesignations = false;
+    this.hasIncludeDefinition = false;
+    this.hasDefaultToLatestVersion = false;
+    this.hasIncompleteOK = false;
+    this.hasDisplayWarning = false;
+    this.hasMembershipOnly = false;
   }
 
   readParams(params) {
@@ -277,7 +277,7 @@ class TxParameters {
 
   set activeOnly(value) {
     this.FActiveOnly = value;
-    this.FHasActiveOnly = true;
+    this.hasActiveOnly = true;
   }
 
   get excludeNested() {
@@ -286,7 +286,7 @@ class TxParameters {
 
   set excludeNested(value) {
     this.FExcludeNested = value;
-    this.FHasExcludeNested = true;
+    this.hasExcludeNested = true;
   }
 
   get generateNarrative() {
@@ -295,7 +295,7 @@ class TxParameters {
 
   set generateNarrative(value) {
     this.FGenerateNarrative = value;
-    this.FHasGenerateNarrative = true;
+    this.hasGenerateNarrative = true;
   }
 
   get limitedExpansion() {
@@ -304,7 +304,7 @@ class TxParameters {
 
   set limitedExpansion(value) {
     this.FLimitedExpansion = value;
-    this.FHasLimitedExpansion = true;
+    this.hasLimitedExpansion = true;
   }
 
   get excludeNotForUI() {
@@ -313,7 +313,7 @@ class TxParameters {
 
   set excludeNotForUI(value) {
     this.FExcludeNotForUI = value;
-    this.FHasExcludeNotForUI = true;
+    this.hasExcludeNotForUI = true;
   }
 
   get excludePostCoordinated() {
@@ -322,7 +322,7 @@ class TxParameters {
 
   set excludePostCoordinated(value) {
     this.FExcludePostCoordinated = value;
-    this.FHasExcludePostCoordinated = true;
+    this.hasExcludePostCoordinated = true;
   }
 
   get includeDesignations() {
@@ -331,7 +331,7 @@ class TxParameters {
 
   set includeDesignations(value) {
     this.FIncludeDesignations = value;
-    this.FHasIncludeDesignations = true;
+    this.hasIncludeDesignations = true;
   }
 
   get includeDefinition() {
@@ -340,7 +340,7 @@ class TxParameters {
 
   set includeDefinition(value) {
     this.FIncludeDefinition = value;
-    this.FHasIncludeDefinition = true;
+    this.hasIncludeDefinition = true;
   }
 
   get defaultToLatestVersion() {
@@ -349,7 +349,7 @@ class TxParameters {
 
   set defaultToLatestVersion(value) {
     this.FDefaultToLatestVersion = value;
-    this.FHasDefaultToLatestVersion = true;
+    this.hasDefaultToLatestVersion = true;
   }
 
   get incompleteOK() {
@@ -358,7 +358,7 @@ class TxParameters {
 
   set incompleteOK(value) {
     this.FIncompleteOK = value;
-    this.FHasIncompleteOK = true;
+    this.hasIncompleteOK = true;
   }
 
   get displayWarning() {
@@ -367,7 +367,7 @@ class TxParameters {
 
   set displayWarning(value) {
     this.FDisplayWarning = value;
-    this.FHasDisplayWarning = true;
+    this.hasDisplayWarning = true;
   }
 
   get membershipOnly() {
@@ -376,7 +376,7 @@ class TxParameters {
 
   set membershipOnly(value) {
     this.FMembershipOnly = value;
-    this.FHasMembershipOnly = true;
+    this.hasMembershipOnly = true;
   }
 
   get versionRules() {
@@ -521,9 +521,9 @@ class TxParameters {
 
     let s = this.FUid + '|' + b(this.FMembershipOnly) + '|' + this.FProperties.join(',') + '|' +
       b(this.FActiveOnly) + b(this.FIncompleteOK) + b(this.FDisplayWarning) + b(this.FExcludeNested) + b(this.FGenerateNarrative) + b(this.FLimitedExpansion) + b(this.FExcludeNotForUI) + b(this.FExcludePostCoordinated) +
-      b(this.FIncludeDesignations) + b(this.FIncludeDefinition) + b(this.FHasActiveOnly) + b(this.FHasExcludeNested) + b(this.FHasGenerateNarrative) +
-      b(this.FHasLimitedExpansion) + b(this.FHasExcludeNotForUI) + b(this.FHasExcludePostCoordinated) + b(this.FHasIncludeDesignations) +
-      b(this.FHasIncludeDefinition) + b(this.FHasDefaultToLatestVersion) + b(this.FHasIncompleteOK) + b(this.FHasDisplayWarning) + b(this.FHasExcludeNotForUI) + b(this.FHasMembershipOnly) + b(this.FDefaultToLatestVersion);
+      b(this.FIncludeDesignations) + b(this.FIncludeDefinition) + b(this.hasActiveOnly) + b(this.hasExcludeNested) + b(this.hasGenerateNarrative) +
+      b(this.hasLimitedExpansion) + b(this.hasExcludeNotForUI) + b(this.hasExcludePostCoordinated) + b(this.hasIncludeDesignations) +
+      b(this.hasIncludeDefinition) + b(this.hasDefaultToLatestVersion) + b(this.hasIncompleteOK) + b(this.hasDisplayWarning) + b(this.hasExcludeNotForUI) + b(this.hasMembershipOnly) + b(this.FDefaultToLatestVersion);
 
     if (this.hasHTTPLanguages) {
       s = s + this.FHTTPLanguages.asString(true) + '|';
@@ -572,18 +572,18 @@ class TxParameters {
     this.FIncompleteOK = other.FIncompleteOK;
     this.FDisplayWarning = other.FDisplayWarning;
     this.FDiagnostics = other.FDiagnostics;
-    this.FHasActiveOnly = other.FHasActiveOnly;
-    this.FHasExcludeNested = other.FHasExcludeNested;
-    this.FHasGenerateNarrative = other.FHasGenerateNarrative;
-    this.FHasLimitedExpansion = other.FHasLimitedExpansion;
-    this.FHasExcludeNotForUI = other.FHasExcludeNotForUI;
-    this.FHasExcludePostCoordinated = other.FHasExcludePostCoordinated;
-    this.FHasIncludeDesignations = other.FHasIncludeDesignations;
-    this.FHasIncludeDefinition = other.FHasIncludeDefinition;
-    this.FHasDefaultToLatestVersion = other.FHasDefaultToLatestVersion;
-    this.FHasIncompleteOK = other.FHasIncompleteOK;
-    this.FHasMembershipOnly = other.FHasMembershipOnly;
-    this.FHasDisplayWarning = other.FHasDisplayWarning;
+    this.hasActiveOnly = other.hasActiveOnly;
+    this.hasExcludeNested = other.hasExcludeNested;
+    this.hasGenerateNarrative = other.hasGenerateNarrative;
+    this.hasLimitedExpansion = other.hasLimitedExpansion;
+    this.hasExcludeNotForUI = other.hasExcludeNotForUI;
+    this.hasExcludePostCoordinated = other.hasExcludePostCoordinated;
+    this.hasIncludeDesignations = other.hasIncludeDesignations;
+    this.hasIncludeDefinition = other.hasIncludeDefinition;
+    this.hasDefaultToLatestVersion = other.hasDefaultToLatestVersion;
+    this.hasIncompleteOK = other.hasIncompleteOK;
+    this.hasMembershipOnly = other.hasMembershipOnly;
+    this.hasDisplayWarning = other.hasDisplayWarning;
 
     if (other.FProperties !== null) {
       this.FProperties = [...other.FProperties];

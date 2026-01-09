@@ -2,6 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const assert = require('assert');
 const { CodeSystem } = require('../library/codesystem');
 const { CodeSystemProvider, FilterExecutionContext, CodeSystemFactoryProvider } = require('./cs-api');
+const {validateArrayParameter} = require("../../library/utilities");
 
 class CPTConceptDesignation {
   constructor(kind, value) {
@@ -220,7 +221,9 @@ class CPTServices extends CodeSystemProvider {
   }
 
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (typeof ctxt === 'string') {
       const located = await this.locate(ctxt);
@@ -264,9 +267,7 @@ class CPTServices extends CodeSystemProvider {
   }
 
   #addProperty(params, type, name, value, language = null) {
-    if (!params.parameter) {
-      params.parameter = [];
-    }
+
 
     const property = {
       name: type,
@@ -280,7 +281,7 @@ class CPTServices extends CodeSystemProvider {
       property.part.push({ name: 'language', valueCode: language });
     }
 
-    params.parameter.push(property);
+    params.push(property);
   }
 
   #hasProp(props, name, defaultValue) {

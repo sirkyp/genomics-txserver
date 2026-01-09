@@ -13,7 +13,6 @@ class ClosureWorker {
    * @param {Object} log - Logger instance
    */
   static handle(req, res, log) {
-    const provider = req.txProvider;
     const params = req.method === 'POST' ? req.body : req.query;
 
     log.debug('ConceptMap $closure with params:', params);

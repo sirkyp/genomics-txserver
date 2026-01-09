@@ -2,7 +2,7 @@ const { CodeSystem}  = require("../library/codesystem");
 const { CodeSystemFactoryProvider, CodeSystemProvider, FilterExecutionContext }  = require( "./cs-api");
 const { VersionUtilities }  = require("../../library/version-utilities");
 const { Language }  = require ("../../library/languages");
-const { validateOptionalParameter, getValuePrimitive} = require("../../library/utilities");
+const { validateOptionalParameter, getValuePrimitive, validateArrayParameter} = require("../../library/utilities");
 const {Issue} = require("../library/operation-outcome");
 const {Designations} = require("../library/designations");
 const {Extensions} = require("../library/extensions");
@@ -879,69 +879,43 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
    * @param {Object} params - The parameters response to add to
    */
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (!ctxt || !(ctxt instanceof FhirCodeSystemProviderContext)) {
       return;
     }
 
     // Set abstract status
-    params.abstract = await this.isAbstract(ctxt);
-
-    // Add designations if requested (or by default)
-    if (!props || props.length === 0 || props.includes('*') || props.includes('designation')) {
-      let designations = new Designations(this.opContext.i18n.languageDefinitions);
-      await this.designations(ctxt, designations);
-      if (designations) {
-        if (!params.designation) {
-          params.designation = [];
-        }
-        for (const designation of designations) {
-          const paramDesignation = {
-            language: designation.language,
-            value: designation.value
-          };
-          if (designation.use) {
-            paramDesignation.use = designation.use;
-          }
-          if (designation.extension) {
-            paramDesignation.extension = designation.extension;
-          }
-          params.designation.push(paramDesignation);
-        }
-      }
+    if (!params.find(p => p.name == "abstract") && await this.isAbstract(ctxt)) {
+      params.push({ name: 'property', part: [ { name: 'code', valueCode: 'abstract' }, { name: 'value', valueBoolean: true } ]});
     }
-
     // Add properties if requested (or by default)
     if (!props || props.length === 0 || props.includes('*') || props.includes('property')) {
       const properties = await this.properties(ctxt);
       if (properties) {
-        if (!params.property) {
-          params.property = [];
-        }
         for (const property of properties) {
-          const paramProperty = {
-            code: property.code
-          };
+          let parts = [];
+          parts.push({ name: 'code', valueCode: property.code });
 
           // Add the appropriate value based on the property type
           if (property.valueCode) {
-            paramProperty.valueCode = property.valueCode;
+            parts.push({ name: 'value', valueCode: property.valueCode });
           } else if (property.valueString) {
-            paramProperty.valueString = property.valueString;
+            parts.push({ name: 'value', valueString: property.valueString });
           } else if (property.valueInteger !== undefined) {
-            paramProperty.valueInteger = property.valueInteger;
+            parts.push({ name: 'value', valueInteger: property.valueInteger });
           } else if (property.valueBoolean !== undefined) {
-            paramProperty.valueBoolean = property.valueBoolean;
+            parts.push({ name: 'value', valueBoolean: property.valueBoolean });
           } else if (property.valueDateTime) {
-            paramProperty.valueDateTime = property.valueDateTime;
+            parts.push({ name: 'value', valueDateTime: property.valueDateTime });
           } else if (property.valueDecimal !== undefined) {
-            paramProperty.valueDecimal = property.valueDecimal;
+            parts.push({ name: 'value', valueDecimal: property.valueDecimal });
           } else if (property.valueCoding) {
-            paramProperty.valueCoding = property.valueCoding;
+            parts.push({ name: 'value', valueCoding: property.valueCoding });
           }
-
-          params.property.push(paramProperty);
+          params.push({ name: 'property', part: [...parts]});
         }
       }
     }
@@ -950,18 +924,11 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
     if (!props || props.length === 0 || props.includes('*') || props.includes('parent')) {
       const parentCode = await this.parent(ctxt);
       if (parentCode) {
-        if (!params.property) {
-          params.property = [];
-        }
-
-        // Get parent's display for description
-        const parentDisplay = await this.display(parentCode);
-
-        params.property.push({
-          code: 'parent',
-          valueCode: parentCode,
-          description: parentDisplay || parentCode
-        });
+        let parts = [];
+        parts.push({ name: 'code', valueCode: 'parent' });
+        parts.push({ name: 'value', valueCode: parentCode });
+        parts.push({ name: 'description', valueString: await this.display(parentCode) });
+        params.push({ name: 'property', part : [...parts]});
       }
     }
 
@@ -969,17 +936,12 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
     if (!props || props.length === 0 || props.includes('*') || props.includes('child')) {
       const children = this.codeSystem.getChildren(ctxt.code);
       if (children.length > 0) {
-        if (!params.property) {
-          params.property = [];
-        }
-
         for (const childCode of children) {
-          const childDisplay = await this.display(childCode);
-          params.property.push({
-            code: 'child',
-            valueCode: childCode,
-            description: childDisplay || childCode
-          });
+          let parts = [];
+          parts.push({ name: 'code', valueCode: 'child' });
+          parts.push({ name: 'value', valueCode: childCode });
+          parts.push({ name: 'description', valueString: await this.display(childCode) });
+          params.push({ name: 'property', part : [...parts]});
         }
       }
     }

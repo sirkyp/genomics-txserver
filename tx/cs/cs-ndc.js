@@ -2,6 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const assert = require('assert');
 const { CodeSystem } = require('../library/codesystem');
 const { CodeSystemProvider, CodeSystemFactoryProvider} = require('./cs-api');
+const {validateArrayParameter} = require("../../library/utilities");
 
 class NdcConcept {
   constructor(code, display, isPackage = false, key = null) {
@@ -124,7 +125,9 @@ class NdcServices extends CodeSystemProvider {
   }
 
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (typeof ctxt === 'string') {
       const located = await this.locate(ctxt);
@@ -208,10 +211,7 @@ class NdcServices extends CodeSystemProvider {
       ]
     };
 
-    if (!params.parameter) {
-      params.parameter = [];
-    }
-    params.parameter.push(property);
+    params.push(property);
   }
 
   async #getFullConceptData(concept) {

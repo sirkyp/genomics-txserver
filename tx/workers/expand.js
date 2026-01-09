@@ -1209,35 +1209,35 @@ class ValueSetExpander {
       this.addParamStr(exp, 'filter', filter.filter);
     }
 
-    if (this.params.FHasLimitedExpansion) {
+    if (this.params.hasLimitedExpansion) {
       this.addParamBool(exp, 'limitedExpansion', this.params.limitedExpansion);
     }
-    if (this.params.FDisplayLanguages) {
-      this.addParamCode(exp, 'displayLanguage', this.params.FDisplayLanguages.asString(true));
-    } else if (this.params.FHTTPLanguages) {
-      this.addParamCode(exp, 'displayLanguage', this.params.FHTTPLanguages.asString(true));
+    if (this.params.DisplayLanguages) {
+      this.addParamCode(exp, 'displayLanguage', this.params.DisplayLanguages.asString(true));
+    } else if (this.params.HTTPLanguages) {
+      this.addParamCode(exp, 'displayLanguage', this.params.HTTPLanguages.asString(true));
     }
     if (this.params.designations) {
       for (const s of this.params.designations) {
         this.addParamStr(exp, 'designation', s);
       }
     }
-    if (this.params.FHasExcludeNested) {
+    if (this.params.hasExcludeNested) {
       this.addParamBool(exp, 'excludeNested', this.params.excludeNested);
     }
-    if (this.params.FHasActiveOnly) {
+    if (this.params.hasActiveOnly) {
       this.addParamBool(exp, 'activeOnly', this.params.activeOnly);
     }
-    if (this.params.FHasIncludeDesignations) {
+    if (this.params.hasIncludeDesignations) {
       this.addParamBool(exp, 'includeDesignations', this.params.includeDesignations);
     }
-    if (this.params.FHasIncludeDefinition) {
+    if (this.params.hasIncludeDefinition) {
       this.addParamBool(exp, 'includeDefinition', this.params.includeDefinition);
     }
-    if (this.params.FHasExcludeNotForUI) {
+    if (this.params.hasExcludeNotForUI) {
       this.addParamBool(exp, 'excludeNotForUI', this.params.excludeNotForUI);
     }
-    if (this.params.FHasExcludePostCoordinated) {
+    if (this.params.hasExcludePostCoordinated) {
       this.addParamBool(exp, 'excludePostCoordinated', this.params.excludePostCoordinated);
     }
 

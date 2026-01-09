@@ -498,9 +498,10 @@ describe('NDC Provider', () => {
 
   describe('Extended Lookup', () => {
     test('should extend lookup for product with properties', async () => {
-      const params = { parameter: [] };
-      await provider.extendLookup('0002-0152', [], params);
+      const paramSet = [];
+      await provider.extendLookup('0002-0152', [], paramSet);
 
+      const params = { parameter: paramSet };
       expect(params.parameter).toBeDefined();
       expect(params.parameter.length).toBeGreaterThan(0);
 
@@ -526,9 +527,10 @@ describe('NDC Provider', () => {
     });
 
     test('should extend lookup for 10-digit package with properties', async () => {
-      const params = { parameter: [] };
-      await provider.extendLookup('0002-0152-01', [], params);
+      const paramSet = [];
+      await provider.extendLookup('0002-0152-01', [], paramSet);
 
+      const params = { parameter: paramSet };
       expect(params.parameter).toBeDefined();
       expect(params.parameter.length).toBeGreaterThan(0);
 
@@ -558,9 +560,11 @@ describe('NDC Provider', () => {
     });
 
     test('should extend lookup for 11-digit package with properties', async () => {
-      const params = { parameter: [] };
-      await provider.extendLookup('00002121404', [], params);
 
+      const paramSet = [];
+      await provider.extendLookup('00002121404', [], paramSet);
+
+      const params = { parameter: paramSet };
       expect(params.parameter).toBeDefined();
       expect(params.parameter.length).toBeGreaterThan(0);
 

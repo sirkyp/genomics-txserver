@@ -8,6 +8,7 @@ const { CodeSystem } = require("../library/codesystem");
 const ValueSet = require("../library/valueset");
 const assert = require('assert');
 const {UcumService} = require("../library/ucum-service");
+const {validateArrayParameter, validateParameter} = require("../../library/utilities");
 
 /**
  * UCUM provider context for concepts
@@ -418,7 +419,9 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
   }
 
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (props.includes('canonical')) {
       try {

@@ -3,7 +3,7 @@ const assert = require('assert');
 const { CodeSystem } = require('../library/codesystem');
 const { Language, Languages} = require('../../library/languages');
 const { CodeSystemProvider, CodeSystemFactoryProvider} = require('./cs-api');
-const { validateOptionalParameter} = require("../../library/utilities");
+const { validateOptionalParameter, validateArrayParameter} = require("../../library/utilities");
 
 // Context kinds matching Pascal enum
 const LoincProviderContextKind = {
@@ -14,10 +14,11 @@ const LoincProviderContextKind = {
 };
 
 class DescriptionCacheEntry {
-  constructor(display, lang, value) {
+  constructor(display, lang, value, dtype) {
     this.display = display;
     this.lang = lang;
     this.value = value;
+    this.dtype = dtype;
   }
 }
 
@@ -127,6 +128,10 @@ class LoincServices extends CodeSystemProvider {
 
   version() {
     return this._version;
+  }
+
+  name() {
+    return 'LOINC';
   }
 
   description() {
@@ -246,7 +251,17 @@ class LoincServices extends CodeSystemProvider {
       }
 
       for (const entry of ctxt.displays) {
-        const use = entry.display ? CodeSystem.makeUseForDisplay() : null;
+        let use = undefined;
+        if (entry.dtype) {
+          use = {
+            system: 'http://loinc.org',
+            code: entry.dtype,
+            display: entry.dtype
+          }
+        }
+        if (!use) {
+          use = entry.display ? CodeSystem.makeUseForDisplay() : null;
+        }
         displays.addDesignation(false, 'active', entry.lang, use, entry.value);
       }
 
@@ -257,7 +272,9 @@ class LoincServices extends CodeSystemProvider {
   }
 
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (typeof ctxt === 'string') {
       const located = await this.locate(ctxt);
@@ -271,9 +288,6 @@ class LoincServices extends CodeSystemProvider {
       throw new Error('Invalid context for LOINC lookup');
     }
 
-    // Set abstract status
-    params.abstract = false;
-
     // Add relationships
     await this.#addRelationshipProperties(ctxt, params);
 
@@ -282,13 +296,13 @@ class LoincServices extends CodeSystemProvider {
 
     // Add status
     await this.#addStatusProperty(ctxt, params);
-
-    // Add designations based on context kind
-    const designationUse = this.#getDesignationUse(ctxt.kind);
-    this.#addProperty(params, 'designation', designationUse, ctxt.desc, 'en-US');
-
-    // Add all other designations
-    await this.#addAllDesignations(ctxt, params);
+    //
+    // // Add designations based on context kind
+    // const designationUse = this.#getDesignationUse(ctxt.kind);
+    // this.#addProperty(params, 'designation', designationUse, ctxt.desc, 'en-US');
+    //
+    // // Add all other designations
+    // await this.#addAllDesignations(ctxt, params);
   }
 
   #getDesignationUse(kind) {
@@ -317,7 +331,7 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            this.#addProperty(params, 'property', row.Relationship, row.Code);
+            this.#addCodeProperty(params, 'property', row.Relationship, row.Code);
           }
           resolve();
         }
@@ -340,7 +354,7 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            this.#addProperty(params, 'property', row.Description, row.Value);
+            this.#addStringProperty(params, 'property', row.Description, row.Value);
           }
           resolve();
         }
@@ -358,7 +372,7 @@ class LoincServices extends CodeSystemProvider {
         } else if (row) {
           const statusDesc = this.statusCodes.get(row.StatusKey.toString());
           if (row.StatusKey && statusDesc) {
-            this.#addProperty(params, 'property', 'STATUS', statusDesc);
+            this.#addStringProperty(params, 'property', 'STATUS', statusDesc);
           }
           resolve();
         } else {
@@ -393,9 +407,6 @@ class LoincServices extends CodeSystemProvider {
   }
 
   #addProperty(params, type, name, value, language = null) {
-    if (!params.parameter) {
-      params.parameter = [];
-    }
 
     const property = {
       name: type,
@@ -409,7 +420,41 @@ class LoincServices extends CodeSystemProvider {
       property.part.push({ name: 'language', valueCode: language });
     }
 
-    params.parameter.push(property);
+    params.push(property);
+  }
+
+  #addCodeProperty(params, type, name, value, language = null) {
+
+    const property = {
+      name: type,
+      part: [
+        { name: 'code', valueCode: name },
+        { name: 'value', valueCode: value }
+      ]
+    };
+
+    if (language) {
+      property.part.push({ name: 'language', valueCode: language });
+    }
+
+    params.push(property);
+  }
+
+  #addStringProperty(params, type, name, value, language = null) {
+
+    const property = {
+      name: type,
+      part: [
+        { name: 'code', valueCode: name },
+        { name: 'value', valueString: value }
+      ]
+    };
+
+    if (language) {
+      property.part.push({ name: 'language', valueCode: language });
+    }
+
+    params.push(property);
   }
 
   async #getDisplaysForContext(ctxt, langs) {
@@ -478,7 +523,7 @@ class LoincServices extends CodeSystemProvider {
         } else {
           for (const row of rows) {
             const isDisplay = row.DType === 'LONG_COMMON_NAME';
-            ctxt.displays.push(new DescriptionCacheEntry(isDisplay, row.Lang, row.Value));
+            ctxt.displays.push(new DescriptionCacheEntry(isDisplay, row.Lang, row.Value, row.DType));
           }
           resolve();
         }
@@ -1014,6 +1059,10 @@ class LoincServicesFactory extends CodeSystemFactoryProvider {
     return this._sharedData._version;
   }
 
+  name() {
+    return 'LOINC';
+  }
+
   async #ensureLoaded() {
     if (!this._loaded) {
       await this.load();
@@ -1207,7 +1256,7 @@ class LoincServicesFactory extends CodeSystemFactoryProvider {
 
           if (currentContext) {
             currentContext.displays.push(
-              new DescriptionCacheEntry(row.IsDisplay, row.Lang, row.Value)
+              new DescriptionCacheEntry(row.IsDisplay, row.Lang, row.Value, row.DType)
             );
           }
         }

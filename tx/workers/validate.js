@@ -285,12 +285,12 @@ class ValueSetChecker {
       throw new Issue('error', 'not-found', null, null, 'Error Error: vs = nil');
     } else {
       this.seeValueSet();
-      this.worker.opContext.addNote(this.valueSet, 'Analysing ' + this.valueSet.vurl + ' for validation purposes', this.FIndentCount);
-      if (this.FIndentCount === 0) {
-        this.worker.opContext.addNote(this.valueSet, 'Parameters: ' + this.params.summary, this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Analysing ' + this.valueSet.vurl + ' for validation purposes', this.indentCount);
+      if (this.indentCount === 0) {
+        this.worker.opContext.addNote(this.valueSet, 'Parameters: ' + this.params.summary, this.indentCount);
         let vrs = this.params.verSummary;
         if (vrs !== '') {
-          this.worker.opContext.addNote(this.valueSet, 'Version Rules: ' + vrs, this.FIndentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Version Rules: ' + vrs, this.indentCount);
         }
       }
       this.worker.requiredSupplements = [];
@@ -328,7 +328,7 @@ class ValueSetChecker {
   async prepareConceptSet(desc, cc) {
     this.worker.deadCheck('prepareConceptSet');
     Extensions.checkNoModifiers(cc, 'ValueSetChecker.prepare', desc);
-    this.worker.opContext.addNote(this.valueSet, 'Prepare ' + desc + ': "' + Renderer.renderInclude(cc) + '"', this.FIndentCount);
+    this.worker.opContext.addNote(this.valueSet, 'Prepare ' + desc + ': "' + Renderer.renderInclude(cc) + '"', this.indentCount);
     if (cc.valueSet) {
       for (let u of cc.valueSet) {
         let s = this.worker.pinValueSet(u);
@@ -339,7 +339,7 @@ class ValueSetChecker {
             throw new Issue('error', 'not-found', null, 'Unable_to_resolve_value_Set_', this.worker.i18n.translate('Unable_to_resolve_value_Set_', this.params.HTTPLanguages, [s]), 'not-found');
           }
           let checker = new ValueSetChecker(this.worker, other, this.params);
-          checker.FIndentCount = this.FIndentCount + 1;
+          checker.indentCount = this.indentCount + 1;
           await checker.prepare(other, this.params, null);
           this.others.set(s, checker);
         }
@@ -348,7 +348,7 @@ class ValueSetChecker {
     let v = this.worker.determineVersionBase(cc.system, cc.version, this.params);
     let cs = await this.worker.findCodeSystem(cc.system, v, this.params, ['complete', 'fragment'], null, true, false, false);
     if (cs !== null) {
-      this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: "' + Renderer.renderCoded(cs) + '"', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: "' + Renderer.renderCoded(cs) + '"', this.indentCount);
       for (let i = this.worker.requiredSupplements.length - 1; i >= 0; i--) {
         if (cs.hasSupplement(this.worker.requiredSupplements[i])) {
           this.worker.requiredSupplements.splice(i, 1);
@@ -371,7 +371,7 @@ class ValueSetChecker {
         i++;
       }
     } else if (cc.system !== '') {
-      this.worker.opContext.addNote(this.valueSet, 'CodeSystem version ' + v + ' not found: "' + Renderer.renderCoded(cc.system, cc.version) + '"', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'CodeSystem version ' + v + ' not found: "' + Renderer.renderCoded(cc.system, cc.version) + '"', this.indentCount);
     }
   }
 
@@ -388,7 +388,8 @@ class ValueSetChecker {
         }
         displays.baseLang = this.FLanguages.parse(cs.language);
         !displays.addDesignation(true, "active", '', '', list[i].displayElement);
-        return result;
+        throw new Error("Check this");
+        // return result;
       }
       let ccl = list[i].conceptList;
       if (await this.findCode(cs, code, ccl, displays, isabstract)) {
@@ -410,9 +411,9 @@ class ValueSetChecker {
   async checkSimple(issuePath, system, version, code, abstractOk, inferSystem, op) {
     this.worker.opContext.clearContexts();
     if (inferSystem) {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + code + '" and infer system', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + code + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(system, version, code) + '"', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(system, version, code) + '"', this.indentCount);
     }
     let unknownSystems = new Set();
     let ts = [];
@@ -430,7 +431,7 @@ class ValueSetChecker {
 
   async check(path, system, version, code, abstractOk, inferSystem, displays, unknownSystems, ver, inactive, normalForm, vstatus, cause, op, vcc, params, contentMode, impliedSystem, unkCodes, messages, defLang) {
     defLang.value = new Language('en');
-    this.worker.opContext.addNote(this.valueSet, 'Check "' + Renderer.renderCoded(system, version, code) + '"', this.FIndentCount);
+    this.worker.opContext.addNote(this.valueSet, 'Check "' + Renderer.renderCoded(system, version, code) + '"', this.indentCount);
     if (!system && !inferSystem) {
       let msg = this.worker.i18n.translate('Coding_has_no_system__cannot_validate', this.params.HTTPLanguages, []);
       messages.push(msg);
@@ -439,7 +440,6 @@ class ValueSetChecker {
     }
 
     let result;
-    this.FLog = '';
     let s = this.valueSet.url;
     if (s === 'http://hl7.org/fhir/ValueSet/@all') {
       if (system === '') {
@@ -450,10 +450,9 @@ class ValueSetChecker {
       }
       let cs = await this.worker.findCodeSystem(system, version, this.params, ['complete', 'fragment'], op,true);
       if (cs === null) {
-        this.worker.opContext.addNote(this.valueSet, 'Didn\'t find CodeSystem "' + Renderer.renderCoded(system, version) + '"', this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Didn\'t find CodeSystem "' + Renderer.renderCoded(system, version) + '"', this.indentCount);
         result = null;
         cause.value = 'not-found';
-        this.FLog = 'Unknown code system';
         let vss = await this.worker.findValueSet(system, '');
         if (vss !== null) {
           vss = null;
@@ -494,7 +493,7 @@ class ValueSetChecker {
         }
       } else {
         defLang.value = cs.defLang();
-        this.worker.opContext.addNote(this.valueSet, 'Using CodeSystem "' + Renderer.renderCoded(cs) + '" (content = ' + cs.contentMode() + ')', this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Using CodeSystem "' + Renderer.renderCoded(cs) + '" (content = ' + cs.contentMode() + ')', this.indentCount);
         await this.checkCanonicalStatus(path, op, cs, this.valueSet);
         ver.value = cs.version();
         contentMode.value = cs.contentMode();
@@ -504,14 +503,14 @@ class ValueSetChecker {
           if (cs.contentMode() !== 'complete') {
             result = true;
             cause.value = 'code-invalid';
-            this.FLog = 'Not found in Incomplete Code System';
+            this.worker.opContext.addNote(this.valueSet, 'Not found in Incomplete Code System', this.indentCount);
             let msg = this.worker.i18n.translate('UNKNOWN_CODE_IN_FRAGMENT', this.params.HTTPLanguages, [code, cs.system(), cs.version()]);
             messages.push(msg);
             op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'UNKNOWN_CODE_IN_FRAGMENT', msg, 'invalid-code'));
           } else {
             result = false;
             cause.value = 'code-invalid';
-            this.FLog = 'Unknown code';
+            this.worker.opContext.addNote(this.valueSet, 'Unknown code', this.indentCount);
             let msg = this.worker.i18n.translate(Unknown_Code_in_VersionSCT(cs.system), this.params.HTTPLanguages, [code, cs.system(), cs.version(), SCTVersion(cs.system(), cs.version())]);
             messages.push(msg);
             op.addIssue(new Issue('error', 'code-invalid', addToPath(path, 'code'), 'Unknown_Code_in_Version', msg, 'invalid-code'));
@@ -523,20 +522,20 @@ class ValueSetChecker {
           cause.value = 'null';
           if (!(abstractOk || !(await cs.IsAbstract(ctxt)))) {
             result = false;
-            this.FLog = 'Abstract code when not allowed';
+            this.worker.opContext.addNote(this.valueSet, 'Abstract code when not allowed', this.indentCount);
             cause.value = 'business-rule';
             let msg = this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [system, code]);
             messages.push(msg);
             op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', msg, 'code-rule'));
           } else if (this.params !== null && this.params.activeOnly && await cs.isInactive(ctxt)) {
             result = false;
-            this.FLog = 'Inactive code when not allowed';
+            this.worker.opContext.addNote(this.valueSet, 'Inactive code when not allowed', this.indentCount);
             cause.value = 'business-rule';
             let msg = this.worker.i18n.translate('STATUS_CODE_WARNING_CODE', this.params.HTTPLanguages, ['not active', code]);
             messages.push(msg);
             op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
           } else {
-            this.FLog = 'found OK';
+            this.worker.opContext.addNote(this.valueSet, 'found OK', this.indentCount);
             result = true;
             if ((await cs.code(ctxt.context)) !== code) {
               let msg = this.worker.i18n.translate('CODE_CASE_DIFFERENCE', this.params.HTTPLanguages, [code, await cs.code(ctxt), cs.system]);
@@ -561,7 +560,7 @@ class ValueSetChecker {
       if (cs === null) {
         result = null;
         cause.value = 'not-found';
-        this.FLog = 'Unknown code system';
+        this.worker.opContext.addNote(this.valueSet, 'Unknown code system', this.indentCount);
         let vl, mid, vn;
         if (version !== '') {
           vl = this.listVersions(system);
@@ -595,14 +594,14 @@ class ValueSetChecker {
           if (cs.contentMode !== 'complete') {
             result = true;
             cause.value = 'code-invalid';
-            this.FLog = 'Not found in Incomplete Code System';
+            this.worker.opContext.addNote(this.valueSet, 'Not found in Incomplete Code System', this.indentCount);
             let msg = this.worker.i18n.translate('UNKNOWN_CODE_IN_FRAGMENT', this.params.HTTPLanguages, [code, system, version]);
             messages.push(msg);
             op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'UNKNOWN_CODE_IN_FRAGMENT', msg, 'invalid-code'));
           } else {
             result = false;
             cause.value = 'code-invalid';
-            this.FLog = 'Unknown code';
+            this.worker.opContext.addNote(this.valueSet, 'Unknown code', this.indentCount);
             let msg = this.worker.i18n.translate(Unknown_Code_in_VersionSCT(system), this.params.HTTPLanguages, [code, system, version, SCTVersion(system, version)]);
             messages.push(msg);
             op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'Unknown_Code_in_Version', msg, 'invalid-code'));
@@ -612,20 +611,20 @@ class ValueSetChecker {
           cause.value = 'null';
           if (!(abstractOk || !cs.IsAbstract(ctxt))) {
             result = false;
-            this.FLog = 'Abstract code when not allowed';
+            this.worker.opContext.addNote(this.valueSet, 'Abstract code when not allowed', this.indentCount);
             cause.value = 'business-rule';
             let msg = this.worker.i18n.translate('STATUS_CODE_WARNING_CODE', this.params.HTTPLanguages, ['not active', code]);
             messages.push(msg);
             op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
           } else if (this.params !== null && this.params.activeOnly && await cs.isInactive(ctxt)) {
             result = false;
-            this.FLog = 'Inactive code when not allowed';
+            this.worker.opContext.addNote(this.valueSet, 'Inactive code when not allowed', this.indentCount);
             cause.value = 'business-rule';
             let msg = this.worker.i18n.translate('STATUS_CODE_WARNING_CODE', this.params.HTTPLanguages, ['not active', code]);
             messages.push(msg);
             op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
           } else {
-            this.FLog = 'found';
+            this.worker.opContext.addNote(this.valueSet, 'found', this.indentCount);
             result = true;
           }
           await this.worker.listDisplaysFromCodeSystem(displays, cs, ctxt);
@@ -650,7 +649,7 @@ class ValueSetChecker {
           return false;
         } else {
           impliedSystem.value = system;
-          this.worker.opContext.addNote(this.valueSet, 'Inferred CodeSystem = "' + system + '"', this.FIndentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Inferred CodeSystem = "' + system + '"', this.indentCount);
         }
       }
 
@@ -668,7 +667,7 @@ class ValueSetChecker {
             let v = await this.determineVersion(path, cc.system, cc.version, version, op, unknownSystems, messages);
             let cs = await this.worker.findCodeSystem(system, v, this.params, ["complete", "fragment"], op,true, true, false);
             if (cs === null) {
-              this.worker.opContext.addNote(this.valueSet, 'CodeSystem not found: ' + Renderer.renderCoded(cc.system, v), this.FIndentCount);
+              this.worker.opContext.addNote(this.valueSet, 'CodeSystem not found: ' + Renderer.renderCoded(cc.system, v), this.indentCount);
               if (!this.params.membershipOnly) {
                 let bAdd = true;
                 let msg, mid, vn;
@@ -701,7 +700,7 @@ class ValueSetChecker {
               }
             }
             defLang.value = new Language(cs.defLang());
-            this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: ' + Renderer.renderCoded(cs) + ' for ' + Renderer.renderCoded(cc.system, v), this.FIndentCount);
+            this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: ' + Renderer.renderCoded(cs) + ' for ' + Renderer.renderCoded(cc.system, v), this.indentCount);
             await this.checkCanonicalStatusCS(path, op, cs, this.valueSet);
             ver.value = cs.version();
             this.worker.checkSupplements(cs, cc);
@@ -722,7 +721,7 @@ class ValueSetChecker {
           for (let u of cc.valueSet || []) {
             this.worker.deadCheck('check#3');
             let s = this.worker.pinValueSet(u);
-            this.worker.opContext.addNote(this.valueSet, 'Check included value set ' + s, this.FIndentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Check included value set ' + s, this.indentCount);
             let checker = this.others.get(s);
             if (checker === null || checker === undefined) {
               throw new Issue('error', 'unknown', null, null, 'No Match for ' + s + ' in ' + Array.from(this.others.keys()).join(','));
@@ -764,7 +763,7 @@ class ValueSetChecker {
               if (checker === null) {
                 throw new Issue('error', 'unknown', null, null, 'No Match for ' + cc.system + '|' + cc.version + ' in ' + Array.from(this.others.keys()).join(','));
               }
-              this.checkCanonicalStatus(path, op, checker.FValueSet, this.valueSet);
+              this.checkCanonicalStatus(path, op, checker.valueSet, this.valueSet);
               excluded = excluded && (await checker.check(path, system, version, code, abstractOk, inferSystem, displays, unknownSystems, ver, inactive, normalForm, vstatus, cause, op, null, params, contentMode, impliedSystem, unkCodes, messages, defLang) === true);
             }
             if (excluded) {
@@ -853,13 +852,13 @@ class ValueSetChecker {
     let unknownSystems = new Set();
     let unkCodes = [];
     let messages = [];
-    let result = this.FFactory.makeParameters();
+    let result = new Parameters();
 
     this.worker.opContext.clearContexts();
     if (inferSystem) {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(coding) + '" and infer system', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(coding) + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(coding) + '"', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(coding) + '"', this.indentCount);
     }
 
     let op = new OperationOutcome();
@@ -966,9 +965,9 @@ class ValueSetChecker {
   async checkCodeableConcept(issuePath, code, abstractOk, inferSystem, mode) {
     this.worker.opContext.clearContexts();
     if (inferSystem) {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(code) + '" and infer system', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(code) + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(code) + '"', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(code) + '"', this.indentCount);
     }
 
     let inactive = { value: false };
@@ -1069,85 +1068,13 @@ class ValueSetChecker {
       if (ok !== true && v !== false) {
         ok = v;
       }
-      let message = '';
-
       if (v === true) {
         if ((cause.value === 'not-found' && contentMode.value !== 'complete') || contentMode.value === 'example') {
           let m = 'The system ' + c.system + ' was found but did not contain enough information to properly validate the code "' + c.code + '" ("' + c.display + '") (mode = ' + contentMode.value + ')';
           msg(m);
           op.addIssueNoId('warning', 'not-found', path, m, 'vs-invalid');
         } else if (c.display && list.designations.length > 0) {
-          let hd = list.hasDisplay(this.params.workingLanguages(), defLang.value, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE)
-          if (!hd.found) {
-            let baseMsg;
-            if (hd.difference === DisplayDifference.Normalized) {
-              baseMsg = 'Display_Name_WS_for__should_be_one_of__instead_of';
-            } else {
-              baseMsg = 'Display_Name_for__should_be_one_of__instead_of';
-            }
-            let mid = baseMsg;
-            let dc = list.displayCount(this.params.workingLanguages(), null, true);
-            let severity = this.dispWarning();
-            if (dc === 0) {
-              severity = 'warning';
-              dc = list.displayCount(this.params.workingLanguages(), null, false);
-            }
-
-            let m, ds;
-            if (dc === 0) {
-              ds = await list.preferredDisplay(null);
-              if (ds === '') {
-                m = this.worker.i18n.translate('NO_VALID_DISPLAY_AT_ALL', this.params.HTTPLanguages, [c.display, c.system, c.code]);
-                mid = 'NO_VALID_DISPLAY_AT_ALL';
-              } else {
-                if (ds === c.display) {
-                  m = this.worker.i18n.translate('NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK', this.params.HTTPLanguages, [c.display, c.system, c.code, this.params.langSummary(), ds]);
-                  mid = 'NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK';
-                  severity = 'information';
-                } else {
-                  m = this.worker.i18n.translate('NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_ERR', this.params.HTTPLanguages, [c.display, c.system, c.code, this.params.langSummary(), ds]);
-                  mid = 'NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_ERR';
-                  if (this.params.displayWarning) {
-                    severity = 'warning';
-                  } else {
-                    severity = 'error';
-                  }
-                }
-              }
-            } else if (dc === 1) {
-              m = this.worker.i18n.translate(baseMsg + '_one', this.params.HTTPLanguages,
-                ['', c.system, c.code, list.present(this.params.workingLanguages(), defLang.value, dc > 0), c.display, this.params.langSummary()]);
-            } else {
-              m = this.worker.i18n.translate(baseMsg + '_other', this.params.HTTPLanguages,
-                [dc.toString(), c.system, c.code, list.present(this.params.workingLanguages(), defLang.value, dc > 0), c.display, this.params.langSummary()]);
-            }
-            msg(m);
-            op.addIssue(new Issue(severity, 'invalid', addToPath(path, 'display'), mid, m, 'invalid-display'));
-          } else {
-            let hd = list.hasDisplay(this.params.workingLanguages(), null, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE);
-            if (!hd.found) {
-              let m, mid;
-              if (list.source !== null && list.source.hasAnyDisplays(this.params.workingLanguages())) {
-                mid = 'NO_VALID_DISPLAY_FOUND_LANG_SOME';
-                m = this.worker.i18n.translatePlural(this.params.workingLanguages().length, 'NO_VALID_DISPLAY_FOUND_LANG_SOME', this.params.HTTPLanguages,
-                  [c.system, c.code, c.display, this.params.workingLanguages().toString(), c.display]);
-              } else {
-                mid = 'NO_VALID_DISPLAY_FOUND_LANG_NONE';
-                m = this.worker.i18n.translatePlural(this.params.workingLanguages().length, 'NO_VALID_DISPLAY_FOUND_LANG_NONE', this.params.HTTPLanguages,
-                  [c.system, c.code, c.display, this.params.workingLanguages().toString(), c.display]);
-              }
-              op.addIssue(new Issue('information', 'invalid', addToPath(path, 'display'), mid, m, 'display-comment'));
-            } else {
-              let hd = list.hasDisplay(this.params.workingLanguages(), null, c.display, true, DisplayCheckingStyle.CASE_INSENSITIVE);
-              if (!hd.found) {
-                let ts2 = [];
-                list.allowedDisplays(ts2, null, defLang.value);
-                let mid = 'INACTIVE_DISPLAY_FOUND';
-                let m = this.worker.i18n.translatePlural(ts2.length, mid, this.params.HTTPLanguages, [c.display, c.code, ts2.join(','), list.status(c.display)]);
-                op.addIssue(new Issue('warning', 'invalid', addToPath(path, 'display'), mid, m, 'display-comment'));
-              }
-            }
-          }
+          await this.checkDisplays(list, defLang, c, msg, op, path);
         }
         psys = c.system;
         pcode = c.code;
@@ -1227,7 +1154,7 @@ class ValueSetChecker {
           }
         } else {
           this.checkCanonicalStatus(path, op, prov, this.valueSet);
-          let ctxt = await prov.locate(c.code, this.FAllAltCodes, message);
+          let ctxt = await prov.locate(c.code);
           if (!ctxt.context) {
             // message can never be populated in pascal?
             // if (ctxt.message !== '') {
@@ -1399,17 +1326,91 @@ class ValueSetChecker {
     return result;
   }
 
+  async checkDisplays(list, defLang, c, msg, op, path) {
+    let hd = list.hasDisplay(this.params.workingLanguages(), defLang.value, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE)
+    if (!hd.found) {
+      let baseMsg;
+      if (hd.difference === DisplayDifference.Normalized) {
+        baseMsg = 'Display_Name_WS_for__should_be_one_of__instead_of';
+      } else {
+        baseMsg = 'Display_Name_for__should_be_one_of__instead_of';
+      }
+      let mid = baseMsg;
+      let dc = list.displayCount(this.params.workingLanguages(), null, true);
+      let severity = this.dispWarning();
+      if (dc === 0) {
+        severity = 'warning';
+        dc = list.displayCount(this.params.workingLanguages(), null, false);
+      }
+
+      let m, ds;
+      if (dc === 0) {
+        ds = await list.preferredDisplay(null);
+        if (ds === '') {
+          m = this.worker.i18n.translate('NO_VALID_DISPLAY_AT_ALL', this.params.HTTPLanguages, [c.display, c.system, c.code]);
+          mid = 'NO_VALID_DISPLAY_AT_ALL';
+        } else {
+          if (ds === c.display) {
+            m = this.worker.i18n.translate('NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK', this.params.HTTPLanguages, [c.display, c.system, c.code, this.params.langSummary(), ds]);
+            mid = 'NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK';
+            severity = 'information';
+          } else {
+            m = this.worker.i18n.translate('NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_ERR', this.params.HTTPLanguages, [c.display, c.system, c.code, this.params.langSummary(), ds]);
+            mid = 'NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_ERR';
+            if (this.params.displayWarning) {
+              severity = 'warning';
+            } else {
+              severity = 'error';
+            }
+          }
+        }
+      } else if (dc === 1) {
+        m = this.worker.i18n.translate(baseMsg + '_one', this.params.HTTPLanguages,
+          ['', c.system, c.code, list.present(this.params.workingLanguages(), defLang.value, dc > 0), c.display, this.params.langSummary()]);
+      } else {
+        m = this.worker.i18n.translate(baseMsg + '_other', this.params.HTTPLanguages,
+          [dc.toString(), c.system, c.code, list.present(this.params.workingLanguages(), defLang.value, dc > 0), c.display, this.params.langSummary()]);
+      }
+      msg(m);
+      op.addIssue(new Issue(severity, 'invalid', addToPath(path, 'display'), mid, m, 'invalid-display'));
+    } else {
+      let hd = list.hasDisplay(this.params.workingLanguages(), null, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE);
+      if (!hd.found) {
+        let m, mid;
+        if (list.source !== null && list.source.hasAnyDisplays(this.params.workingLanguages())) {
+          mid = 'NO_VALID_DISPLAY_FOUND_LANG_SOME';
+          m = this.worker.i18n.translatePlural(this.params.workingLanguages().length, 'NO_VALID_DISPLAY_FOUND_LANG_SOME', this.params.HTTPLanguages,
+            [c.system, c.code, c.display, this.params.workingLanguages().toString(), c.display]);
+        } else {
+          mid = 'NO_VALID_DISPLAY_FOUND_LANG_NONE';
+          m = this.worker.i18n.translatePlural(this.params.workingLanguages().length, 'NO_VALID_DISPLAY_FOUND_LANG_NONE', this.params.HTTPLanguages,
+            [c.system, c.code, c.display, this.params.workingLanguages().toString(), c.display]);
+        }
+        op.addIssue(new Issue('information', 'invalid', addToPath(path, 'display'), mid, m, 'display-comment'));
+      } else {
+        let hd = list.hasDisplay(this.params.workingLanguages(), null, c.display, true, DisplayCheckingStyle.CASE_INSENSITIVE);
+        if (!hd.found) {
+          let ts2 = [];
+          list.allowedDisplays(ts2, null, defLang.value);
+          let mid = 'INACTIVE_DISPLAY_FOUND';
+          let m = this.worker.i18n.translatePlural(ts2.length, mid, this.params.HTTPLanguages, [c.display, c.code, ts2.join(','), list.status(c.display)]);
+          op.addIssue(new Issue('warning', 'invalid', addToPath(path, 'display'), mid, m, 'display-comment'));
+        }
+      }
+    }
+  }
+
   async checkSystemCode(issuePath, system, version, code, inferSystem) {
     this.worker.opContext.clearContexts();
     if (inferSystem) {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + code + '" and infer system', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + code + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(system, version, code) + '"', this.FIndentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(system, version, code) + '"', this.indentCount);
     }
     let unknownSystems = new Set();
     let unkCodes = [];
     let messages = [];
-    let result = this.FFactory.makeParameters();
+    let result = new Parameters();
     let op = new OperationOutcome();
     this.checkCanonicalStatus(issuePath, op, this.valueSet, this.valueSet);
     let list = new Designations(this.worker.languages);
@@ -1472,14 +1473,14 @@ class ValueSetChecker {
   }
 
   async checkConceptSet(path, role, cs, cset, code, abstractOk, displays, vs, message, inactive, normalForm, vstatus, op, vcc, messages) {
-    this.worker.opContext.addNote(vs, 'check code ' + role + ' ' + Renderer.renderInclude(cset) + ' at ' + path, this.FIndentCount);
+    this.worker.opContext.addNote(vs, 'check code ' + role + ' ' + Renderer.renderInclude(cset) + ' at ' + path, this.indentCount);
     inactive.value = false;
     let result = false;
     if (!cset.concept && !cset.filter) {
       let loc = await cs.locate(code);
       result = false;
       if (loc.context == null) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
         if (!this.params.membershipOnly) {
           if (cs.contentMode() !== 'complete') {
             op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'UNKNOWN_CODE_IN_FRAGMENT', this.worker.i18n.translate('UNKNOWN_CODE_IN_FRAGMENT', this.params.HTTPLanguages, [code, cs.system(), cs.version()]), 'invalid-code'));
@@ -1489,12 +1490,12 @@ class ValueSetChecker {
           }
         }
       } else if (!(abstractOk || !cs.IsAbstract(loc.context))) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
         if (!this.params.membershipOnly) {
           op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
         }
       } else if (this.excludeInactives() && await cs.isInactive(loc.context)) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
         let msg = this.worker.i18n.translate('STATUS_CODE_WARNING_CODE', this.params.HTTPLanguages, ['not active', code]);
         op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
         result = false;
@@ -1506,7 +1507,7 @@ class ValueSetChecker {
           }
         }
       } else if (this.params.activeOnly && await cs.isInactive(loc.context)) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
         result = false;
         inactive.value = true;
         vstatus.value = await cs.getStatus(loc.context);
@@ -1514,7 +1515,7 @@ class ValueSetChecker {
         messages.push(msg);
         op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
       } else {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
         result = true;
         if (await cs.code(loc.context) != code) {
           let msg;
@@ -1553,10 +1554,10 @@ class ValueSetChecker {
       this.worker.deadCheck('checkConceptSet#1');
       let c = cc.code;
       if (code === c) {
-        let loc = await cs.locate(code, this.FAllAltCodes);
+        let loc = await cs.locate(code);
         if (loc.context !== null) {
           loc = loc.context;
-          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
           await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
           this.worker.listDisplaysFromIncludeConcept(displays, cc, vs);
           if (!(abstractOk || !cs.IsAbstract(loc))) {
@@ -1586,7 +1587,7 @@ class ValueSetChecker {
             return result;
           }
         } else {
-          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" in concept list, but not found in ' + Renderer.renderCoded(cs)+": "+loc.message, this.FIndentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" in concept list, but not found in ' + Renderer.renderCoded(cs)+": "+loc.message, this.indentCount);
         }
       }
     }
@@ -1611,19 +1612,19 @@ class ValueSetChecker {
         if (loc != null && !(typeof loc === 'string')) {
           await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
           if (!(abstractOk || !cs.IsAbstract(loc))) {
-            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.FIndentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
             if (!this.params.membershipOnly) {
               op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
             }
           } else if (this.excludeInactives() && await cs.isInactive(loc)) {
             result = false;
-            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.FIndentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
             if (!this.params.membershipOnly) {
               inactive.value = true;
               vstatus.value = await cs.getStatus(loc);
             }
           } else {
-            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
             if (vcc !== null) {
               if (!vcc.coding) { vcc.coding = []}
               vcc.coding.push( { system : cs.system(), version: cs.version(), code: await cs.code(loc), display: displays.preferredDisplay(this.params.workingLanguages())});
@@ -1632,10 +1633,10 @@ class ValueSetChecker {
             return result;
           }
         } else if (loc != null) {
-          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+ ": "+loc, this.FIndentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+ ": "+loc, this.indentCount);
           messages.push(loc);
         } else {
-          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
         }
       } else {
         result = true;
@@ -1647,12 +1648,12 @@ class ValueSetChecker {
             if (loc !== null) {
               await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
               if (!(abstractOk || !cs.IsAbstract(loc))) {
-                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + '' + fc.op + '' + fc.value + '": Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.FIndentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + '' + fc.op + '' + fc.value + '": Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
                 if (!this.params.membershipOnly) {
                   op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
                 }
               } else {
-                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
                 if (vcc !== null) {
                   vcc.addCoding(cs.system(), cs.version(), await cs.code(loc), displays.preferredDisplay(this.params.workingLanguages()));
                 }
@@ -1661,7 +1662,7 @@ class ValueSetChecker {
               }
             } else {
               result = false;
-              this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+              this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
             }
           } else if (fc.property === 'concept' && fc.op === 'is-not-a') {
             let loc = await cs.locateIsA(code, fc.value);
@@ -1672,19 +1673,19 @@ class ValueSetChecker {
               if (loc !== null) {
                 await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
                 if (!(abstractOk || !cs.IsAbstract(loc))) {
-                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.FIndentCount);
+                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
                   if (!this.params.membershipOnly) {
                     op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
                   }
                 } else if (this.excludeInactives() && await cs.isInactive(loc)) {
-                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.FIndentCount);
+                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
                   result = false;
                   if (!this.params.membershipOnly) {
                     inactive.value = true;
                     vstatus.value = await cs.getStatus(loc);
                   }
                 } else {
-                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
                   if (vcc !== null) {
                     vcc.addCoding(cs.system(), cs.version(), await cs.code(loc), displays.preferredDisplay(this.params.workingLanguages()));
                   }
@@ -1693,7 +1694,7 @@ class ValueSetChecker {
                 }
               }
             } else {
-              this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+              this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
             }
           } else {
             let ctxt = filters[i];
@@ -1702,19 +1703,19 @@ class ValueSetChecker {
             if (!(typeof loc === 'string')) {
               await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
               if (!(abstractOk || !cs.IsAbstract(loc))) {
-                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.FIndentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
                 if (!this.params.membershipOnly) {
                   op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
                 }
               } else if (this.excludeInactives() && await cs.isInactive(loc)) {
-                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.FIndentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
                 result = false;
                 if (!this.params.membershipOnly) {
                   inactive.value = true;
                   vstatus.value = await cs.getStatus(loc);
                 }
               } else {
-                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.FIndentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
                 if (vcc !== null) {
                   vcc.addCoding(cs.system(), cs.version(), await cs.code(loc), displays.preferredDisplay(this.params.workingLanguages()));
                 }
@@ -1722,7 +1723,7 @@ class ValueSetChecker {
                 return result;
               }
             } else {
-              this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+": "+loc, this.FIndentCount);
+              this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+": "+loc, this.indentCount);
             }
           }
           if (!result) {

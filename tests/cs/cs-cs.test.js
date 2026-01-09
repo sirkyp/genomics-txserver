@@ -1233,116 +1233,139 @@ describe('FHIR CodeSystem Provider', () => {
     describe('extendLookup()', () => {
       test('should extend lookup with basic properties', async () => {
         const locateResult = await simpleProvider.locate('code1');
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(locateResult.context, [], params);
+        await simpleProvider.extendLookup(locateResult.context, [], paramSet);
 
-        expect(params.abstract).toBe(false);
-        expect(params.designation).toBeDefined();
-        expect(Array.isArray(params.designation)).toBe(true);
-        expect(params.designation.length).toBeGreaterThan(0);
+        // Find property parameter
+        const propertyParam = paramSet.find(p => p.name === 'property');
+        expect(propertyParam).toBeDefined();
+        expect(propertyParam.part).toBeDefined();
 
-        // Should have the main display designation
-        const mainDesignation = params.designation.find(d => d.value === 'Display 1');
-        expect(mainDesignation).toBeDefined();
       });
 
       test('should include properties when requested', async () => {
         const locateResult = await simpleProvider.locate('code1');
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(locateResult.context, ['property'], params);
+        await simpleProvider.extendLookup(locateResult.context, ['property'], paramSet);
 
-        expect(params.property).toBeDefined();
-        expect(Array.isArray(params.property)).toBe(true);
+        // Find property parameters
+        const properties = paramSet.filter(p => p.name === 'property');
+        expect(properties.length).toBeGreaterThan(0);
 
         // Should have the 'prop' property
-        const propProperty = params.property.find(p => p.code === 'prop');
+        const propProperty = properties.find(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'prop';
+        });
         expect(propProperty).toBeDefined();
-        expect(propProperty.valueCode).toBe('old');
+        const valuePart = propProperty.part?.find(part => part.name === 'value');
+        expect(valuePart?.valueCode).toBe('old');
       });
 
       test('should include parent when requested', async () => {
         const locateResult = await simpleProvider.locate('code2a');
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(locateResult.context, ['parent'], params);
+        await simpleProvider.extendLookup(locateResult.context, ['parent'], paramSet);
 
-        expect(params.property).toBeDefined();
-        const parentProperty = params.property.find(p => p.code === 'parent');
+        // Find property parameters
+        const properties = paramSet.filter(p => p.name === 'property');
+
+        // Find parent property
+        const parentProperty = properties.find(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'parent';
+        });
         expect(parentProperty).toBeDefined();
-        expect(parentProperty.valueCode).toBe('code2');
-        expect(parentProperty.description).toBe('Display 2');
+
+        const valuePart = parentProperty.part?.find(part => part.name === 'value');
+        expect(valuePart?.valueCode).toBe('code2');
+
+        const descPart = parentProperty.part?.find(part => part.name === 'description');
+        expect(descPart?.valueString).toBe('Display 2');
       });
 
       test('should include children when requested', async () => {
         const locateResult = await simpleProvider.locate('code2');
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(locateResult.context, ['child'], params);
+        await simpleProvider.extendLookup(locateResult.context, ['child'], paramSet);
 
-        expect(params.property).toBeDefined();
-        const childProperties = params.property.filter(p => p.code === 'child');
+        // Find property parameters
+        const properties = paramSet.filter(p => p.name === 'property');
+
+        // Find child properties
+        const childProperties = properties.filter(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'child';
+        });
         expect(childProperties.length).toBe(2);
 
-        const childCodes = childProperties.map(p => p.valueCode);
+        const childCodes = childProperties.map(p => {
+          const valuePart = p.part?.find(part => part.name === 'value');
+          return valuePart?.valueCode;
+        });
         expect(childCodes).toContain('code2a');
         expect(childCodes).toContain('code2b');
       });
 
-      test('should handle abstract concepts', async () => {
-        const locateResult = await simpleProvider.locate('code2');
-        const params = {};
-
-        await simpleProvider.extendLookup(locateResult.context, [], params);
-
-        expect(params.abstract).toBe(true); // code2 has notSelectable=true
-      });
-
       test('should handle wildcard properties', async () => {
         const locateResult = await simpleProvider.locate('code2');
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(locateResult.context, ['*'], params);
+        await simpleProvider.extendLookup(locateResult.context, ['*'], paramSet);
 
-        expect(params.abstract).toBe(true);
-        expect(params.designation).toBeDefined();
-        expect(params.property).toBeDefined();
+        const properties = paramSet.filter(p => p.name === 'property');
+        expect(properties.length).toBeGreaterThan(0);
 
         // Should have parent, children, and regular properties
-        const parentProp = params.property.find(p => p.code === 'parent');
+        const parentProp = properties.find(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'parent';
+        });
         expect(parentProp).toBeUndefined(); // code2 is root, no parent
 
-        const childProps = params.property.filter(p => p.code === 'child');
+        const childProps = properties.filter(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'child';
+        });
         expect(childProps.length).toBe(2);
       });
 
       test('should handle specific property requests', async () => {
         const locateResult = await simpleProvider.locate('code2a');
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(locateResult.context, ['designation', 'parent'], params);
+        await simpleProvider.extendLookup(locateResult.context, ['parent'], paramSet);
 
-        expect(params.designation).toBeDefined();
-        expect(params.property).toBeDefined();
+        const properties = paramSet.filter(p => p.name === 'property');
 
         // Should have parent but not children (not requested)
-        const parentProp = params.property.find(p => p.code === 'parent');
+        const parentProp = properties.find(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'parent';
+        });
         expect(parentProp).toBeDefined();
 
-        const childProps = params.property.filter(p => p.code === 'child');
+        const childProps = properties.filter(p => {
+          const codePart = p.part?.find(part => part.name === 'code');
+          return codePart?.valueCode === 'child';
+        });
         expect(childProps.length).toBe(0);
       });
 
       test('should handle invalid context gracefully', async () => {
-        const params = {};
+        const paramSet = [];
 
-        await simpleProvider.extendLookup(null, [], params);
+        await simpleProvider.extendLookup(null, [], paramSet);
 
         // Should not crash, params should remain empty or minimal
-        expect(params).toBeDefined();
+        expect(paramSet).toBeDefined();
       });
     });
+
     describe('Filter Implementation', () => {
       let simpleProvider, deProvider, extensionsProvider;
       let filterContext;

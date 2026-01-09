@@ -712,6 +712,28 @@ class CodeSystemFactoryProvider {
   async buildKnownValueSet(url, version) {
     return null;
   }
+
+  /**
+   * build and return a known concept map from the URL, if there is one.
+   *
+   * @param url
+   * @param version
+   * @returns {ConceptMap}
+   */
+  async findImplicitConceptMaps(conceptMaps, source, dest) {
+    return null;
+  }
+
+  /**
+   * build and return a known concept map from the URL, if there is one.
+   *
+   * @param url
+   * @param version
+   * @returns {ConceptMap}
+   */
+  async findImplicitConceptMap(url, version) {
+    return null;
+  }
 }
 
 module.exports = {

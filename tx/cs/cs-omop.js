@@ -2,7 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const assert = require('assert');
 const { CodeSystem } = require('../library/codesystem');
 const { CodeSystemProvider, FilterExecutionContext, CodeSystemFactoryProvider } = require('./cs-api');
-const {validateOptionalParameter} = require("../../library/utilities");
+const {validateOptionalParameter, validateArrayParameter} = require("../../library/utilities");
+const {ConceptMap} = require("../library/conceptmap");
 
 class OMOPConcept {
   constructor(code, display, domain, conceptClass, standard, vocabulary) {
@@ -148,6 +149,10 @@ class OMOPServices extends CodeSystemProvider {
     return this._version;
   }
 
+  name() {
+    return `OMOP Concepts`;
+  }
+
   description() {
     return `OMOP Concepts, release ${this._version}`;
   }
@@ -248,7 +253,9 @@ class OMOPServices extends CodeSystemProvider {
   }
 
   async extendLookup(ctxt, props, params) {
-    
+    validateArrayParameter(props, 'props', String);
+    validateArrayParameter(params, 'params', Object);
+
 
     if (typeof ctxt === 'string') {
       const located = await this.locate(ctxt);
@@ -264,22 +271,22 @@ class OMOPServices extends CodeSystemProvider {
 
     // Add basic properties
     if (this.#hasProp(props, 'domain-id', true)) {
-      this.#addProperty(params, 'property', 'domain-id', ctxt.domain);
+      this.#addCodeProperty(params, 'property', 'domain-id', ctxt.domain);
     }
     if (this.#hasProp(props, 'concept-class-id', true)) {
-      this.#addProperty(params, 'property', 'concept-class-id', ctxt.conceptClass);
+      this.#addCodeProperty(params, 'property', 'concept-class-id', ctxt.conceptClass);
     }
     if (this.#hasProp(props, 'standard-concept', true)) {
-      this.#addProperty(params, 'property', 'standard-concept', ctxt.standard);
+      this.#addCodeProperty(params, 'property', 'standard-concept', ctxt.standard);
     }
     if (this.#hasProp(props, 'vocabulary-id', true)) {
-      this.#addProperty(params, 'property', 'vocabulary-id', ctxt.vocabulary);
+      this.#addStringProperty(params, 'property', 'vocabulary-id', ctxt.vocabulary);
     }
 
     // Add synonyms as designations
     const synonyms = await this.#getSynonyms(ctxt.code);
     for (const synonym of synonyms) {
-      this.#addProperty(params, 'designation', 'synonym', synonym.value, synonym.language);
+      this.#addStringProperty(params, 'designation', 'synonym', synonym.value, synonym.language);
     }
 
     // Add extended properties from database
@@ -298,25 +305,26 @@ class OMOPServices extends CodeSystemProvider {
           reject(err);
         } else if (row) {
           if (this.#hasProp(props, 'concept-class-concept-id', true)) {
-            this.#addProperty(params, 'property', 'concept-class-concept-id', row.concept_class_id);
+            this.#addCodeProperty(params, 'property', 'concept-class-concept-id', row.concept_class_id);
           }
           if (this.#hasProp(props, 'domain-concept-id', true)) {
-            this.#addProperty(params, 'property', 'domain-concept-id', row.domain_id);
+            this.#addCodeProperty(params, 'property', 'domain-concept-id', row.domain_id);
           }
           if (this.#hasProp(props, 'valid-start-date', true) && row.valid_start_date) {
-            this.#addProperty(params, 'property', 'valid-start-date', row.valid_start_date);
+            this.#addDateProperty(params, 'property', 'valid-start-date', row.valid_start_date);
           }
           if (this.#hasProp(props, 'valid-end-date', true) && row.valid_end_date) {
-            this.#addProperty(params, 'property', 'valid-end-date', row.valid_end_date);
+            this.#addDateProperty(params, 'property', 'valid-end-date', row.valid_end_date);
           }
           if (this.#hasProp(props, 'source-concept-code', true) && row.concept_code && getUri(row.vocabulary_id)) {
-            this.#addProperty(params, 'property', 'source-concept-code', `${getUriOrError(row.vocabulary_id)}|${row.concept_code}`);
+            this.#addCodingProperty(params, 'property', 'source-concept-code',
+              getUriOrError(row.vocabulary_id), row.concept_code);
           }
           if (this.#hasProp(props, 'vocabulary-concept-id', true)) {
-            this.#addProperty(params, 'property', 'vocabulary-concept-id', row.vocabulary_id);
+            this.#addCodeProperty(params, 'property', 'vocabulary-concept-id', row.vocabulary_id);
           }
           if (this.#hasProp(props, 'invalid-reason', true) && row.invalid_reason) {
-            this.#addProperty(params, 'property', 'invalid-reason', row.invalid_reason);
+            this.#addStringProperty(params, 'property', 'invalid-reason', row.invalid_reason);
           }
           resolve();
         } else {
@@ -346,8 +354,8 @@ class OMOPServices extends CodeSystemProvider {
           for (const row of rows) {
             seenConcepts.add(row.concept_id);
             if (this.#hasProp(props, row.relationship_id, true)) {
-              this.#addProperty(params, 'property', row.relationship_id,
-                `${this.system()}|${row.concept_id}|${row.concept_name}`);
+              this.#addCodingProperty(params, 'property', row.relationship_id,
+                this.system(), row.concept_id, row.concept_name);
             }
           }
           resolve();
@@ -372,8 +380,8 @@ class OMOPServices extends CodeSystemProvider {
           for (const row of rows) {
             if (!seenConcepts.has(row.concept_id)) {
               if (this.#hasProp(props, row.reverse_relationship_id, true)) {
-                this.#addProperty(params, 'property', row.reverse_relationship_id,
-                  `${this.system()}|${row.concept_id}|${row.concept_name}`);
+                this.#addCodingProperty(params, 'property', row.reverse_relationship_id,
+                  this.system(), row.concept_id, row.concept_name);
               }
             }
           }
@@ -383,11 +391,7 @@ class OMOPServices extends CodeSystemProvider {
     });
   }
 
-  #addProperty(params, type, name, value, language = null) {
-    if (!params.parameter) {
-      params.parameter = [];
-    }
-
+  #addStringProperty(params, type, name, value, language = null) {
     const property = {
       name: type,
       part: [
@@ -400,7 +404,64 @@ class OMOPServices extends CodeSystemProvider {
       property.part.push({ name: 'language', valueCode: language });
     }
 
-    params.parameter.push(property);
+    params.push(property);
+  }
+
+  #addDateProperty(params, type, name, value, language = null) {
+    value = String(value);
+    if (value && value.length === 8 && !value.includes('-')) {
+      value = value.substring(0, 4) + '-' + value.substring(4, 6) + '-' + value.substring(6, 8);
+    }
+
+    const property = {
+      name: type,
+      part: [
+        { name: 'code', valueCode: name },
+        { name: 'value', valueDate: value }
+      ]
+    };
+
+    if (language) {
+      property.part.push({ name: 'language', valueCode: language });
+    }
+
+    params.push(property);
+  }
+
+  #addCodingProperty(params, type, name, system, code, display = undefined) {
+    const valueCoding = {
+      system: system,
+      code: String(code)
+    };
+
+    if (display !== undefined) {
+      valueCoding.display = display;
+    }
+    const property = {
+      name: type,
+      part: [
+        { name: 'code', valueCode: name },
+        { name: 'value', valueCoding:  valueCoding }
+      ]
+    };
+
+    params.push(property);
+  }
+
+  #addCodeProperty(params, type, name, value, language = null) {
+    const property = {
+      name: type,
+      part: [
+        { name: 'code', valueCode: name },
+        { name: 'value', valueCode: String(value) } // Ensure value is always a string
+      ]
+    };
+
+    if (language) {
+      property.part.push({ name: 'language', valueCode: language });
+    }
+
+    params.push(property);
   }
 
   #hasProp(props, name, defaultValue) {
@@ -627,7 +688,7 @@ class OMOPServices extends CodeSystemProvider {
             uri: target,
             code: row.concept_code,
             display: row.concept_name,
-            equivalence: 'equivalent',
+            relationship: 'equivalent',
             map: `${this.system()}/ConceptMap/to-${vocabId}|${this._version}`
           }));
           resolve(translations);
@@ -883,6 +944,66 @@ class OMOPServicesFactory extends CodeSystemFactoryProvider {
     } catch (e) {
       return `Database error: ${e.message}`;
     }
+  }
+
+
+  /**
+   * build and return a known concept map from the URL, if there is one.
+   *
+   * @param url
+   * @param version
+   * @returns {ConceptMap}
+   */
+  async findImplicitConceptMaps(conceptMaps, source, dest) {
+    if (source == 'https://fhir-terminology.ohdsi.org') {
+      let key = this.#getVocabId(dest);
+      if (key) {
+        conceptMaps.push(new ConceptMap(this.makeCM(source, dest, key)));
+      }
+    } else if (dest == 'https://fhir-terminology.ohdsi.org') {
+      let key = this.#getVocabId(source);
+      if (key) {
+        conceptMaps.push(new ConceptMap(this.makeCM(source, dest, key)));
+      }
+    } else {
+      // nothing
+    }
+  }
+
+  async findImplicitConceptMap(url, version) {
+    return null;
+  }
+
+  #getVocabId(url) {
+    const vocabMap = {
+      'http://hl7.org/fhir/sid/icd-9-cm': 5046,
+      'http://snomed.info/sct': 44819097,
+      'http://hl7.org/fhir/sid/icd-10-cm': 44819098,
+      // 'http://hl7.org/fhir/sid/icd-9-cm': 44819099, // duplicate - using first value
+      'http://www.ama-assn.org/go/cpt': 44819100,
+      'http://terminology.hl7.org/CodeSystem/HCPCS-all-codes': 44819101,
+      'http://loinc.org': 44819102,
+      'http://www.nlm.nih.gov/research/umls/rxnorm': 44819104,
+      'http://hl7.org/fhir/sid/ndc': 44819105,
+      'http://unitsofmeasure.org': 44819107,
+      'http://nucc.org/provider-taxonomy': 44819137,
+      'http://www.whocc.no/atc': 44819117
+    };
+
+    return vocabMap[url];
+  }
+
+  makeCM(source, dest, key) {
+    return {
+      resourceType: 'ConceptMap',
+      internalSource: this,
+      url: this.system() + '/ConceptMap/' + key,
+      status: 'active',
+      group: [{
+        source: source,
+        target: dest
+      }]
+    };
   }
 }
 

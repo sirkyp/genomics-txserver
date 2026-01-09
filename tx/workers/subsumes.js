@@ -9,6 +9,11 @@
 
 const { TerminologyWorker } = require('./worker');
 const { FhirCodeSystemProvider } = require('../cs/cs-cs');
+const {TxParameters} = require("../params");
+const {Parameters} = require("../library/parameters");
+const {Issue, OperationOutcome} = require("../library/operation-outcome");
+
+const DEBUG_LOGGING = true;
 
 class SubsumesWorker extends TerminologyWorker {
   /**
@@ -40,18 +45,19 @@ class SubsumesWorker extends TerminologyWorker {
     try {
       await this.handleTypeLevelSubsumes(req, res);
     } catch (error) {
-      this.log.error(`Error in $subsumes: ${error.message}`);
-      console.error('$lookup error:', error); // Full stack trace for debugging
-      const statusCode = error.statusCode || 500;
-      const issueCode = error.issueCode || 'exception';
-      return res.status(statusCode).json({
-        resourceType: 'OperationOutcome',
-        issue: [{
-          severity: 'error',
-          code: issueCode,
-          diagnostics: error.message
-        }]
-      });
+      this.log.error(`Error in CodeSystem $validate-code: ${error.message}`);
+      if (DEBUG_LOGGING) {
+        console.log('CodeSystem $validate-code error:', error);
+        console.log(error);
+      }
+      if (error instanceof Issue) {
+        let oo = new OperationOutcome();
+        oo.addIssue(error);
+        return res.status(error.statusCode || 500).json(oo.jsonObj);
+      } else {
+        return res.status(error.statusCode || 500).json(this.operationOutcome(
+          'error', error.issueCode || 'exception', error.message));
+      }
     }
   }
 
@@ -65,18 +71,19 @@ class SubsumesWorker extends TerminologyWorker {
     try {
       await this.handleInstanceLevelSubsumes(req, res);
     } catch (error) {
-      this.log.error(`Error in $subsumes: ${error.message}`);
-      console.error('$lookup error:', error); // Full stack trace for debugging
-      const statusCode = error.statusCode || 500;
-      const issueCode = error.issueCode || 'exception';
-      return res.status(statusCode).json({
-        resourceType: 'OperationOutcome',
-        issue: [{
-          severity: 'error',
-          code: issueCode,
-          diagnostics: error.message
-        }]
-      });
+      this.log.error(`Error in CodeSystem $validate-code: ${error.message}`);
+      if (DEBUG_LOGGING) {
+        console.log('CodeSystem $validate-code error:', error);
+        console.log(error);
+      }
+      if (error instanceof Issue) {
+        let oo = new OperationOutcome();
+        oo.addIssue(error);
+        return res.status(error.statusCode || 500).json(oo.jsonObj);
+      } else {
+        return res.status(error.statusCode || 500).json(this.operationOutcome(
+          'error', error.issueCode || 'exception', error.message));
+      }
     }
   }
 
@@ -93,63 +100,51 @@ class SubsumesWorker extends TerminologyWorker {
     }
 
     // Parse parameters from request
-    const params = this.parseParameters(req);
+    const params = new Parameters(this.parseParameters(req));
+    const txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n);
+    txp.readParams(params.jsonObj);
 
     // Get the codings and code system provider
     let codingA, codingB;
     let csProvider;
 
-    if (params.codingA && params.codingB) {
+    if (params.has('codingA') && params.has('codingB')) {
       // Using codingA and codingB (only from Parameters resource)
-      codingA = params.codingA;
-      codingB = params.codingB;
+      codingA = params.get('codingA');
+      codingB = params.get('codingB');
 
       // Codings must have the same system
       if (codingA.system !== codingB.system) {
-        return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'codingA and codingB must have the same system'));
+        throw new Issue('error', 'not-found', null, null, 'codingA and codingB must have the same system', null, 400);
       }
-
       // Get the code system provider from the coding's system
-      csProvider = await this.findCodeSystem(codingA.system, codingA.version || '', params, ['complete'], true);
-
-    } else if (params.codeA && params.codeB) {
+      csProvider = await this.findCodeSystem(codingA.system, codingA.version || '', txp, ['complete'], null, false);
+    } else if (params.has('codeA') && params.has('codeB')) {
       // Using codeA, codeB - system is required
-      if (!params.system) {
-        return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'system parameter is required when using codeA and codeB'));
+      if (!params.has('system')) {
+        throw new Issue('error', 'not-found', null, null, 'system parameter is required when using codeA and codeB', null, 404);
       }
 
-      csProvider = await this.findCodeSystem(params.system, params.version || '', params, ['complete'], true);
-
-      if (csProvider) {
-        // Create codings from the codes
-        codingA = {
-          system: csProvider.system(),
-          version: csProvider.version(),
-          code: params.codeA
-        };
-        codingB = {
-          system: csProvider.system(),
-          version: csProvider.version(),
-          code: params.codeB
-        };
-      }
+      csProvider = await this.findCodeSystem(params.get('system'), params.get('version') || '', txp, ['complete'], null, false);
+      // Create codings from the codes
+      codingA = {
+        system: csProvider.system(),
+        version: csProvider.version(),
+        code: params.get('codeA')
+      };
+      codingB = {
+        system: csProvider.system(),
+        version: csProvider.version(),
+        code: params.get('codeB')
+      };
 
     } else {
-      return res.status(400).json(this.operationOutcome('error', 'invalid',
-        'Must provide either codingA and codingB, or codeA and codeB with system'));
-    }
-
-    if (!csProvider) {
-      const systemUrl = params.system || params.codingA?.system;
-      return res.status(404).json(this.operationOutcome('error', 'not-found',
-        `CodeSystem not found: ${systemUrl}`));
+      throw new Issue('error', 'invalid', null, null, 'Must provide either codingA and codingB, or codeA and codeB with system', null, 400);
     }
 
     // Perform the subsumes check
     const result = await this.doSubsumes(csProvider, codingA, codingB);
-    return res.json(result);
+    return res.status(200).json(result);
   }
 
   /**
@@ -165,8 +160,7 @@ class SubsumesWorker extends TerminologyWorker {
     const codeSystem = await this.provider.getCodeSystemById(this.opContext, id);
 
     if (!codeSystem) {
-      return res.status(404).json(this.operationOutcome('error', 'not-found',
-        `CodeSystem/${id} not found`));
+      throw new Issue('error', 'not found', null, null, `CodeSystem/${id} not found`, null, 404);
     }
 
     // Handle tx-resource and cache-id parameters from Parameters resource
@@ -175,7 +169,9 @@ class SubsumesWorker extends TerminologyWorker {
     }
 
     // Parse parameters from request
-    const params = this.parseParameters(req);
+    const params = new Parameters(this.parseParameters(req));
+    const txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n);
+    txp.readParams(params.jsonObj);
 
     // Load any supplements
     const supplements = this.loadSupplements(codeSystem.url, codeSystem.version);
@@ -186,160 +182,83 @@ class SubsumesWorker extends TerminologyWorker {
     // Get the codings
     let codingA, codingB;
 
-    if (params.codingA && params.codingB) {
-      codingA = params.codingA;
-      codingB = params.codingB;
-    } else if (params.codeA && params.codeB) {
+    if (params.has('codingA') && params.has('codingB')) {
+      codingA = params.get('codingA');
+      codingB = params.get('codingB');
+    } else if (params.has('codeA') && params.has('codeB')) {
       // Create codings from the codes using this CodeSystem
       codingA = {
         system: csProvider.system(),
         version: csProvider.version(),
-        code: params.codeA
+        code: params.get('codeA')
       };
       codingB = {
         system: csProvider.system(),
         version: csProvider.version(),
-        code: params.codeB
+        code: params.get('codeB')
       };
     } else {
-      return res.status(400).json(this.operationOutcome('error', 'invalid',
-        'Must provide either codingA and codingB, or codeA and codeB'));
+      throw new Issue('error', 'invalid', null, null, 'Must provide either codingA and codingB, or codeA and codeB with system', null, 400);
     }
 
     // Perform the subsumes check
     const result = await this.doSubsumes(csProvider, codingA, codingB);
     return res.json(result);
   }
-
   /**
    * Parse parameters from request (query params, form body, or Parameters resource)
+   * Returns a FHIR Parameters resource
    * @param {express.Request} req - Express request
-   * @returns {Object} Parsed parameters
+   * @returns {Object} FHIR Parameters resource
    */
   parseParameters(req) {
-    const result = {
-      codeA: null,
-      codeB: null,
-      system: null,
-      version: null,
-      codingA: null,
-      codingB: null
-    };
-
     // Check if body is a Parameters resource
     if (req.body && req.body.resourceType === 'Parameters') {
-      this.parseParametersResource(req.body, result);
-    } else {
-      // Parse from query params or form body
-      const params = req.method === 'POST' ? req.body : req.query;
-      this.parseSimpleParameters(params, result);
+      return req.body;
+    }
+
+    // Parse from query params or form body and convert to Parameters resource
+    const params = req.method === 'POST' ? req.body : req.query;
+    return this.simpleParamsToParametersResource(params);
+  }
+
+  /**
+   * Convert simple parameters (query string or form body) to a FHIR Parameters resource
+   * @param {Object} params - Query params or form body
+   * @returns {Object} FHIR Parameters resource
+   */
+  simpleParamsToParametersResource(params) {
+    const result = {
+      resourceType: 'Parameters',
+      parameter: []
+    };
+
+    if (!params) {
+      return result;
+    }
+
+    for (const [name, value] of Object.entries(params)) {
+      if (value === undefined || value === null) {
+        continue;
+      }
+
+      // Handle arrays (e.g., repeated query params)
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          result.parameter.push({
+            name: name,
+            valueString: String(v)
+          });
+        }
+      } else {
+        result.parameter.push({
+          name: name,
+          valueString: String(value)
+        });
+      }
     }
 
     return result;
-  }
-
-  /**
-   * Parse parameters from a FHIR Parameters resource
-   * @param {Object} parametersResource - The Parameters resource
-   * @param {Object} result - Result object to populate
-   */
-  parseParametersResource(parametersResource, result) {
-    if (!parametersResource.parameter || !Array.isArray(parametersResource.parameter)) {
-      return;
-    }
-
-    for (const param of parametersResource.parameter) {
-      if (!param.name) continue;
-
-      const name = param.name;
-
-      switch (name) {
-        case 'codeA':
-          result.codeA = this.extractParameterValue(param, name);
-          break;
-        case 'codeB':
-          result.codeB = this.extractParameterValue(param, name);
-          break;
-        case 'system':
-          result.system = this.extractParameterValue(param, name);
-          break;
-        case 'version':
-          result.version = this.extractParameterValue(param, name);
-          break;
-        case 'codingA':
-          if (param.valueCoding) {
-            result.codingA = param.valueCoding;
-          } else {
-            this.opContext.log(`Parameter 'codingA' should be valueCoding, got different type`);
-          }
-          break;
-        case 'codingB':
-          if (param.valueCoding) {
-            result.codingB = param.valueCoding;
-          } else {
-            this.opContext.log(`Parameter 'codingB' should be valueCoding, got different type`);
-          }
-          break;
-        default:
-          // Unknown parameter - ignore
-          break;
-      }
-    }
-  }
-
-  /**
-   * Extract value from a parameter, being lenient about types
-   * @param {Object} param - Parameter object from Parameters resource
-   * @param {string} name - Parameter name (for logging)
-   * @returns {*} Extracted value or null
-   */
-  extractParameterValue(param, name) {
-    // Expected types for each parameter
-    const expectedTypes = {
-      codeA: 'valueCode',
-      codeB: 'valueCode',
-      system: 'valueUri',
-      version: 'valueString'
-    };
-
-    const expectedType = expectedTypes[name];
-
-    // Check for the expected type first
-    if (expectedType && param[expectedType] !== undefined) {
-      return param[expectedType];
-    }
-
-    // Be lenient - accept any primitive value type
-    const valueTypes = [
-      'valueString', 'valueCode', 'valueUri', 'valueCanonical',
-      'valueDateTime', 'valueDate', 'valueBoolean', 'valueInteger',
-      'valueDecimal', 'valueId', 'valueOid', 'valueUuid', 'valueUrl'
-    ];
-
-    for (const valueType of valueTypes) {
-      if (param[valueType] !== undefined) {
-        if (expectedType && valueType !== expectedType) {
-          this.opContext.log(`Parameter '${name}' expected ${expectedType}, got ${valueType}`);
-        }
-        return param[valueType];
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Parse simple parameters from query string or form body
-   * @param {Object} params - Query params or form body
-   * @param {Object} result - Result object to populate
-   */
-  parseSimpleParameters(params, result) {
-    if (!params) return;
-
-    if (params.codeA) result.codeA = params.codeA;
-    if (params.codeB) result.codeB = params.codeB;
-    if (params.system) result.system = params.system;
-    if (params.version) result.version = params.version;
   }
 
   /**

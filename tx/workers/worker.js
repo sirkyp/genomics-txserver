@@ -5,6 +5,7 @@ const {VersionUtilities} = require("../../library/version-utilities");
 const {getValuePrimitive} = require("../../library/utilities");
 const {Issue} = require("../library/operation-outcome");
 const {Languages} = require("../../library/languages");
+const {ConceptMap} = require("../library/conceptmap");
 
 /**
  * Custom error for terminology setup issues
@@ -164,13 +165,13 @@ class TerminologyWorker {
 
     if (!provider && !nullOk) {
       if (!version) {
-        throw new Issue("error", "not-found", null, "UNKNOWN_CODESYSTEM_EXP", this.i18n.translate("UNKNOWN_CODESYSTEM_EXP", params.FHTTPLanguages, [url]), "not-found", 400);
+        throw new Issue("error", "not-found", null, "UNKNOWN_CODESYSTEM_EXP", this.i18n.translate("UNKNOWN_CODESYSTEM_EXP", params.FHTTPLanguages, [url]), "not-found", 404);
       } else {
         const versions = await this.listVersions(url);
         if (versions.length === 0) {
-          throw new Issue("error", "not-found", null, "UNKNOWN_CODESYSTEM_VERSION_EXP_NONE", this.i18n.translate("UNKNOWN_CODESYSTEM_VERSION_EXP_NONE", params.FHTTPLanguages, [url, version]), "not-found", 400);
+          throw new Issue("error", "not-found", null, "UNKNOWN_CODESYSTEM_VERSION_EXP_NONE", this.i18n.translate("UNKNOWN_CODESYSTEM_VERSION_EXP_NONE", params.FHTTPLanguages, [url, version]), "not-found", 404);
         } else {
-          throw new Issue("error", "not-found", null, "UNKNOWN_CODESYSTEM_VERSION_EXP", this.i18n.translate("UNKNOWN_CODESYSTEM_VERSION_EXP", params.FHTTPLanguages, [url, version, versions.join(', ')]), "not-found", 400);
+          throw new Issue("error", "not-found", null, "UNKNOWN_CODESYSTEM_VERSION_EXP", this.i18n.translate("UNKNOWN_CODESYSTEM_VERSION_EXP", params.FHTTPLanguages, [url, version, versions.join(', ')]), "not-found", 404);
         }
       }
     }
@@ -558,6 +559,9 @@ class TerminologyWorker {
     }
     if (resource.resourceType === 'ValueSet') {
       return new ValueSet(resource);
+    }
+    if (resource.resourceType === 'ConceptMap') {
+      return new ConceptMap(resource);
     }
     return null;
   }
