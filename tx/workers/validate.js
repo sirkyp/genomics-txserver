@@ -25,7 +25,7 @@ const {ValueSetExpander} = require("./expand");
 const {FhirCodeSystemProvider} = require("../cs/cs-cs");
 const {CodeSystem} = require("../library/codesystem");
 
-const DEBUG_LOGGING = false;
+const DEBUG_LOGGING = true;
 const DEV_IGNORE_VALUESET = false; // todo: what's going on with this (ported from pascal)
 
 /**
@@ -1210,10 +1210,10 @@ class ValueSetChecker {
                   ['', prov.system, c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
               } else if (dc === 1) {
                 m = this.worker.i18n.translate(baseMsg + '_one', this.params.HTTPLanguages,
-                  ['', prov.system, c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
+                  ['', prov.system(), c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
               } else {
                 m = this.worker.i18n.translate(baseMsg + '_other', this.params.HTTPLanguages,
-                  [dc.toString(), prov.system, c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
+                  [dc.toString(), prov.system(), c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
               }
               msg(m);
               op.addIssue(new Issue(severity, 'invalid', addToPath(path, 'display'), baseMsg, m, 'invalid-display'));
@@ -1882,7 +1882,7 @@ class ValidateWorker extends TerminologyWorker {
       coded = this.extractCodedValue(params,  true, mode);
       if (!coded) {
         return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'No code to validate - provide code, coding, or codeableConcept parameter'));
+          'Unable to find code to validate (looked for coding | codeableConcept | code in parameters =codingX:Coding)'));
       }
 
       // Get the CodeSystem - from parameter or by url
@@ -1961,7 +1961,7 @@ class ValidateWorker extends TerminologyWorker {
       const coded = this.extractCodedValue(params, true, mode);
       if (!coded) {
         return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'No code to validate - provide code, coding, or codeableConcept parameter'));
+          'Unable to find code to validate (looked for coding | codeableConcept | code in parameters =codingX:Coding)'));
       }
 
       // Perform validation
@@ -1991,30 +1991,7 @@ class ValidateWorker extends TerminologyWorker {
       this.addHttpParams(req, params);
       this.log.debug('ValueSet $validate-code with params:', params);
 
-      // Handle tx-resource and cache-id parameters
-      this.setupAdditionalResources(params);
-
-      let txp = new TxParameters(this.languages, this.i18n, true);
-      txp.readParams(params);
-
-      // Get the ValueSet - from parameter or by url
-      const valueSet = await this.resolveValueSet(params, txp);
-      if (!valueSet) {
-        return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'No ValueSet specified - provide url parameter or valueSet resource'));
-      }
-
-      // Extract coded value
-
-      let mode = { mode : null };
-      const coded = this.extractCodedValue(params, false, mode);
-      if (!coded) {
-        return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'No code to validate - provide code, coding, or codeableConcept parameter'));
-      }
-
-      // Perform validation
-      const result = await this.doValidationVS(coded, valueSet, txp, mode.mode, mode.issuePath);
+      const result = await this.handleValueSetInner(params);
       if (DEBUG_LOGGING) {
         console.dir(result, {depth: null});
       }
@@ -2036,6 +2013,30 @@ class ValidateWorker extends TerminologyWorker {
     }
   }
 
+  async handleValueSetInner(params) {
+    // Handle tx-resource and cache-id parameters
+    this.setupAdditionalResources(params);
+
+    let txp = new TxParameters(this.languages, this.i18n, true);
+    txp.readParams(params);
+
+    // Get the ValueSet - from parameter or by url
+    const valueSet = await this.resolveValueSet(params, txp);
+    if (!valueSet) {
+      throw new Issue("error", "invalid", null, null, 'No ValueSet specified - provide url parameter or valueSet resource', null, 400);
+    }
+
+    // Extract coded value
+
+    let mode = { mode : null };
+    const coded = this.extractCodedValue(params, false, mode);
+    if (!coded) {
+      throw new Issue("error", "invalid", null, null, 'Unable to find code to validate (looked for coding | codeableConcept | code in parameters =codingX:Coding)', null, 400);
+    }
+
+    // Perform validation
+    return await this.doValidationVS(coded, valueSet, txp, mode.mode, mode.issuePath);
+  }
   /**
    * Handle an instance-level ValueSet $validate-code request
    * GET/POST /ValueSet/{id}/$validate-code
@@ -2064,7 +2065,7 @@ class ValidateWorker extends TerminologyWorker {
       const coded = this.extractCodedValue(params, false, mode);
       if (!coded) {
         return res.status(400).json(this.operationOutcome('error', 'invalid',
-          'No code to validate - provide code, coding, or codeableConcept parameter'));
+          'Unable to find code to validate (looked for coding | codeableConcept | code in parameters =codingX:Coding)'));
       }
 
       // Perform validation
@@ -2304,7 +2305,7 @@ class ValidateWorker extends TerminologyWorker {
       if (DEBUG_LOGGING) {
         console.log(error);
       }
-      if (error.isHandleAsOO()) {
+      if (!(error instanceof Issue) || error.isHandleAsOO()) {
         throw error;
       } else {
         return this.handlePrepareError(error, coded, mode);

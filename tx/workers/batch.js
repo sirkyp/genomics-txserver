@@ -28,7 +28,7 @@ class BatchWorker extends TerminologyWorker {
    * @returns {string}
    */
   opName() {
-    return 'batch';
+    return 'batch-validate-code';
   }
 
   /**

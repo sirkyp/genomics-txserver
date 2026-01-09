@@ -24,7 +24,7 @@ const LookupWorker = require('./workers/lookup');
 const SubsumesWorker = require('./workers/subsumes');
 const ClosureWorker = require('./workers/closure');
 const { MetadataHandler } = require('./workers/metadata');
-const BatchWorker = require('./workers/batch');
+const { BatchValidateWorker } = require('./workers/batch-validate');
 
 class TXModule {
   constructor() {
@@ -305,6 +305,15 @@ class TXModule {
       worker.handleCodeSystem(req, res);
     });
 
+    // CodeSystem/$batch-validate-code (GET and POST)
+    router.get('/CodeSystem/\\$batch-validate-code', (req, res) => {
+      let worker = new BatchValidateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handleCodeSystem(req, res);
+    });
+    router.post('/CodeSystem/\\$batch-validate-code', (req, res) => {
+      let worker = new BatchValidateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handleCodeSystem(req, res);
+    });
     // ValueSet/$validate-code (GET and POST)
     router.get('/ValueSet/\\$validate-code', (req, res) => {
       let worker = new ValidateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
@@ -312,6 +321,16 @@ class TXModule {
     });
     router.post('/ValueSet/\\$validate-code', (req, res) => {
       let worker = new ValidateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handleValueSet(req, res);
+    });
+
+    // ValueSet/$batch-validate-code (GET and POST)
+    router.get('/ValueSet/\\$batch-validate-code', (req, res) => {
+      let worker = new BatchValidateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+      worker.handleValueSet(req, res);
+    });
+    router.post('/ValueSet/\\$batch-validate-code', (req, res) => {
+      let worker = new BatchValidateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
       worker.handleValueSet(req, res);
     });
 

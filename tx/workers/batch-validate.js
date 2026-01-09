@@ -1,0 +1,120 @@
+//
+// Validate Worker - Handles $validate-code operations
+//
+// GET /CodeSystem/$validate-code?{params}
+// POST /CodeSystem/$validate-code
+// GET /CodeSystem/{id}/$validate-code?{params}
+// POST /CodeSystem/{id}/$validate-code
+// GET /ValueSet/$validate-code?{params}
+// POST /ValueSet/$validate-code
+// GET /ValueSet/{id}/$validate-code?{params}
+// POST /ValueSet/{id}/$validate-code
+//
+
+const { TerminologyWorker } = require('./worker');
+const {OperationOutcome, Issue} = require("../library/operation-outcome");
+const {Parameters} = require("../library/parameters");
+const {ValidateWorker} = require("./validate");
+
+class BatchValidateWorker extends TerminologyWorker {
+
+  globalNames = new Set();
+
+  /**
+   * @param {OperationContext} opContext - Operation context
+   * @param {Logger} log - Logger instance
+   * @param {Provider} provider - Provider for code systems and resources
+   * @param {LanguageDefinitions} languages - Language definitions
+   * @param {I18nSupport} i18n - Internationalization support
+   */
+  constructor(opContext, log, provider, languages, i18n) {
+    super(opContext, log, provider, languages, i18n);
+    this.globalNames.add("tx-resource");
+    this.globalNames.add("url");
+    this.globalNames.add("valueSet");
+    this.globalNames.add("lenient-display-validation");
+    this.globalNames.add("__Accept-Language");
+    this.globalNames.add("__Content-Language");
+  }
+
+  /**
+   * Get operation name
+   * @returns {string}
+   */
+  opName() {
+    return 'batch-validate-code';
+  }
+
+  async handleValueSet(req, res) {
+    try {
+      let params = req.body;
+      this.addHttpParams(req, params);
+
+      let globalParams = [];
+      for (const p of params.parameter) {
+        if (this.globalNames.has(p.name)) {
+          globalParams.push(p);
+        }
+      }
+
+      let output = [];
+
+      for (const p of params.parameter) {
+        if (p.name == 'validation') {
+          let op = new Parameters();
+          op.jsonObj.parameter = [];
+          for (const gp of globalParams) {
+            let exists = p.resource.parameter.find(pp => gp.name == pp.name);
+            if (gp.name == 'tx-resource' || !exists) {
+              op.jsonObj.parameter.push(gp);
+            }
+          }
+          op.jsonObj.parameter.push(...p.resource.parameter);
+
+          let worker = new ValidateWorker(this.opContext.copy(), this.log, this.provider, this.languages, this.i18n);
+          try {
+            const p = await worker.handleValueSetInner(op.jsonObj);
+            output.push({name: "validation", resource : p});
+          } catch (error) {
+            console.log(error);
+            if (error instanceof Issue) {
+              let op = new OperationOutcome();
+              op.addIssue(error);
+              output.push({name: "validation", resource : op.jsonObj});
+            } else {
+              output.push({name: "validation", resource : this.operationOutcome('error', error.issueCode || 'exception', error.message) } );
+            }
+          }
+        }
+      }
+      let result = { resourceType : "Parameters", parameter: output}
+      return res.json(result);
+    } catch (error) {
+      console.log(error);
+      return res.status(error.statusCode || 500).json(this.operationOutcome(
+        'error', error.issueCode || 'exception', error.message));
+    }
+  }
+
+  /**
+   * Build an OperationOutcome
+   */
+  operationOutcome(severity, code, message) {
+    return {
+      resourceType: 'OperationOutcome',
+      issue: [{
+        severity,
+        code,
+        details: {
+          text: message
+        },
+        diagnostics: message
+      }]
+    };
+  }
+
+}
+
+module.exports = {
+  BatchValidateWorker
+};
