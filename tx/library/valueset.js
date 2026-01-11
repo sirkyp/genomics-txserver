@@ -1,4 +1,5 @@
 const {CanonicalResource} = require("./canonical-resource");
+const {getValueName} = require("../../library/utilities");
 
 /**
  * Represents a FHIR ValueSet resource with version conversion support
@@ -49,7 +50,7 @@ class ValueSet extends CanonicalResource {
    * @returns {string} JSON string
    */
   toJSONString(version = 'R5') {
-    const outputObj = this._convertFromR5(this.jsonObj, version);
+    const outputObj = this.convertFromR5(this.jsonObj, version);
     return JSON.stringify(outputObj);
   }
 
@@ -89,7 +90,7 @@ class ValueSet extends CanonicalResource {
    * @returns {Object} New object in target version format
    * @private
    */
-  _convertFromR5(r5Obj, targetVersion) {
+  convertFromR5(r5Obj, targetVersion) {
     if (targetVersion === 'R5') {
       return r5Obj; // No conversion needed
     }
@@ -152,7 +153,58 @@ class ValueSet extends CanonicalResource {
       });
     }
 
+    if (r5Obj.expansion) {
+      let exp = r5Obj.expansion;
+
+      // Convert ValueSet.expansion.property to extensions
+      if (exp.property && exp.property.length > 0) {
+        exp.extension = exp.extension || [];
+        for (let prop of exp.property) {
+          exp.extension.push({
+            url: "http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.property",
+            extension: [
+              { url: "code", valueCode: prop.code },
+              { url: "uri", valueUri: prop.uri }
+            ]
+          });
+        }
+        delete exp.property;
+        this.convertContainsPropertyR5ToR4(exp.contains);
+
+      }
+    }
+
     return r5Obj;
+  }
+
+  // Recursive function to convert contains.property
+  convertContainsPropertyR5ToR4(containsList) {
+    if (!containsList) return;
+
+    for (let item of containsList) {
+      if (item.property && item.property.length > 0) {
+        item.extension = item.extension || [];
+        for (let prop of item.property) {
+          let ext = {
+            url: "http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property",
+            extension: [
+              { url: "code", valueCode: prop.code }
+            ]
+          };
+          let pn = getValueName(prop);
+          let subExt = { url: "value" };
+          subExt[pn] = prop[pn];
+          ext.extension.push(subExt);
+          item.extension.push(ext);
+        }
+        delete item.property;
+      }
+
+      // Recurse into nested contains
+      if (item.contains) {
+        this.convertContainsPropertyR5ToR4(item.contains);
+      }
+    }
   }
 
   /**

@@ -284,7 +284,7 @@ class BatchWorker extends TerminologyWorker {
    * @param {Object} request - Original request element
    * @returns {Object} Mock request object
    */
-  buildMockRequest(method, parsedOp, resource, request) {
+  buildMockRequest(method, parsedOp, resource) {
     return {
       method,
       params: {

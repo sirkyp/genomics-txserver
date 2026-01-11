@@ -271,7 +271,6 @@ class MetadataHandler {
    */
   async buildTerminologyCapabilities(endpoint, provider) {
     const now = new Date().toISOString();
-    const fhirVersion = this.mapFhirVersion(endpoint.fhirVersion);
     const baseUrl = this.config.baseUrl || `http://localhost${endpoint.path}`;
     const serverVersion = this.config.serverVersion || '1.0.0';
 
@@ -280,7 +279,6 @@ class MetadataHandler {
       id: this.config.id || 'FhirServer',
       url: `${baseUrl}/TerminologyCapabilities/tx`,
       version: serverVersion,
-      fhirVersion: fhirVersion,
       name: this.config.name || 'FHIRTerminologyServerCapabilities',
       title: this.config.title || 'FHIR Terminology Server Capability Statement',
       status: 'active',
@@ -302,11 +300,6 @@ class MetadataHandler {
       validateCode: this.buildValidateCodeCapabilities(),
       translation: this.buildTranslationCapabilities()
     };
-
-    // Only add closure if supported
-    if (this.config.supportsClosure !== false) {
-      tc.closure = this.buildClosureCapabilities();
-    }
 
     return tc;
   }
@@ -432,26 +425,7 @@ class MetadataHandler {
    */
   buildValidateCodeCapabilities() {
     return {
-      parameter: [
-        { name: 'cache-id' },
-        { name: 'tx-resource' },
-        { name: 'code' },
-        { name: 'system' },
-        { name: 'systemVersion' },
-        { name: 'display' },
-        { name: 'coding' },
-        { name: 'codeableConcept' },
-        { name: 'url' },
-        { name: 'valueSetVersion' },
-        { name: 'valueSet' },
-        { name: 'displayLanguage' },
-        { name: 'abstract' },
-        { name: 'inferSystem' },
-        { name: 'activeOnly' },
-        { name: 'membershipOnly' },
-        { name: 'displayWarning' },
-        { name: 'diagnostics' }
-      ]
+      "translations" : true
     };
   }
 
@@ -461,32 +435,7 @@ class MetadataHandler {
    */
   buildTranslationCapabilities() {
     return {
-      parameter: [
-        { name: 'cache-id' },
-        { name: 'tx-resource' },
-        { name: 'code' },
-        { name: 'system' },
-        { name: 'version' },
-        { name: 'coding' },
-        { name: 'codeableConcept' },
-        { name: 'source' },
-        { name: 'target' },
-        { name: 'targetSystem' },
-        { name: 'url' },
-        { name: 'conceptMap' },
-        { name: 'conceptMapVersion' },
-        { name: 'reverse' }
-      ]
-    };
-  }
-
-  /**
-   * Build closure capabilities
-   * @returns {Object} Closure capabilities object
-   */
-  buildClosureCapabilities() {
-    return {
-      translation: true
+      needsMap : false
     };
   }
 

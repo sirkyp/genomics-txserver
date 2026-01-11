@@ -11,6 +11,8 @@ const INDEXED_COLUMNS = ['id', 'url', 'version', 'date', 'description', 'name', 
  * Handles SQLite operations for indexing and searching ValueSets
  */
 class ValueSetDatabase {
+  vsCount;
+
   /**
    * @param {string} dbPath - Path to the SQLite database file
    */
@@ -344,6 +346,7 @@ class ValueSetDatabase {
           }
 
           try {
+            this.vsCount = rows.length;
             const valueSetMap = new Map();
 
             for (const row of rows) {
@@ -726,6 +729,7 @@ class ValueSetDatabase {
   assignIds(ids) {
     // nothing - we don't do any assigning.
   }
+
 }
 
 module.exports = {

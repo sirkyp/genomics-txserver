@@ -304,6 +304,11 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
   assignIds(ids) {
     // nothing - we don't do any assigning.
   }
+
+  vsCount() {
+    return this.database.vsCount;
+  }
+
 }
 
 module.exports = {

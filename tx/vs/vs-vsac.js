@@ -345,6 +345,12 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
   getLastRefreshTime() {
     return this.lastRefresh;
   }
+
+  count() {
+    return this.database.vsCount;
+  }
+
+
 }
 
 // Usage examples:

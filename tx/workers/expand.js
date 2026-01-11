@@ -1555,10 +1555,10 @@ class ExpandWorker extends TerminologyWorker {
       if (error instanceof Issue) {
         let oo = new OperationOutcome();
         oo.addIssue(error);
-        return res.status(error.statusCode || 500).json(oo.jsonObj);
+        return res.status(error.statusCode || 500).json(this.fixForVersion(oo.jsonObj));
       } else {
         const issueCode = error.issueCode || 'exception';
-        return res.status(statusCode).json({
+        return res.status(statusCode).json(this.fixForVersion({
           resourceType: 'OperationOutcome',
           issue: [{
             severity: 'error',
@@ -1568,7 +1568,7 @@ class ExpandWorker extends TerminologyWorker {
             },
             diagnostics: error.message
           }]
-        });
+        }));
       }
     }
   }
@@ -1587,7 +1587,7 @@ class ExpandWorker extends TerminologyWorker {
       console.error('$expand error:', error); // Full stack trace to console for debugging
       const statusCode = error.statusCode || 500;
       const issueCode = error.issueCode || 'exception';
-      return res.status(statusCode).json({
+      return res.status(statusCode).json(this.fixForVersion({
         resourceType: 'OperationOutcome',
         issue: [{
           severity: 'error',
@@ -1597,7 +1597,7 @@ class ExpandWorker extends TerminologyWorker {
           },
           diagnostics: error.message
         }]
-      });
+      }));
     }
   }
 
@@ -1674,7 +1674,7 @@ class ExpandWorker extends TerminologyWorker {
 
     // Perform the expansion
     const result = await this.doExpand(valueSet, txp);
-    return res.json(result);
+    return res.json(this.fixForVersion(result));
   }
 
   /**
@@ -1722,7 +1722,7 @@ class ExpandWorker extends TerminologyWorker {
 
     // Perform the expansion
     const result = await this.doExpand(valueSet, txp);
-    return res.json(result);
+    return res.json(this.fixForVersion(result));
   }
 
   // Note: setupAdditionalResources, queryToParameters, formToParameters,
@@ -1825,6 +1825,7 @@ class ExpandWorker extends TerminologyWorker {
       }]
     };
   }
+
 }
 
 module.exports = {

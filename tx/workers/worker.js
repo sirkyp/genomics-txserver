@@ -555,13 +555,13 @@ class TerminologyWorker {
    */
   wrapRawResource(resource) {
     if (resource.resourceType === 'CodeSystem') {
-      return new CodeSystem(resource);
+      return new CodeSystem(resource, this.provider.getFhirVersion());
     }
     if (resource.resourceType === 'ValueSet') {
-      return new ValueSet(resource);
+      return new ValueSet(resource, this.provider.getFhirVersion());
     }
     if (resource.resourceType === 'ConceptMap') {
-      return new ConceptMap(resource);
+      return new ConceptMap(resource, this.provider.getFhirVersion());
     }
     return null;
   }
@@ -832,123 +832,33 @@ class TerminologyWorker {
     }
     return result;
   }
-}
-
-/**
- * Code system information provider for lookup operations
- */
-class CodeSystemInformationProvider extends TerminologyWorker {
-  constructor(opContext, provider, additionalResources, languages, i18n) {
-    super(opContext, provider, additionalResources, languages, i18n);
-  }
-
-  /**
-   * Lookup a code in a code system
-   * @param {Object} coding - Coding to lookup
-   * @param {OperationParameters} profile - Operation parameters
-   * @param {Array<string>} props - Requested properties
-   * @param {Object} resp - Response object to populate
-   */
-  async lookupCode(coding, profile, props = [], resp) {
-    const params = profile || this.createDefaultParams();
-    params.defaultToLatestVersion = true;
-
-    const provider = await this.findCodeSystem(
-      coding.systemUri || coding.system,
-      coding.version,
-      profile,
-      ['complete', 'fragment'],
-      null,
-      false
-    );
-
-    try {
-      resp.name = provider.name();
-      resp.systemUri = provider.systemUri;
-
-      const version = provider.version;
-      if (version) {
-        resp.version = version;
-      }
-
-      const ctxt = await provider.locate(this.opContext, coding.code);
-
-      if (!ctxt) {
-        throw new TerminologyError(
-          `Unable to find code ${coding.code} in ${coding.systemUri || coding.system} version ${version}`
-        );
-      }
-
-      try {
-        // Helper function to check if property should be included
-        const hasProp = (name, def = true) => {
-          if (!props || props.length === 0) {
-            return def;
-          }
-          return props.includes(name) || props.includes('*');
-        };
-
-        // Add abstract property
-        if (hasProp('abstract', true) && await provider.isAbstract(this.opContext, ctxt)) {
-          const p = resp.addProperty('abstract');
-          p.value = { valueBoolean: true };
-        }
-
-        // Add inactive property
-        if (hasProp('inactive', true)) {
-          const p = resp.addProperty('inactive');
-          p.value = { valueBoolean: await provider.isInactive(this.opContext, ctxt) };
-        }
-
-        // Add definition property
-        if (hasProp('definition', true)) {
-          const definition = await provider.definition(this.opContext, ctxt);
-          if (definition) {
-            const p = resp.addProperty('definition');
-            p.value = { valueString: definition };
-          }
-        }
-
-        resp.code = coding.code;
-        resp.display = await provider.display(this.opContext, ctxt, this.opContext.langs);
-
-        // Allow provider to extend lookup with additional properties
-        if (provider.extendLookup) {
-          await provider.extendLookup(this.opContext, ctxt, this.opContext.langs, props, resp);
-        }
-
-      } finally {
-        // Clean up context
-        if (ctxt && ctxt.cleanup) {
-          ctxt.cleanup();
-        }
-      }
-    } finally {
-      // Clean up provider
-      if (provider && provider.cleanup) {
-        provider.cleanup();
-      }
-    }
-  }
-
-  /**
-   * Create default operation parameters
-   * @returns {OperationParameters} Default parameters
-   */
-  createDefaultParams() {
-    // This would create default parameters - implementation depends on your parameter structure
-    return {
-      defaultToLatestVersion: true
-    };
-  }
 
   // Note: findParameter, getStringParam, getResourceParam, getCodingParam,
   // and getCodeableConceptParam are inherited from TerminologyWorker base class
 
+  fixForVersion(resource) {
+    if (this.provider.fhirVersion >= 5) {
+      return resource;
+    }
+    let rt = resource.resourceType;
+    switch (rt) {
+      case "ValueSet": {
+        let vs = new ValueSet(resource);
+        if (this.provider.fhirVersion == 4) {
+          return vs.convertFromR5(resource, "R4");
+        } else if (this.provider.fhirVersion == 3) {
+          return vs.convertFromR5(resource, "R3");
+        } else {
+          return resource;
+        }
+      }
+      default:
+        return resource;
+    }
+  }
 }
 
 module.exports = {
   TerminologyWorker,
-  CodeSystemInformationProvider,
   TerminologySetupError
 };
