@@ -30,6 +30,7 @@ class OperationOutcomeXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version (3, 4, or 5)
    * @returns {string} XML string
    */
+  // eslint-disable-next-line no-unused-vars
   static toXml(json, fhirVersion) {
     const content = this._renderOperationOutcome(json, 1);
     return this.wrapInRootElement('OperationOutcome', content);
@@ -44,7 +45,7 @@ class OperationOutcomeXML extends FhirXmlBase {
 
     // Process elements in order
     for (const key of this._elementOrder) {
-      if (obj.hasOwnProperty(key) && key !== 'resourceType') {
+      if (Object.hasOwn(obj, key) && key !== 'resourceType') {
         if (key === 'issue') {
           xml += this._renderIssues(obj.issue, level);
         } else {
@@ -78,7 +79,7 @@ class OperationOutcomeXML extends FhirXmlBase {
 
       // Render issue elements in correct order
       for (const key of this._issueElementOrder) {
-        if (issue.hasOwnProperty(key)) {
+        if (Object.hasOwn(issue, key)) {
           xml += this.renderElement(key, issue[key], level + 1);
         }
       }
@@ -102,6 +103,7 @@ class OperationOutcomeXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
+  // eslint-disable-next-line no-unused-vars
   static fromXml(xml, fhirVersion) {
     const element = this.parseXmlString(xml);
     if (element.name !== 'OperationOutcome') {
@@ -116,6 +118,7 @@ class OperationOutcomeXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
+  // eslint-disable-next-line no-unused-vars
   static fromXmlElement(element, fhirVersion) {
     return this.convertElementToFhirJson(element, 'OperationOutcome');
   }

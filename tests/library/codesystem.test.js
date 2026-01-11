@@ -3,7 +3,6 @@
  * These tests can be run with Jest, Mocha, or any similar testing framework
  */
 const { CodeSystem } = require('../../tx/library/codesystem');
-const CodeSystemXML = require('../../tx/xml/codesystem-xml');
 
 describe('CodeSystem', () => {
   // Test data

@@ -28,6 +28,7 @@ class ValueSetXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version (3, 4, or 5)
    * @returns {string} XML string
    */
+  // eslint-disable-next-line no-unused-vars
   static toXml(json, fhirVersion) {
     const content = this.renderElementsInOrder(json, 1, this._elementOrder);
     return this.wrapInRootElement('ValueSet', content);
@@ -39,6 +40,7 @@ class ValueSetXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
+  // eslint-disable-next-line no-unused-vars
   static fromXml(xml, fhirVersion) {
     const element = this.parseXmlString(xml);
     if (element.name !== 'ValueSet') {
@@ -53,6 +55,7 @@ class ValueSetXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
+  // eslint-disable-next-line no-unused-vars
   static fromXmlElement(element, fhirVersion) {
     return this.convertElementToFhirJson(element, 'ValueSet');
   }

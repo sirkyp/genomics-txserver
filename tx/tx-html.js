@@ -129,6 +129,7 @@ function buildTitle(json) {
 }
 
 
+// eslint-disable-next-line no-unused-vars
 function buildSearchForm(req, mode, params) {
   let html = '';
 
@@ -385,7 +386,7 @@ function renderCapabilityStatement(json) {
 /**
  * Render OperationOutcome resource
  */
-function renderOperationOutcome(json, req) {
+function renderOperationOutcome(json) {
   let html = '<div class="operation-outcome">';
   html += `<h4>OperationOutcome</h4>`;
 

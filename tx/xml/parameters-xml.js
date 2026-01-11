@@ -52,7 +52,7 @@ class ParametersXML extends FhirXmlBase {
 
     // Process elements in order
     for (const key of this._elementOrder) {
-      if (obj.hasOwnProperty(key) && key !== 'resourceType') {
+      if (Object.hasOwn(obj, key) && key !== 'resourceType') {
         if (key === 'parameter') {
           xml += this._renderParameterArray(obj.parameter, level, fhirVersion);
         } else {

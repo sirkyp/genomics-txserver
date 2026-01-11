@@ -29,6 +29,7 @@ class CapabilityStatementXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version (3, 4, or 5)
    * @returns {string} XML string
    */
+  // eslint-disable-next-line no-unused-vars
   static toXml(json, fhirVersion) {
     const content = this.renderElementsInOrder(json, 1, this._elementOrder);
     return this.wrapInRootElement('CapabilityStatement', content);

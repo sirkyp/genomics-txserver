@@ -182,6 +182,7 @@ class FhirXmlBase {
    * @returns {{value: *, primitiveExt: Object|null}} Converted value and primitive extension if any
    * @private
    */
+  // eslint-disable-next-line no-unused-vars
   static _convertChildElementWithExt(child, parentContext = '') {
     const hasValue = child.attributes.value !== undefined;
     const hasChildren = child.children.length > 0;
@@ -436,7 +437,7 @@ class FhirXmlBase {
 
     // Process elements in order
     for (const key of elementOrder) {
-      if (obj.hasOwnProperty(key) && key !== 'resourceType') {
+      if (Object.hasOwn(obj, key) && key !== 'resourceType') {
         xml += this.renderElement(key, obj[key], level);
       }
     }
@@ -517,7 +518,7 @@ class FhirXmlParser {
     this.pos++; // Skip '<'
 
     // Parse element name
-    const nameEnd = this.xml.substring(this.pos).search(/[\s\/>]/);
+    const nameEnd = this.xml.substring(this.pos).search(/[\s/>]/);
     const name = this.xml.substring(this.pos, this.pos + nameEnd);
     this.pos += nameEnd;
 
