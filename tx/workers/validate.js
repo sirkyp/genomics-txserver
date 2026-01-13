@@ -258,7 +258,7 @@ class ValueSetChecker {
         } else {
           let vl = await this.worker.listVersions(system);
           unknownSystems.add(system + '|' + versionCoding);
-          msg = this.worker.i18n.translate('UNKNOWN_CODESYSTEM_VERSION', this.params.HTTPLanguages, [system, versionCoding, vl]);
+          msg = this.worker.i18n.translate('UNKNOWN_CODESYSTEM_VERSION', this.params.HTTPLanguages, [system, versionCoding, this.worker.presentVersionList(vl)]);
           op.addIssue(new Issue('error', 'not-found', addToPath(path, 'system'), 'UNKNOWN_CODESYSTEM_VERSION', msg, 'not-found'));
           messages.push(msg);
         }
@@ -486,7 +486,7 @@ class ValueSetChecker {
               mid = 'UNKNOWN_CODESYSTEM_VERSION';
               vn = system + '|' + version;
             }
-            let msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, version, vl]);
+            let msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, version,  this.worker.presentVersionList(vl)]);
             messages.push(msg);
             if (!unknownSystems.has(vn)) {
               op.addIssue(new Issue('error', 'not-found', addToPath(path, 'system'), mid, msg, 'not-found'));
@@ -580,7 +580,7 @@ class ValueSetChecker {
             mid = 'UNKNOWN_CODESYSTEM_VERSION';
             vn = system + '|' + version;
           }
-          let msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, version, vl]);
+          let msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, version,  this.worker.presentVersionList(vl)]);
           messages.push(msg);
           if (!unknownSystems.has(vn)) {
             op.addIssue(new Issue('error', 'not-found', addToPath(path, 'system'), mid, msg, 'not-found'));
@@ -692,7 +692,7 @@ class ValueSetChecker {
                     mid = 'UNKNOWN_CODESYSTEM_VERSION';
                     vn = system + '|' + v;
                   }
-                  msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, v, vl]);
+                  msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, v,  this.worker.presentVersionList(vl)]);
                   bAdd = !unknownSystems.has(vn);
                   if (bAdd) {
                     unknownSystems.add(vn);
@@ -819,7 +819,7 @@ class ValueSetChecker {
                     mid = 'UNKNOWN_CODESYSTEM_VERSION';
                     vn = system + '|' + v;
                   }
-                  msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, v, vl]);
+                  msg = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [system, v,  this.worker.presentVersionList(vl)]);
                   unknownSystems.add(vn);
                 }
               }
@@ -1150,7 +1150,7 @@ class ValueSetChecker {
                   mid = 'UNKNOWN_CODESYSTEM_VERSION';
                   vn = ws + '|' + c.version;
                 }
-                m = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [ws, c.version, vl]);
+                m = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [ws, c.version,  this.worker.presentVersionList(vl)]);
                 bAdd = !unknownSystems.has(vn);
                 if (bAdd) {
                   unknownSystems.add(vn);
@@ -1787,6 +1787,7 @@ class ValueSetChecker {
   excludeInactives() {
     return this.valueSet.jsonObj.compose && this.valueSet.jsonObj.compose.inactive != undefined && !this.valueSet.jsonObj.compose.inactive;
   }
+
 }
 
 function addToPath(path, name) {
@@ -2169,7 +2170,7 @@ class ValidateWorker extends TerminologyWorker {
           if (vl.length == 0) {
             throw new Issue("error", "not-found", this.systemPath(mode), 'UNKNOWN_CODESYSTEM_VERSION_NONE', this.opContext.i18n.translate('UNKNOWN_CODESYSTEM_VERSION_NONE', this.opContext.HTTPLanguages, [url, version]), 'not-found').setUnknownSystem(url).addIssue(issue);
           } else {
-            throw new Issue("error", "not-found", this.systemPath(mode), 'UNKNOWN_CODESYSTEM_VERSION', this.opContext.i18n.translate('UNKNOWN_CODESYSTEM_VERSION', this.opContext.HTTPLanguages, [url, version, vl]), 'not-found').setUnknownSystem(url + "|" + version).addIssue(issue);
+            throw new Issue("error", "not-found", this.systemPath(mode), 'UNKNOWN_CODESYSTEM_VERSION', this.opContext.i18n.translate('UNKNOWN_CODESYSTEM_VERSION', this.opContext.HTTPLanguages, [url, version, this.presentVersionList(vl)]), 'not-found').setUnknownSystem(url + "|" + version).addIssue(issue);
           }
         } else {
           throw new Issue("error", "not-found", this.systemPath(mode), 'UNKNOWN_CODESYSTEM', this.opContext.i18n.translate('UNKNOWN_CODESYSTEM', this.opContext.HTTPLanguages, [url]), 'not-found').setUnknownSystem(url).addIssue(issue);
@@ -2493,6 +2494,14 @@ class ValidateWorker extends TerminologyWorker {
     return true;
   }
 
+  presentVersionList(items) {
+    if (items.length === 0) return '';
+    if (items.length === 1) return items[0];
+    if (items.length === 2) return `${items[0]} or ${items[1]}`;
+
+    const lastItem = items.pop();
+    return `${items.join(', ')} and ${lastItem}`;
+  }
 }
 
 module.exports = {
