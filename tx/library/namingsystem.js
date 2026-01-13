@@ -1,3 +1,5 @@
+const {VersionUtilities} = require("../../library/version-utilities");
+
 /**
  * Represents a FHIR NamingSystem resource with version conversion support
  * @class

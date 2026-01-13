@@ -41,7 +41,7 @@ class CapabilityStatementXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
-  static fromXml(xml, fhirVersion) {
+  static fromXml(xml) {
     const element = this.parseXmlString(xml);
     if (element.name !== 'CapabilityStatement') {
       throw new Error(`Expected CapabilityStatement root element, got ${element.name}`);
@@ -55,7 +55,7 @@ class CapabilityStatementXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
-  static fromXmlElement(element, fhirVersion) {
+  static fromXmlElement(element) {
     return this.convertElementToFhirJson(element, 'CapabilityStatement');
   }
 }

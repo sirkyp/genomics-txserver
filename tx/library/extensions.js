@@ -1,4 +1,4 @@
-const {getValuePrimitive, Utilities} = require("../../library/utilities");
+const {getValuePrimitive} = require("../../library/utilities");
 const {Issue} = require("./operation-outcome");
 
 const Extensions = {

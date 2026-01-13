@@ -78,6 +78,7 @@ class CPTFilterContext {
     for (let i = Math.max(0, list.length - 10); i < list.length; i++) {
       logCodes += ',' + list[i].code;
     }
+    console.info(logCodes);
   }
 
   next() {

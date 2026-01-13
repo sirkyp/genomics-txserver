@@ -28,7 +28,7 @@ class ConceptMap extends CanonicalResource {
    * @returns {ValueSet} New ValueSet instance
    */
   static fromJSON(jsonString, version = 'R5') {
-    return new ValueSet(JSON.parse(jsonString), version);
+    return new ConceptMap(JSON.parse(jsonString), version);
   }
 
   /**

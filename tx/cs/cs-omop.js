@@ -970,6 +970,7 @@ class OMOPServicesFactory extends CodeSystemFactoryProvider {
     }
   }
 
+  // eslint-disable-next-line no-unused-vars
   async findImplicitConceptMap(url, version) {
     return null;
   }

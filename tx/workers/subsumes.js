@@ -12,8 +12,6 @@ const { FhirCodeSystemProvider } = require('../cs/cs-cs');
 const {TxParameters} = require("../params");
 const {Parameters} = require("../library/parameters");
 const {Issue, OperationOutcome} = require("../library/operation-outcome");
-const {csp} = require("lusca");
-
 class SubsumesWorker extends TerminologyWorker {
   /**
    * @param {OperationContext} opContext - Operation context

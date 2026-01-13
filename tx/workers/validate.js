@@ -24,7 +24,6 @@ const ValueSet = require("../library/valueset");
 const {ValueSetExpander} = require("./expand");
 const {FhirCodeSystemProvider} = require("../cs/cs-cs");
 const {CodeSystem} = require("../library/codesystem");
-const {VersionUtilities} = require("../../library/version-utilities");
 
 const DEV_IGNORE_VALUESET = false; // todo: what's going on with this (ported from pascal)
 
@@ -1907,7 +1906,7 @@ class ValidateWorker extends TerminologyWorker {
           oo.addIssue(error);
           return res.status(error.statusCode || 500).json(oo.jsonObj);
         } else {
-          return res.status(200).json(this.handlePrepareError(error, coded, mode.mode));
+          // this is actually handled in the inner method
         }
       } else {
         return res.status(error.statusCode || 500).json(this.operationOutcome(

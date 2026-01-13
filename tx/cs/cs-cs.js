@@ -4,7 +4,6 @@ const { VersionUtilities }  = require("../../library/version-utilities");
 const { Language }  = require ("../../library/languages");
 const { validateOptionalParameter, getValuePrimitive, validateArrayParameter} = require("../../library/utilities");
 const {Issue} = require("../library/operation-outcome");
-const {Designations} = require("../library/designations");
 const {Extensions} = require("../library/extensions");
 
 /**
@@ -1510,14 +1509,6 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
 
   versionNeeded() {
     return this.codeSystem.jsonObj.versionNeeded;
-  }
-
-
-  /**
-   * @returns {string} source package for the code system, if known
-   */
-  sourcePackage() {
-    return this.codeSystem.sourcePackage;
   }
 
 }

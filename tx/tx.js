@@ -5,7 +5,6 @@
 // with support for multiple endpoints at different FHIR versions.
 //
 
-const fs = require('fs');
 const express = require('express');
 const path = require('path');
 const Logger = require('../common/logger');
@@ -197,7 +196,6 @@ class TXModule {
 
       // Wrap res.json to intercept and convert to HTML if browser requests it, and log the request
       const originalJson = res.json.bind(res);
-      const log = this.log;
 
       res.json = (data) => {
         const duration = Date.now() - req.txStartTime;

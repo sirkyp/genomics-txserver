@@ -393,7 +393,7 @@ class Designations {
   /**
    * Add designation from FHIR CodeSystem concept designation
    */
-  addDesignationFromConcept(concept, baseLanguage = null) {
+  addDesignationFromConcept(concept) {
     validateOptionalParameter(concept, 'concept', Object);
     if (!concept) return;
     this.addDesignation(false, "unknown", concept.language, concept.use, concept.value.trim(), concept.extension);

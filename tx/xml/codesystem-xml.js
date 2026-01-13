@@ -2,7 +2,7 @@
 // CodeSystem XML Serialization
 //
 
-const { FhirXmlBase, FhirXmlParser } = require('./xml-base');
+const { FhirXmlBase } = require('./xml-base');
 
 /**
  * XML support for FHIR CodeSystem resources
@@ -29,7 +29,7 @@ class CodeSystemXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version (3, 4, or 5)
    * @returns {string} XML string
    */
-  static toXml(json, fhirVersion) {
+  static toXml(json) {
     const content = this.renderElementsInOrder(json, 1, this._elementOrder);
     return this.wrapInRootElement('CodeSystem', content);
   }
@@ -40,7 +40,7 @@ class CodeSystemXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
-  static fromXml(xml, fhirVersion) {
+  static fromXml(xml) {
     const element = this.parseXmlString(xml);
     if (element.name !== 'CodeSystem') {
       throw new Error(`Expected CodeSystem root element, got ${element.name}`);
@@ -54,7 +54,7 @@ class CodeSystemXML extends FhirXmlBase {
    * @param {number} fhirVersion - FHIR version
    * @returns {Object} JSON object
    */
-  static fromXmlElement(element, fhirVersion) {
+  static fromXmlElement(element) {
     return this.convertElementToFhirJson(element, 'CodeSystem');
   }
 }
