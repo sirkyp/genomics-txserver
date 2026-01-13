@@ -1,6 +1,6 @@
-# FHIRsmith - FHIR Server toolkit
+# ![🔥](images/FHIRsmith64.png) FHIRsmith - FHIR Server toolkit
 
-![FHIRsmith!](images/FHIRsmith64.png)
+
 
 This server provides a set of server-side services that are useful for the FHIR Community. The set of are two kinds of services:
 
