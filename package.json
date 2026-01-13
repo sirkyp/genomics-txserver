@@ -1,6 +1,6 @@
 {
   "name": "node-shl-api",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Node.js Smart Health Link API with SQLite database",
   "main": "server.js",
   "scripts": {

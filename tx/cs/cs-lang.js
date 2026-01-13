@@ -52,6 +52,10 @@ class IETFLanguageCodeProvider extends CodeSystemProvider {
     return 'IETF language codes (BCP 47)';
   }
 
+  name() {
+    return 'IETF Lang (BCP 47)';
+  }
+
   totalCount() {
     return -1; // Unbounded - grammar-based system
   }
@@ -437,6 +441,11 @@ class IETFLanguageCodeFactory extends CodeSystemFactoryProvider  {
     this.uses++;
 
   }
+
+  name() {
+    return 'IETF Lang (BCP 47)';
+  }
+
 
   // eslint-disable-next-line no-unused-vars
   async buildKnownValueSet(url, version) {

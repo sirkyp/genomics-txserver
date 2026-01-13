@@ -141,6 +141,10 @@ class CPTServices extends CodeSystemProvider {
     return 'CPT © Copyright 2019 American Medical Association. All rights reserved. AMA and CPT are registered trademarks of the American Medical Association.';
   }
 
+  name() {
+    return 'CPT';
+  }
+
   expandLimitation() {
     return 1000; // Agreement with AMA
   }
@@ -760,6 +764,11 @@ class CPTServicesFactory extends CodeSystemFactoryProvider {
   isNotClosed() {
     return true;
   }
+
+  name() {
+    return 'CPT';
+  }
+
 }
 
 module.exports = {

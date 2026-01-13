@@ -54,6 +54,10 @@ class MimeTypeServices extends CodeSystemProvider {
     return 'Mime Types';
   }
 
+  name() {
+    return 'Mime Types';
+  }
+
   totalCount() {
     return -1; // Not bounded - infinite possible MIME types
   }
@@ -217,6 +221,11 @@ class MimeTypeServicesFactory extends CodeSystemFactoryProvider {
   recordUse() {
     this.uses++;
   }
+  name() {
+    return 'Mime Types';
+  }
+
+
 }
 
 module.exports = {

@@ -1560,6 +1560,10 @@ class FhirCodeSystemFactory extends CodeSystemFactoryProvider {
   async buildKnownValueSet(url, version) {
     return null;
   }
+
+  name() {
+    return "CodeSystem";
+  }
 }
 
 module.exports = {

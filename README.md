@@ -1,4 +1,4 @@
-# ![🔥](images/FHIRsmith64.png) FHIRsmith - FHIR Server toolkit
+# ![🔥](static/FHIRsmith64.png) FHIRsmith - FHIR Server toolkit
 
 
 

@@ -1421,6 +1421,9 @@ class LoincServicesFactory extends CodeSystemFactoryProvider {
   }
 
 
+  name() {
+    return 'LOINC';
+  }
 
 }
 

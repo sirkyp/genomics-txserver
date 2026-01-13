@@ -86,6 +86,10 @@ class RxNormServices extends CodeSystemProvider {
     return this.isNCI ? 'NCI Metathesaurus' : 'RxNorm';
   }
 
+  name() {
+    return this.isNCI ? 'NCI' : 'RxNorm';
+  }
+
   async totalCount() {
     return this.totalCodeCount;
   }
@@ -771,6 +775,12 @@ class RxNormTypeServicesFactory extends CodeSystemFactoryProvider {
 
     return new RxNormServices(opContext, supplements, db, this._sharedData, this.isNCI);
   }
+
+  name() {
+    return this.isNCI ? 'NCI' : 'RxNorm';
+  }
+
+
 }
 
 // Specific RxNorm implementation

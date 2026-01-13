@@ -38,6 +38,10 @@ class CountryCodeServices extends CodeSystemProvider {
     return 'ISO Country Codes';
   }
 
+  name() {
+    return 'Country Codes';
+  }
+
   totalCount() {
     return this.codes.length;
   }
@@ -1089,6 +1093,11 @@ class CountryCodeFactoryProvider extends CodeSystemFactoryProvider {
   async buildKnownValueSet(url, version) {
     return null;
   }
+  name() {
+    return 'Country Codes';
+  }
+
+
 }
 
 module.exports = {

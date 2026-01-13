@@ -37,6 +37,10 @@ class AreaCodeServices extends CodeSystemProvider {
     return 'International area/region Codes';
   }
 
+  name() {
+    return 'Region Codes';
+  }
+
   totalCount() {
     return this.codes.length;
   }
@@ -593,6 +597,11 @@ class AreaCodeFactoryProvider extends CodeSystemFactoryProvider {
       this.codeMap.set(code, concept);
     }
   }
+
+  name() {
+    return 'Region Codes';
+  }
+
 }
 
 module.exports = {

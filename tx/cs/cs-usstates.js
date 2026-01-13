@@ -29,6 +29,10 @@ class USStateServices extends CodeSystemProvider {
     return 'US State Codes';
   }
 
+  name() {
+    return 'US State Codes';
+  }
+
   totalCount() {
     return this.codes.length;
   }
@@ -280,6 +284,11 @@ class USStateFactoryProvider extends CodeSystemFactoryProvider {
       this.codeMap.set(code, concept);
     }
   }
+
+  name() {
+    return 'US State Codes';
+  }
+
 }
 
 module.exports = {

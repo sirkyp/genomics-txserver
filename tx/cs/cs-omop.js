@@ -1006,6 +1006,12 @@ class OMOPServicesFactory extends CodeSystemFactoryProvider {
       }]
     };
   }
+
+
+  name() {
+    return `OMOP Concepts`;
+  }
+
 }
 
 module.exports = {

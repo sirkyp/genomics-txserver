@@ -206,7 +206,7 @@ class TXModule {
         let result;
 
         if (isHtml) {
-          const title = txHtml.buildTitle(data);
+          const title = txHtml.buildTitle(data, req);
           const content = txHtml.render(data, req);
           const html = txHtml.renderPage(title, content, req.txEndpoint, req.txStartTime);
           responseSize = Buffer.byteLength(html, 'utf8');

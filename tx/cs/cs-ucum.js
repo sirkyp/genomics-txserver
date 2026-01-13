@@ -73,6 +73,10 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
     return 'Unified Code for Units of Measure (UCUM)';
   }
 
+  name() {
+    return 'UCUM';
+  }
+
   totalCount() {
     return -1; // Unbounded due to grammar
   }
@@ -492,6 +496,11 @@ class UcumCodeSystemFactory extends CodeSystemFactoryProvider {
   recordUse() {
     this.uses++;
   }
+
+  name() {
+    return 'UCUM';
+  }
+
 }
 
 module.exports = {

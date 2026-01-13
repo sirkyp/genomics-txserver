@@ -50,6 +50,10 @@ class NdcServices extends CodeSystemProvider {
     return 'National Drug Code (NDC) Directory';
   }
 
+  name() {
+    return 'NDC Codes';
+  }
+
   async totalCount() {
     return this._packageCount + this._productCount;
   }
@@ -682,6 +686,12 @@ class NdcServicesFactory extends CodeSystemFactoryProvider {
   recordUse() {
     this.uses++;
   }
+
+  name() {
+    return 'NDC Codes';
+  }
+
+
 }
 
 module.exports = {

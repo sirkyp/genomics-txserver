@@ -38,6 +38,10 @@ class Iso4217Services extends CodeSystemProvider {
     return 'Currencies';
   }
 
+  name() {
+    return 'Currencies';
+  }
+
   totalCount() {
     return this.codes.length;
   }
@@ -517,6 +521,11 @@ class Iso4217FactoryProvider extends CodeSystemFactoryProvider {
       this.codeMap.set(code, concept);
     }
   }
+  name() {
+    return 'Currencies';
+  }
+
+
 }
 
 module.exports = {

@@ -97,35 +97,39 @@ function acceptsHtml(req) {
 /**
  * Build page title from JSON response
  */
-function buildTitle(json) {
-  const resourceType = json.resourceType || 'Response';
-  
-  if (resourceType === 'Bundle' && json.type === 'searchset') {
-    // Extract the resource type being searched from self link or entries
-    const selfLink = json.link?.find(l => l.relation === 'self')?.url || '';
-    const typeMatch = selfLink.match(/\/(CodeSystem|ValueSet|ConceptMap)\?/);
-    if (typeMatch) {
-      return `Search: ${typeMatch[1]}`;
+function buildTitle(json, req) {
+  if (req.path == "/") {
+    return "Server Home";
+  } else {
+    const resourceType = json.resourceType || 'Response';
+
+    if (resourceType === 'Bundle' && json.type === 'searchset') {
+      // Extract the resource type being searched from self link or entries
+      const selfLink = json.link?.find(l => l.relation === 'self')?.url || '';
+      const typeMatch = selfLink.match(/\/(CodeSystem|ValueSet|ConceptMap)\?/);
+      if (typeMatch) {
+        return `Search: ${typeMatch[1]}`;
+      }
+      const firstEntry = json.entry?.[0]?.resource;
+      const searchedType = firstEntry?.resourceType || 'Resources';
+      return `Search: ${searchedType}`;
     }
-    const firstEntry = json.entry?.[0]?.resource;
-    const searchedType = firstEntry?.resourceType || 'Resources';
-    return `Search: ${searchedType}`;
+
+    if (resourceType === 'OperationOutcome') {
+      const severity = json.issue?.[0]?.severity || 'info';
+      return `${severity.charAt(0).toUpperCase() + severity.slice(1)}`;
+    }
+
+    if (json.id) {
+      return `${resourceType}/${json.id}`;
+    }
+
+    if (json.name) {
+      return `${resourceType}: ${json.name}`;
+    }
+
+    return resourceType;
   }
-  
-  if (resourceType === 'OperationOutcome') {
-    const severity = json.issue?.[0]?.severity || 'info';
-    return `${severity.charAt(0).toUpperCase() + severity.slice(1)}`;
-  }
-  
-  if (json.id) {
-    return `${resourceType}/${json.id}`;
-  }
-  
-  if (json.name) {
-    return `${resourceType}: ${json.name}`;
-  }
-  
-  return resourceType;
 }
 
 
@@ -172,7 +176,6 @@ function buildHomePage(req) {
   let html = '';
 
   // ===== Summary Section =====
-  html += '<h3>Server Summary</h3>';
 
   // Calculate uptime
   const uptimeMs = Date.now() - provider.startTime;
@@ -284,7 +287,7 @@ function buildHomePage(req) {
 // Code System Factories table
   html += '<h6 class="mt-4">External CodeSystems</h6>';
   html += '<table class="grid">';
-  html += '<thead><tr><th>System</th><th>Version</th><th>Use Count</th></tr></thead>';
+  html += '<thead><tr><th>Name</th><th>URI</th><th>Version</th><th>Use Count</th></tr></thead>';
   html += '<tbody>';
 
 // Deduplicate factories and sort by system URL
@@ -297,10 +300,11 @@ function buildHomePage(req) {
       uniqueFactories.push(factory);
     }
   }
-  uniqueFactories.sort((a, b) => a.system().localeCompare(b.system()));
+  uniqueFactories.sort((a, b) => a.name().localeCompare(b.name()));
 
   for (const factory of uniqueFactories) {
     html += '<tr>';
+    html += `<td>${escapeHtml(factory.name())}</td>`;
     html += `<td>${escapeHtml(factory.system())}</td>`;
     html += `<td>${escapeHtml(factory.version() || '-')}</td>`;
     html += `<td>${factory.useCount ? factory.useCount() : '-'}</td>`;

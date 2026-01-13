@@ -39,6 +39,10 @@ class UniiServices extends CodeSystemProvider {
     return 'UNII Codes';
   }
 
+  name() {
+    return 'UNII Codes';
+  }
+
   totalCount() {
     return -1; // Database-driven, use count query if needed
   }
@@ -250,6 +254,10 @@ class UniiServicesFactory extends CodeSystemFactoryProvider {
   recordUse() {
     this.uses++;
   }
+  name() {
+    return 'UNII Codes';
+  }
+
 
 }
 

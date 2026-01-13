@@ -27,7 +27,11 @@ class HGVSServices extends CodeSystemProvider {
   }
 
   description() {
-    return 'HGVS codes';
+    return 'HGVS validator';
+  }
+
+  name() {
+    return 'HGVS validator';
   }
 
   async totalCount() {
@@ -307,6 +311,12 @@ class HGVSServicesFactory extends CodeSystemFactoryProvider {
     // In practice, you might want to test the external service
     return 'OK (External validation service)';
   }
+
+  name() {
+    return 'HGVS validator';
+  }
+
+
 }
 
 module.exports = {

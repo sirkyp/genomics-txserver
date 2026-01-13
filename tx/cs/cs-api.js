@@ -703,6 +703,13 @@ class CodeSystemFactoryProvider {
   }
 
   /**
+   * @returns {string} uri for the code system
+   */
+  name() {
+    throw new Error("Must override");
+  }
+
+  /**
    * @returns {string} version for the code system
    */
   version() { throw new Error("Must override"); }

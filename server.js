@@ -22,6 +22,7 @@ const PublisherModule = require('./publisher/publisher.js');
 const TokenModule = require('./token/token.js');
 const NpmProjectorModule = require('./npmprojector/npmprojector.js');
 const TXModule = require('./tx/tx.js');
+const packageJson = require('./package.json');
 
 const htmlServer = require('./common/html-server');
 htmlServer.useLog(serverLog);
@@ -271,7 +272,7 @@ function buildRootPageContent() {
     if (config.modules.tx.endpoints && config.modules.tx.endpoints.length > 0) {
       content += '<ul class="mt-2 mb-0">';
       for (const endpoint of config.modules.tx.endpoints) {
-        content += `<li><a href="${endpoint.path}/metadata" class="text-decoration-none">${endpoint.path}</a> (FHIR v${endpoint.fhirVersion}${endpoint.context ? ', context: ' + endpoint.context : ''})</li>`;
+        content += `<li><a href="${endpoint.path}" class="text-decoration-none">${endpoint.path}</a> (FHIR v${endpoint.fhirVersion}${endpoint.context ? ', context: ' + endpoint.context : ''})</li>`;
       }
       content += '</ul>';
     }
@@ -302,7 +303,7 @@ app.get('/', async (req, res) => {
       
       // Build basic stats for root page
       const stats = {
-        version: '1.0.0',
+        version: packageJson.version,
         enabledModules: Object.keys(config.modules).filter(m => config.modules[m].enabled).length,
         processingTime: Date.now() - startTime
       };

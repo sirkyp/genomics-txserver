@@ -202,6 +202,11 @@ class UriServicesFactory extends CodeSystemFactoryProvider {
     this.recordUse();
     return new UriServices(opContext, supplements);
   }
+  name() {
+    return 'URI services';
+  }
+
+
 }
 
 module.exports = {
