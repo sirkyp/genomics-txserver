@@ -69,7 +69,7 @@ class TXModule {
     // Initialize logger with config settings
     this.log = Logger.getInstance().child({
       module: 'tx',
-      consoleErrors: true, // config.consoleErrors,
+      consoleErrors: config.consoleErrors,
       telnetErrors: config.telnetErrors
     });
 

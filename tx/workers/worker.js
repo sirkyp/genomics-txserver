@@ -182,9 +182,6 @@ class TerminologyWorker {
         this.checkVersion(url, provider.version(), params, provider.versionAlgorithm(), op);
       }
     }
-    if (provider == null) {
-      console.log("!");
-    }
 
     return provider;
   }

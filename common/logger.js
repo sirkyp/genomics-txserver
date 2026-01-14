@@ -138,16 +138,31 @@ class Logger {
     let message;
     let stack;
 
+    // Check if we should skip console for errors/warnings
+    const skipConsole = !this._shouldLogToConsole(level, options);
+
     // Handle Error objects
     if (messageOrError instanceof Error) {
       message = messageOrError.message;
       stack = messageOrError.stack;
-      // Pass message and stack separately to winston, not the Error object
-      this.logger[level](message, { stack, ...meta });
+      if (skipConsole) {
+        // Log only to file transport
+        this.logger.transports
+          .filter(t => !(t instanceof winston.transports.Console))
+          .forEach(t => t.log({ level, message, stack, ...meta }));
+      } else {
+        this.logger[level](message, {stack, ...meta});
+      }
     } else {
       message = String(messageOrError);
       stack = meta?.stack;
-      this.logger[level](message, meta);
+      if (skipConsole) {
+        this.logger.transports
+          .filter(t => !(t instanceof winston.transports.Console))
+          .forEach(t => t.log({ level, message, ...meta }));
+      } else {
+        this.logger[level](message, meta);
+      }
     }
 
     this._sendToTelnet(level, message, stack, options);

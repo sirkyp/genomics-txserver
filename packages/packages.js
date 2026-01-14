@@ -159,7 +159,6 @@ class PackagesModule {
         params.push(condition.value);
       }
     });
-    console.log(`Query: ${query.replace(/\s+/g, ' ')} | Params: [${params.join(', ')}]`);
     return { query, params };
   }
 
@@ -928,6 +927,7 @@ class PackagesModule {
     this.router.get('/catalog', this.validateQueryParams(searchParams), async (req, res) => {
       try {
         await this.serveSearch(req, res);
+        pckLog.info("/catalog"+searchParams);
       } catch (error) {
         pckLog.error('Error in /packages/catalog:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -939,6 +939,7 @@ class PackagesModule {
       try {
         req.query.objWrapper = 'true';
         await this.serveSearch(req, res);
+        pckLog.info("/search?"+searchParams);
       } catch (error) {
         pckLog.error('Error in /packages/-/v1/search:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -953,6 +954,7 @@ class PackagesModule {
         let days = daysValue || '10';
         let date = dateValue || new Date().toISOString().split('T')[0];
         await this.serveUpdates(req.secure, res, req, dt, days, date);
+        pckLog.info("/updates?"+searchParams);
       } catch (error) {
         pckLog.error('Error in /packages/updates:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -1018,6 +1020,7 @@ class PackagesModule {
 
           res.json(response);
         }
+        pckLog.error("/log");
       } catch (error) {
         pckLog.error('Error in /packages/log:', error);
         if (req.headers.accept && req.headers.accept.includes('text/html')) {
@@ -1035,6 +1038,7 @@ class PackagesModule {
       try {
         const {filter} = req.query;
         await this.serveBroken(req, res, filter);
+        pckLog.info("/broken");
       } catch (error) {
         pckLog.error('Error in /packages/broken:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -1057,10 +1061,12 @@ class PackagesModule {
       }
       
       next();
+      pckLog.info(`/download/${id}/${version}`);
     }, async (req, res) => {
       try {
         const {id, version} = req.params;
         await this.serveDownload(req.secure, id, version, res);
+        pckLog.info(`/download/${id}/${version}`);
       } catch (error) {
         pckLog.error('Error in /packages/:id/:version:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -1076,10 +1082,12 @@ class PackagesModule {
       }
       
       next();
+      pckLog.info(`/page/${page}`);
     }, async (req, res) => {
       try {
         const {page} = req.params;
         await this.servePage(`${page}.html`, req, res, req.secure);
+        pckLog.info(`/page/${page}`);
       } catch (error) {
         pckLog.error('Error in /packages/:page.html:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -1099,6 +1107,7 @@ class PackagesModule {
         }
 
         await this.serveVersions(id, sort, req.secure, req, res);
+        pckLog.info(`/id/${id}`);
       } catch (error) {
         pckLog.error('Error in /packages/:id:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -1109,6 +1118,7 @@ class PackagesModule {
     this.router.get('/', this.validateQueryParams(searchParams), async (req, res) => {
       try {
         await this.serveSearch(req, res);
+        pckLog.info(`/`);
       } catch (error) {
         pckLog.error('Error in /packages/:', error);
         res.status(500).json({error: 'Internal server error'});
@@ -1119,6 +1129,7 @@ class PackagesModule {
     this.router.get('/status', (req, res) => {
       const status = this.getStatus();
       res.json(status);
+      pckLog.info('Serve Status');
     });
 
     // Manual crawler trigger (existing)
@@ -1129,6 +1140,7 @@ class PackagesModule {
           message: 'Crawler completed successfully',
           timestamp: new Date().toISOString()
         });
+        pckLog.info('Serve Crawler');
       } catch (error) {
         pckLog.error('Manual crawler failed:', error);
         res.status(500).json({
@@ -1183,6 +1195,8 @@ class PackagesModule {
             }
           });
         }
+        pckLog.info('Serve Stats');
+
       } catch (error) {
         pckLog.error('Error generating stats:', error);
         if (req.headers.accept && req.headers.accept.includes('text/html')) {
