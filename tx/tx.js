@@ -110,7 +110,8 @@ class TXModule {
       description: config.description || 'FHIR Terminology Server',
       contactUrl: config.contactUrl,
       contact: config.contact,
-      releaseDate: config.releaseDate
+      releaseDate: config.releaseDate,
+      host: config.host ? config.host : "localhost"
     });
 
     // Load the library from YAML

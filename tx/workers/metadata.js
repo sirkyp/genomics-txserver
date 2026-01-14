@@ -14,11 +14,14 @@ const {TerminologyCapabilities} = require("../library/terminologycapabilities");
  * Used by TXModule to handle /metadata requests
  */
 class MetadataHandler {
+  host;
+
   /**
    * @param {Object} config - Server configuration
    */
   constructor(config = {}) {
     this.config = config;
+    this.host = config.host;
   }
 
   /**
@@ -106,7 +109,7 @@ class MetadataHandler {
   buildCapabilityStatement(endpoint) {
     const now = new Date().toISOString();
     const fhirVersion = this.mapFhirVersion(endpoint.fhirVersion);
-    const baseUrl = this.config.baseUrl || `http://localhost${endpoint.path}`;
+    const baseUrl = this.config.baseUrl || `http://${this.host}${endpoint.path}`;
     const serverVersion = this.config.serverVersion || '1.0.0';
 
     return {
@@ -276,7 +279,7 @@ class MetadataHandler {
    */
   async buildTerminologyCapabilities(endpoint, provider) {
     const now = new Date().toISOString();
-    const baseUrl = this.config.baseUrl || `http://localhost${endpoint.path}`;
+    const baseUrl = this.config.baseUrl || `http://${this.host}${endpoint.path}`;
     const serverVersion = this.config.serverVersion || '1.0.0';
 
     const tc = {
