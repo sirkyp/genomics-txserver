@@ -17,6 +17,7 @@ const {div} = require("../../library/html");
 const {Issue, OperationOutcome} = require("../library/operation-outcome");
 const crypto = require('crypto');
 const ValueSet = require("../library/valueset");
+const {VersionUtilities} = require("../../library/version-utilities");
 
 // Expansion limits (from Pascal constants)
 const UPPER_LIMIT_NO_TEXT = 1000;
@@ -234,12 +235,12 @@ class ValueSetExpander {
 
   listDisplaysFromIncludeConcept(displays, concept, vs) {
     if (concept.display) {
-      if (['fhirVersionRelease2', 'fhirVersionRelease3'].includes(this.factory.version)) {
+      if (!VersionUtilities.isR4Plus(this.worker.provider.getFhirVersion())) {
         displays.clear();
       }
-      displays.baseLang = this.languages.parse(vs.language);
-      displays.addDesignation(true, true, null, null, concept.displayElement);
-    }
+      let lang = vs.language ? this.worker.languages.parse(vs.language) : null;
+      displays.addDesignation(true, "active", lang, null, concept.display);
+      }
     for (const cd of concept.designation || []) {
       displays.addDesignationFromConcept(cd);
     }

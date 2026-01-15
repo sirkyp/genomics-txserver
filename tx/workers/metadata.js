@@ -109,7 +109,7 @@ class MetadataHandler {
   buildCapabilityStatement(endpoint) {
     const now = new Date().toISOString();
     const fhirVersion = this.mapFhirVersion(endpoint.fhirVersion);
-    const baseUrl = this.config.baseUrl || `http://${this.host}${endpoint.path}`;
+    const baseUrl = this.config.baseUrl || `https://${this.host}${endpoint.path}`;
     const serverVersion = this.config.serverVersion || '1.0.0';
 
     return {
@@ -279,7 +279,7 @@ class MetadataHandler {
    */
   async buildTerminologyCapabilities(endpoint, provider) {
     const now = new Date().toISOString();
-    const baseUrl = this.config.baseUrl || `http://${this.host}${endpoint.path}`;
+    const baseUrl = this.config.baseUrl || `https://${this.host}${endpoint.path}`;
     const serverVersion = this.config.serverVersion || '1.0.0';
 
     const tc = {
