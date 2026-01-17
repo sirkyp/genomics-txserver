@@ -116,12 +116,12 @@ class CountryCodeServices extends CodeSystemProvider {
   }
 
   async #ensureContext(code) {
-    if (code == null) {
+    if (!code) {
       return code;
     }
     if (typeof code === 'string') {
       const ctxt = await this.locate(code);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message);
       } else {
         return ctxt.context;

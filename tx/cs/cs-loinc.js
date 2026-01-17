@@ -34,7 +34,7 @@ class LoincProviderContext {
   }
 
   addChild(key) {
-    if (this.children === null) {
+    if (!this.children) {
       this.children = new Set();
     }
     this.children.add(key);
@@ -532,12 +532,12 @@ class LoincServices extends CodeSystemProvider {
   }
 
   async #ensureContext(context) {
-    if (context == null) {
+    if (!context) {
       return null;
     }
     if (typeof context === 'string') {
       const ctxt = await this.locate(context);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message);
       } else {
         return ctxt.context;
@@ -552,7 +552,7 @@ class LoincServices extends CodeSystemProvider {
   // Lookup methods
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     const context = this.codes.get(code);
@@ -567,7 +567,7 @@ class LoincServices extends CodeSystemProvider {
   async iterator(context) {
     
 
-    if (context === null) {
+    if (!context) {
       // Iterate all codes starting from first code
       const keys = Array.from({ length: this.codeList.length - this.firstCodeKey }, (_, i) => i + this.firstCodeKey);
       return new LoincIteratorContext(null, keys);
@@ -1002,7 +1002,7 @@ class LoincServices extends CodeSystemProvider {
       return `Not a valid code: ${code}`;
     }
 
-    if (set.lsql === '') {
+    if (!set.lsql) {
       return 'Filter not understood';
     }
 
@@ -1418,11 +1418,6 @@ class LoincServicesFactory extends CodeSystemFactoryProvider {
         }
       });
     });
-  }
-
-
-  name() {
-    return 'LOINC';
   }
 
 }

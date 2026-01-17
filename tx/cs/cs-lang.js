@@ -179,7 +179,7 @@ class IETFLanguageCodeProvider extends CodeSystemProvider {
     }
     if (typeof code === 'string') {
       const ctxt = await this.locate(code);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message ? ctxt.message : `Invalid language code: ${code}`);
       } else {
         return ctxt.context;
@@ -195,7 +195,7 @@ class IETFLanguageCodeProvider extends CodeSystemProvider {
 
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     const language = this.languageDefinitions.parse(code);
@@ -307,22 +307,22 @@ class IETFLanguageCodeProvider extends CodeSystemProvider {
 
     switch (filter.component) {
       case LanguageComponent.LANG:
-        hasComponent = language.language !== '';
+        hasComponent = !!language.language;
         break;
       case LanguageComponent.EXTLANG:
-        hasComponent = language.extLang.length > 0;
+        hasComponent = !!language.extLang.length;
         break;
       case LanguageComponent.SCRIPT:
-        hasComponent = language.script !== '';
+        hasComponent = !!language.script;
         break;
       case LanguageComponent.REGION:
-        hasComponent = language.region !== '';
+        hasComponent = !!language.region;
         break;
       case LanguageComponent.VARIANT:
-        hasComponent = language.variant !== '';
+        hasComponent = !!language.variant;
         break;
       case LanguageComponent.EXTENSION:
-        hasComponent = language.extension !== '';
+        hasComponent = !!language.extension;
         break;
       case LanguageComponent.PRIVATE_USE:
         hasComponent = language.privateUse.length > 0;
@@ -352,22 +352,22 @@ class IETFLanguageCodeProvider extends CodeSystemProvider {
 
     switch (filter.component) {
       case LanguageComponent.LANG:
-        hasComponent = ctxt.language !== '';
+        hasComponent = !!ctxt.language;
         break;
       case LanguageComponent.EXTLANG:
         hasComponent = ctxt.extLang.length > 0;
         break;
       case LanguageComponent.SCRIPT:
-        hasComponent = ctxt.script !== '';
+        hasComponent = !!ctxt.script;
         break;
       case LanguageComponent.REGION:
-        hasComponent = ctxt.region !== '';
+        hasComponent = !!ctxt.region;
         break;
       case LanguageComponent.VARIANT:
-        hasComponent = ctxt.variant !== '';
+        hasComponent = !!ctxt.variant;
         break;
       case LanguageComponent.EXTENSION:
-        hasComponent = ctxt.extension !== '';
+        hasComponent = !!ctxt.extension;
         break;
       case LanguageComponent.PRIVATE_USE:
         hasComponent = ctxt.privateUse.length > 0;

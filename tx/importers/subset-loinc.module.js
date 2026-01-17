@@ -953,7 +953,7 @@ class LoincSubsetProcessor {
       const childCode = this.removeQuotes(items[2]); // Third cell (column 3)
       const relatedCode = this.removeQuotes(items[3]); // Fourth cell (column 4)
 
-      if (childCode === '') {
+      if (!childCode) {
         return true;
       }
       // Check if this row should be included based on columns 3 and 4

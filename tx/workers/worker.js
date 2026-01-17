@@ -229,7 +229,7 @@ class TerminologyWorker {
   }
 
   listDisplaysFromIncludeConcept(displays, c, vs) {
-    if (c.display && c.display !== '') {
+    if (c.display) {
       displays.baseLang = this.languages.parse(vs.language);
       displays.addDesignation(true, "active", '', '', c.display.trim());
     }

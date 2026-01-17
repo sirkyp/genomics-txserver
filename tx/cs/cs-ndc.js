@@ -302,12 +302,12 @@ class NdcServices extends CodeSystemProvider {
   }
 
   async #ensureContext(code) {
-    if (code == null) {
+    if (!code) {
       return null;
     }
     if (typeof code === 'string') {
       const ctxt = await this.locate(code);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message);
       } else {
         return ctxt.context;
@@ -322,7 +322,7 @@ class NdcServices extends CodeSystemProvider {
   // Lookup methods
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     // First try packages (both regular code and code11)

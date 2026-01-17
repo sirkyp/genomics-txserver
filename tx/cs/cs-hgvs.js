@@ -97,7 +97,7 @@ class HGVSServices extends CodeSystemProvider {
   // Lookup methods - this is the main functionality
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     try {

@@ -613,7 +613,7 @@ class UcumEssenceParser {
   _parseValue(x, context) {
     let val = null;
     const valueAttr = x['@_value'];
-    if (valueAttr !== null && valueAttr !== undefined && valueAttr !== '') {
+    if (valueAttr !== null && valueAttr !== undefined && valueAttr) {
       try {
         if (valueAttr.includes("."))
           val = new Decimal(valueAttr, 24); // unlimited precision for these

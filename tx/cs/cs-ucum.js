@@ -8,7 +8,7 @@ const { CodeSystem } = require("../library/codesystem");
 const ValueSet = require("../library/valueset");
 const assert = require('assert');
 const {UcumService} = require("../library/ucum-service");
-const {validateArrayParameter, validateParameter} = require("../../library/utilities");
+const {validateArrayParameter} = require("../../library/utilities");
 
 /**
  * UCUM provider context for concepts
@@ -206,12 +206,12 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
   }
 
   async #ensureContext(code) {
-    if (code == null) {
+    if (!code) {
       return code;
     }
     if (typeof code === 'string') {
       const result = await this.locate(code);
-      if (result.context == null) {
+      if (!result.context) {
         throw new Error(result.message);
       } else {
         return result.context;
@@ -227,14 +227,14 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
 
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
 
     if (!code) {
       return { context: null, message: 'Empty code' };
     }
 
     const validationResult = this.ucumService.validate(code);
-    if (validationResult === null) {
+    if (!validationResult) {
       return { context: new UcumContext(code), message: null };
     } else {
       return { context: null, message: validationResult };
@@ -303,7 +303,7 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
     assert(filterContext && filterContext instanceof FilterExecutionContext, 'filterContext must be a FilterExecutionContext');
     assert(set && set instanceof UcumFilterContext, 'set must be a UcumFilterContext');
 
-    if (set.canonical === '' && this.commonUnitList) {
+    if (!set.canonical && this.commonUnitList) {
       return this.commonUnitList.length;
     }
     throw new Error('UCUM filter sets cannot be sized as they are based on a grammar');
@@ -320,7 +320,7 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
     assert(filterContext && filterContext instanceof FilterExecutionContext, 'filterContext must be a FilterExecutionContext');
     assert(set && set instanceof UcumFilterContext, 'set must be a UcumFilterContext');
 
-    if (set.canonical === '' && this.commonUnitList) {
+    if (!set.canonical && this.commonUnitList) {
       // Iterating common units
       set.cursor++;
       return set.cursor < this.commonUnitList.length;
@@ -333,7 +333,7 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
     assert(filterContext && filterContext instanceof FilterExecutionContext, 'filterContext must be a FilterExecutionContext');
     assert(set && set instanceof UcumFilterContext, 'set must be a UcumFilterContext');
 
-    if (set.canonical === '' && this.commonUnitList) {
+    if (!set.canonical && this.commonUnitList) {
       // Return current common unit
       const concept = this.commonUnitList[set.cursor];
       return new UcumContext(concept.code);
@@ -349,11 +349,11 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
 
     // Validate the code first
     const validationResult = this.ucumService.validate(code);
-    if (validationResult !== null) {
+    if (validationResult) {
       return `Invalid UCUM code: ${validationResult}`;
     }
 
-    if (set.canonical === '') {
+    if (!set.canonical) {
       // Special enumeration case - check if in common units
       if (this.commonUnitList) {
         const found = this.commonUnitList.find(concept => concept.code === code);
@@ -386,7 +386,7 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
 
     const ctxt = await this.#ensureContext(concept);
 
-    if (set.canonical === '') {
+    if (!set.canonical) {
       // Special enumeration case
       if (this.commonUnitList) {
         return this.commonUnitList.some(c => c.code === ctxt.code);

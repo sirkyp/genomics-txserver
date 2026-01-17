@@ -793,7 +793,7 @@ class NdcDataMigrator {
 
     const excludeFlag = getField('NDC_EXCLUDE_FLAG');
     let active;
-    if (excludeFlag !== '') {
+    if (excludeFlag) {
       // If field exists and has data, active when flag is 'Y' or 'N'
       // Other values like 'E', 'U', 'I' mark as inactive
       active = (excludeFlag === 'Y' || excludeFlag === 'N') ? 1 : 0;
@@ -832,7 +832,7 @@ class NdcDataMigrator {
 
     const excludeFlag = getField('NDC_EXCLUDE_FLAG');
     let active;
-    if (excludeFlag !== '') {
+    if (excludeFlag) {
       // If field exists and has data, active when flag is 'Y' or 'N'
       // Other values like 'E', 'U', 'I' mark as inactive
       active = (excludeFlag === 'Y' || excludeFlag === 'N') ? 1 : 0;

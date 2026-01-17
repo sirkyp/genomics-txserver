@@ -77,7 +77,7 @@ class Provider {
         throw new TerminologyError(`Version inconsistent in ${system}: ${v} vs ${version}`);
       }
       system = url;
-    } else if (version === '') {
+    } else if (!version) {
       version = null;
     }
     const vurl = system+(version ? "|"+version : "");

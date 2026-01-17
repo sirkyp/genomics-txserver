@@ -195,7 +195,7 @@ class TxParameters {
         }
         case 'profile' : {
           let value = p.resource;
-          if (value !== null && (value.resourceType === 'Parameters' || value.resourceType === 'ExpansionProfile')) {
+          if (value && (value.resourceType === 'Parameters' || value.resourceType === 'ExpansionProfile')) {
             this.readParams(value);
           }
         }
@@ -260,11 +260,11 @@ class TxParameters {
   }
 
   get hasHTTPLanguages() {
-    return this.FHTTPLanguages !== null && this.FHTTPLanguages.source !== '';
+    return this.FHTTPLanguages && this.FHTTPLanguages.source;
   }
 
   get hasDisplayLanguages() {
-    return this.FDisplayLanguages !== null && this.FDisplayLanguages.source !== '';
+    return this.FDisplayLanguages && this.FDisplayLanguages.source;
   }
 
   get hasDesignations() {
@@ -396,7 +396,7 @@ class TxParameters {
   }
 
   seeParameter(name, value, overwrite) {
-    if (value !== null) {
+    if (value) {
       if (name === 'displayLanguage' && (!this.FDisplayLanguages || overwrite)) {
         this.DisplayLanguages = Languages.fromAcceptLanguage(getValuePrimitive(value), this.languageDefinitions, !this.validating)
       }
@@ -436,7 +436,7 @@ class TxParameters {
   }
 
   workingLanguages() {
-    if (this.FDisplayLanguages !== null) {
+    if (this.FDisplayLanguages) {
       return this.FDisplayLanguages;
     } else {
       return this.FHTTPLanguages;
@@ -444,9 +444,9 @@ class TxParameters {
   }
 
   langSummary() {
-    if (this.FDisplayLanguages !== null && this.FDisplayLanguages.source !== '') {
+    if (this.FDisplayLanguages && this.FDisplayLanguages.source) {
       return this.FDisplayLanguages.asString(false);
-    } else if (this.FHTTPLanguages !== null && this.FHTTPLanguages.source !== '') {
+    } else if (this.FHTTPLanguages && this.FHTTPLanguages.source) {
       return this.FHTTPLanguages.asString(false);
     } else {
       return '--';
@@ -457,7 +457,7 @@ class TxParameters {
     let result = '';
 
     const commaAdd = (r, s) => {
-      if (r === '') return s;
+      if (!r) return s;
       return r + ', ' + s;
     };
 
@@ -468,22 +468,22 @@ class TxParameters {
     };
 
     const sv = (s, v) => {
-      if (v !== '') {
+      if (v) {
         result = commaAdd(result, s + '=' + v);
       }
     };
 
     sv('uid', this.FUid);
-    if (this.FProperties !== null) {
+    if (this.FProperties) {
       sv('properties', this.FProperties.join(','));
     }
-    if (this.FHTTPLanguages !== null) {
+    if (this.FHTTPLanguages) {
       sv('http-lang', this.FHTTPLanguages.asString(true));
     }
-    if (this.FDisplayLanguages !== null) {
+    if (this.FDisplayLanguages) {
       sv('disp-lang', this.FDisplayLanguages.asString(true));
     }
-    if (this.FDesignations !== null) {
+    if (this.FDesignations) {
       sv('designations', this.FDesignations.join(','));
     }
     b('active-only', this.FActiveOnly);
@@ -505,7 +505,7 @@ class TxParameters {
   verSummary() {
     let result = '';
     for (let p of this.FVersionRules) {
-      if (result === '') {
+      if (!result) {
         result = p.asString();
       } else {
         result = result + ', ' + p.asString();
@@ -551,10 +551,10 @@ class TxParameters {
   }
 
   assign(other) {
-    if (other.FVersionRules !== null) {
+    if (other.FVersionRules) {
       this.FVersionRules = [...other.FVersionRules];
     }
-    if (other.FValueSetVersionRules !== null) {
+    if (other.FValueSetVersionRules) {
       this.FValueSetVersionRules = [...other.FValueSetVersionRules];
     }
     this.FActiveOnly = other.FActiveOnly;
@@ -584,18 +584,18 @@ class TxParameters {
     this.hasMembershipOnly = other.hasMembershipOnly;
     this.hasDisplayWarning = other.hasDisplayWarning;
 
-    if (other.FProperties !== null) {
+    if (other.FProperties) {
       this.FProperties = [...other.FProperties];
     }
 
-    if (other.FDesignations !== null) {
+    if (other.FDesignations) {
       this.FDesignations = [...other.FDesignations];
     }
 
-    if (other.FHTTPLanguages !== null) {
+    if (other.FHTTPLanguages) {
       this.FHTTPLanguages = other.FHTTPLanguages;
     }
-    if (other.FDisplayLanguages !== null) {
+    if (other.FDisplayLanguages) {
       this.FDisplayLanguages = other.FDisplayLanguages;
     }
   }

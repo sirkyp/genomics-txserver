@@ -1250,7 +1250,7 @@ class LoincDataMigrator {
       this.codeList.push(codeInfo);
     }
 
-    if (parentPath === '') {
+    if (!parentPath) {
       db.run('INSERT INTO Config (ConfigKey, Value) VALUES (3, ?)', [pathCode]);
     } else if (this.codes.has(parentPath)) {
       const childKey = this.codes.get(pathCode).key;

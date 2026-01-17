@@ -705,7 +705,7 @@ class Utilities {
   }
 
   static noString(str) {
-    return !str || str.trim() === '';
+    return !str || !str.trim();
   }
 
   static _ensureDecimal(v) {

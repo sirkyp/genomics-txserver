@@ -294,12 +294,12 @@ class CPTServices extends CodeSystemProvider {
   }
 
   async #ensureContext(context) {
-    if (context == null) {
+    if (!context) {
       return null;
     }
     if (typeof context === 'string') {
       const ctxt = await this.locate(context);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message ? ctxt.message : `Code '${context}' not found in CPT`);
       } else {
         return ctxt.context;
@@ -423,7 +423,7 @@ class CPTServices extends CodeSystemProvider {
   // Lookup methods
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     if (code.includes(':')) {
@@ -441,7 +441,7 @@ class CPTServices extends CodeSystemProvider {
   async iterator(context) {
     
 
-    if (context === null) {
+    if (!context) {
       // Iterate all concepts
       return new CPTIteratorContext([...this.conceptList]);
     } else {

@@ -114,10 +114,10 @@ function buildConcept(atcRow, dddMap) {
     
     for (const entry of dddEntries) {
         // Only create group if there's actual DDD data
-        const hasDDD = entry.ddd !== undefined && entry.ddd !== null && entry.ddd !== '';
-        const hasUnit = entry.unit !== undefined && entry.unit !== null && entry.unit !== '';
-        const hasRoute = entry.admRoute !== undefined && entry.admRoute !== null && entry.admRoute !== '';
-        const hasComment = entry.comment !== undefined && entry.comment !== null && entry.comment !== '';
+        const hasDDD = entry.ddd !== undefined && entry.ddd !== null && entry.ddd;
+        const hasUnit = entry.unit !== undefined && entry.unit !== null && entry.unit;
+        const hasRoute = entry.admRoute !== undefined && entry.admRoute !== null && entry.admRoute;
+        const hasComment = entry.comment !== undefined && entry.comment !== null && entry.comment;
         
         // Skip if no meaningful data
         if (!hasDDD && !hasUnit && !hasRoute && !hasComment) continue;

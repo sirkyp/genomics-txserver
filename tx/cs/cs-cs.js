@@ -310,13 +310,13 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
    * @private
    */
   async #ensureContext(context) {
-    if (context == null) {
+    if (!context) {
       return null;
     }
 
     if (typeof context === 'string') {
       const result = await this.locate(context);
-      if (result.context == null) {
+      if (!result.context) {
         throw new Error(result.message ? result.message :  `Code '${context}' not found in CodeSystem '${this.system()}'`);
       }
       return result.context;
@@ -810,7 +810,7 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
   async iterator(context) {
 
 
-    if (context === null || context === undefined) {
+    if (!context) {
       const allCodes = this.codeSystem.getRootConcepts();
       return {
         type: 'all',
@@ -1233,7 +1233,7 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
       results = await this._handleKnownPropertyFilter(filterContext, prop, op, value);
     }
 
-    if (results == null) {
+    if (!results) {
       throw new Error(`The filter ${prop} ${op} ${value} was not understood`)
     }
     // Add to filter context

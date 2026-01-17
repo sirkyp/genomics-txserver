@@ -47,11 +47,11 @@ class SnomedConcept extends SnomedExpressionBase {
 
     if (this.reference !== NO_REFERENCE) {
       return this.reference === other.reference;
-    } else if (this.code !== '') {
+    } else if (this.code) {
       return this.code === other.code;
-    } else if (this.decimal !== '') {
+    } else if (this.decimal) {
       return this.decimal === other.decimal;
-    } else if (this.literal !== '') {
+    } else if (this.literal) {
       return this.literal === other.literal;
     }
 
@@ -62,11 +62,11 @@ class SnomedConcept extends SnomedExpressionBase {
    * Get a string description of this concept
    */
   describe() {
-    if (this.code !== '') {
+    if (this.code) {
       return this.code;
-    } else if (this.decimal !== '') {
+    } else if (this.decimal) {
       return '#' + this.decimal;
-    } else if (this.literal !== '') {
+    } else if (this.literal) {
       return '"' + this.literal + '"';
     }
     return '';
@@ -76,9 +76,9 @@ class SnomedConcept extends SnomedExpressionBase {
    * Compare two concepts for sorting
    */
   compare(other) {
-    if (this.code !== '') {
+    if (this.code) {
       return this.code.localeCompare(other.code);
-    } else if (this.decimal !== '') {
+    } else if (this.decimal) {
       return this.decimal.localeCompare(other.decimal);
     } else {
       return this.literal.localeCompare(other.literal);
@@ -1470,7 +1470,7 @@ class SnomedExpressionServices {
    * Validate concept reference
    */
   checkConcept(concept) {
-    if (concept.code !== '') {
+    if (concept.code) {
       const conceptId = BigInt(concept.code);
       const result = this.concepts.findConcept(conceptId);
 
@@ -1482,14 +1482,14 @@ class SnomedExpressionServices {
     }
 
     // Validate description if provided
-    if (concept.reference !== NO_REFERENCE && concept.description !== '') {
+    if (concept.reference !== NO_REFERENCE && concept.description) {
       const displayNames = this.listDisplayNames(concept.reference, 0);
       const normalizedDescription = this.normalizeText(concept.description);
 
       let ok = false;
 
       // Check if matches preferred display (first in list)
-      if (displayNames.length > 0 && displayNames[0].term !== '') {
+      if (displayNames.length > 0 && displayNames[0].term) {
         ok = this.normalizeText(displayNames[0].term) === normalizedDescription;
       }
 
@@ -1772,19 +1772,19 @@ class SnomedExpressionServices {
         if (description === '') {
           if (expr.reference !== NO_REFERENCE) {
             description = this.getDisplayName(expr.reference);
-          } else if (expr.code !== '') {
+          } else if (expr.code) {
             description = this.getDisplayName(expr.code);
           }
         }
         break;
       case SnomedServicesRenderOption.ReplaceAll:
-        if (expr.code !== '') {
+        if (expr.code) {
           description = this.getDisplayName(expr.code);
         }
         break;
     }
 
-    if (description !== '') {
+    if (description) {
       parts.push('|');
       parts.push(description);
       parts.push('|');

@@ -33,7 +33,7 @@ class UcumService {
    * @throws {UcumException}
    */
   analyse(unit) {
-    if (!unit || unit.trim() === '') {
+    if (!unit || !unit.trim()) {
       return "(unity)";
     }
 
@@ -52,7 +52,7 @@ class UcumService {
    * @throws {UcumException}
    */
   getCanonicalUnits(unit) {
-    if (!unit || unit.trim() === '') {
+    if (!unit || !unit.trim()) {
       throw new UcumException("getCanonicalUnits: unit must not be null or empty");
     }
 
@@ -137,7 +137,7 @@ class UcumService {
     }
 
     const code = pair.getCode();
-    if (!code || code.trim() === '') {
+    if (!code || !code.trim()) {
       throw new UcumException("getCanonicalForm: value.code must not be null or empty");
     }
 
@@ -234,10 +234,10 @@ class UcumService {
     if (!value) {
       throw new UcumException("convert: value must not be null");
     }
-    if (!sourceUnit || sourceUnit.trim() === '') {
+    if (!sourceUnit || !sourceUnit.trim()) {
       throw new UcumException("convert: sourceUnit must not be null or empty");
     }
-    if (!destUnit || destUnit.trim() === '') {
+    if (!destUnit || !destUnit.trim()) {
       throw new UcumException("convert: destUnit must not be null or empty");
     }
 

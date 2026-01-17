@@ -147,7 +147,7 @@ class SnomedServices {
 
   stringToIdOrZero(str) {
     try {
-      if (!str || str === '') return 0n;
+      if (!str) return 0n;
       return BigInt(str);
     } catch {
       return 0n;
@@ -910,7 +910,7 @@ class SnomedProvider extends CodeSystemProvider {
 
   // Helper methods
   async #ensureContext(context) {
-    if (context === null) {
+    if (!context) {
       return null;
     }
 

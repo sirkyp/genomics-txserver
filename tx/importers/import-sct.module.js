@@ -1293,7 +1293,7 @@ class SnomedImporter {
       word = word.trim().toLowerCase();
 
       // Filter words (matching Pascal conditions)
-      if (word === '' || this.isInteger(word) || word.length <= 2) {
+      if (!word || this.isInteger(word) || word.length <= 2) {
         continue;
       }
 

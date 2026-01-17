@@ -187,12 +187,12 @@ class RxNormServices extends CodeSystemProvider {
   }
 
   async #ensureContext(context) {
-    if (context == null) {
+    if (!context) {
       return null;
     }
     if (typeof context === 'string') {
       const ctxt = await this.locate(context);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message);
       } else {
         return ctxt.context;
@@ -207,7 +207,7 @@ class RxNormServices extends CodeSystemProvider {
   // Lookup methods
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     return new Promise((resolve, reject) => {
@@ -249,7 +249,7 @@ class RxNormServices extends CodeSystemProvider {
     concept.archived = archived;
 
     for (const row of rows) {
-      if (row.TTY === 'SY' || concept.display && concept.display !== '') {
+      if (row.TTY === 'SY' || concept.display && concept.display) {
         concept.others.push(row.STR.trim());
       } else {
         concept.display = row.STR.trim();
@@ -263,7 +263,7 @@ class RxNormServices extends CodeSystemProvider {
   async iterator(context) {
     
 
-    if (context === null) {
+    if (!context) {
       // Iterate all codes
       const query = `SELECT ${this.getCodeField()}, STR FROM rxnconso WHERE SAB = ? AND TTY <> 'SY' ORDER BY ${this.getCodeField()}`;
       return new RxNormIteratorContext(query, { sab: this.getSAB() });

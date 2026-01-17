@@ -64,7 +64,7 @@ class ValueSetChecker {
 
   async checkCanonicalStatusCS(path, op, cs, source) {
     let status = await cs.status();
-    if (cs.version() !== '') {
+    if (cs.version()) {
       this.checkCanonicalStatusFull(path, op, 'CodeSystem', cs.system() + '|' + cs.version(), cs.sourcePackage(), status.status, status.standardsStatus, status.experimental, source);
     } else {
       this.checkCanonicalStatusFull(path, op, 'CodeSystem', cs.system(), cs.sourcePackage(), status.status, status.standardsStatus, status.experimental, source);
@@ -136,10 +136,10 @@ class ValueSetChecker {
     let result = '';
     for (let c of this.valueSet.jsonObj.include) {
       this.worker.deadCheck('fixedSystemFromValueSet');
-      if (c.hasValueSets || c.system === '') {
+      if (c.hasValueSets || !c.system) {
         return '';
       }
-      if (result === '') {
+      if (!result) {
         result = c.system;
       } else if (result !== c.system) {
         return '';
@@ -178,7 +178,7 @@ class ValueSetChecker {
             let match = cc.code === code;
             if (match) {
               systems.add(vsi.system);
-              if (result === '') {
+              if (!result) {
                 result = vsi.system;
               } else if (result !== vsi.system) {
                 return '';
@@ -189,7 +189,7 @@ class ValueSetChecker {
           let loc = await cs.locate(code);
           if (loc.context !== null) {
             systems.add(vsi.system);
-            if (result === '') {
+            if (!result) {
               result = vsi.system;
             } else if (result !== vsi.system) {
               return '';
@@ -296,7 +296,7 @@ class ValueSetChecker {
       if (this.indentCount === 0) {
         this.worker.opContext.addNote(this.valueSet, 'Parameters: ' + this.params.summary, this.indentCount);
         let vrs = this.params.verSummary;
-        if (vrs !== '') {
+        if (vrs) {
           this.worker.opContext.addNote(this.valueSet, 'Version Rules: ' + vrs, this.indentCount);
         }
       }
@@ -377,7 +377,7 @@ class ValueSetChecker {
         }
         i++;
       }
-    } else if (cc.system !== '') {
+    } else if (cc.system) {
       this.worker.opContext.addNote(this.valueSet, 'CodeSystem version ' + v + ' not found: "' + Renderer.renderCoded(cc.system, cc.version) + '"', this.indentCount);
     }
   }
@@ -449,7 +449,7 @@ class ValueSetChecker {
     let result;
     let s = this.valueSet.url;
     if (s === 'http://hl7.org/fhir/ValueSet/@all') {
-      if (system === '') {
+      if (system) {
         let msg = this.worker.i18n.translate('Coding_has_no_system__cannot_validate_NO_INFER', this.params.HTTPLanguages, []);
         messages.push(msg);
         op.addIssue(new Issue('warning', 'invalid', path, 'Coding_has_no_system__cannot_validate_NO_INFER', msg, 'invalid-data'));
@@ -476,7 +476,7 @@ class ValueSetChecker {
             messages.push(msg);
             op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'CODESYSTEM_CS_NO_SUPPLEMENT', msg, 'invalid-data'));
             unknownSystems.add(system);
-          } else if (version !== '') {
+          } else if (version) {
             let vl = await this.worker.listVersions(system);
             let mid, vn;
             if (vl.length == 0) {
@@ -551,7 +551,7 @@ class ValueSetChecker {
               op.addIssue(new Issue('warning', 'business-rule', addToPath(path, 'code'), 'CODE_CASE_DIFFERENCE', msg, 'code-rule'));
             }
             let msg = await cs.incompleteValidationMessage(ctxt.context, this.params.HTTPLanguages);
-            if (msg !== '') {
+            if (msg) {
               op.addIssueNoId('information', 'informational', addToPath(path, 'code'), msg, 'process-note');
             }
             inactive.value = await cs.isInactive(ctxt.context);
@@ -571,7 +571,7 @@ class ValueSetChecker {
         cause.value = 'not-found';
         this.worker.opContext.addNote(this.valueSet, 'Unknown code system', this.indentCount);
         let vl, mid, vn;
-        if (version !== '') {
+        if (version) {
           vl = this.listVersions(system);
           if (vl.length == 0) {
             mid = 'UNKNOWN_CODESYSTEM_VERSION_NONE';
@@ -643,7 +643,7 @@ class ValueSetChecker {
       if (!system && inferSystem) {
         let systems = new Set();
         system = await this.determineSystem(this.worker.opContext, code, systems, op);
-        if (system === '') {
+        if (!system) {
           let msg;
           if (systems.size > 1) {
             msg = this.worker.i18n.translate('Unable_to_resolve_system__value_set_has_multiple_matches', this.params.HTTPLanguages, [code, this.valueSet.vurl, Array.from(systems).join(',')]);
@@ -720,7 +720,7 @@ class ValueSetChecker {
             } else {
               result = false;
             }
-            if (msg !== '') {
+            if (msg) {
               messages.push(msg);
             }
           } else {
@@ -747,7 +747,7 @@ class ValueSetChecker {
           for (let cc of this.valueSet.jsonObj.compose.exclude || []) {
             this.worker.deadCheck('check#4');
             let excluded;
-            if (cc.system === '') {
+            if (cc.system) {
               excluded = true;
             } else {
               let cs = await this.worker.findCodeSystem(cc.system, cc.version, this.params, ['complete', 'fragment'], op,true, true, false);
@@ -760,7 +760,7 @@ class ValueSetChecker {
               contentMode.value = cs.contentMode();
               let msg = '';
               excluded = (system === '%%null%%' || cs.system() === system) && await this.checkConceptSet(path, 'not in', cs, cc, code, abstractOk, displays, this.valueSet, msg, inactive, normalForm, vstatus, op, vcc);
-              if (msg !== '') {
+              if (msg) {
                 messages.push(msg);
               }
             }
@@ -785,11 +785,11 @@ class ValueSetChecker {
           result = false;
         } else {
           let v;
-          if (ccc.version === '' && version === '') {
+          if (!ccc.version && !version) {
             v = '';
-          } else if (ccc.version === '') {
+          } else if (!ccc.version) {
             v = version;
-          } else if (version === '' || version === ccc.version) {
+          } else if (!version || version === ccc.version) {
             v = ccc.version;
           } else if (cs !== null && cs.versionIsMoreDetailed(ccc.version, version)) {
             v = version;
@@ -804,7 +804,7 @@ class ValueSetChecker {
             if (!this.params.membershipOnly) {
               let bAdd = true;
               let msg, mid, vn;
-              if (v === '') {
+              if (!v) {
                 mid = 'UNKNOWN_CODESYSTEM';
                 msg = this.worker.i18n.translate('UNKNOWN_CODESYSTEM', this.params.HTTPLanguages, [system]);
                 unknownSystems.add(system);
@@ -842,7 +842,7 @@ class ValueSetChecker {
           } else {
             result = false;
           }
-          if (msg !== '') {
+          if (msg) {
             messages.push(msg);
           }
         }
@@ -887,7 +887,7 @@ class ValueSetChecker {
       if ((cause.value === 'not-found' && contentMode.value !== 'complete') || contentMode.value === 'example') {
         result.addParamStr('message', 'The system "' + coding.system + ' was found but did not contain enough information to properly validate the code (mode = ' + contentMode.value + ')');
       }
-      if (coding.display !== '' && !list.hasDisplay(this.params.workingLanguages(), defLang.value, coding.display, false, DisplayCheckingStyle.CASE_INSENSITIVE).found) {
+      if (coding.display && !list.hasDisplay(this.params.workingLanguages(), defLang.value, coding.display, false, DisplayCheckingStyle.CASE_INSENSITIVE).found) {
         let baseMsg = 'Display_Name_for__should_be_one_of__instead_of';
         let dc = list.displayCount(this.params.workingLanguages(), null, true);
         if (dc > 0) {
@@ -903,7 +903,7 @@ class ValueSetChecker {
         }
       }
       let pd = list.preferredDisplay(this.params.workingLanguages());
-      if (pd !== '') {
+      if (pd) {
         result.addParamStr('display', pd);
       }
       result.addParamUri('system', coding.system);
@@ -915,7 +915,7 @@ class ValueSetChecker {
       }
       if (inactive.value) {
         result.AddParamBool('inactive', inactive.value);
-        if (vstatus.value !== '' && vstatus.value !== 'inactive') {
+        if (vstatus.value && vstatus.value !== 'inactive') {
           result.addParamStr('status', vstatus.value);
         }
         let msg = this.worker.i18n.translate('INACTIVE_CONCEPT_FOUND', this.params.HTTPLanguages, [vstatus.value, coding.code]);
@@ -952,7 +952,7 @@ class ValueSetChecker {
   valueSetDependsOnCodeSystem(url, version) {
     for (let inc of this.valueSet.include) {
       this.worker.deadCheck('valueSetDependsOnCodeSystem');
-      if (inc.system === url && (version === '' || version === inc.version || inc.version === '')) {
+      if (inc.system === url && (!version || version === inc.version || !inc.version)) {
         return true;
       }
     }
@@ -961,7 +961,7 @@ class ValueSetChecker {
 
   async checkSupplementsExist(vs) {
     for (let inc of vs.jsonObj.compose.include) {
-      if (inc.system !== '') {
+      if (inc.system) {
         let cs = await this.worker.findCodeSystem(inc.system, inc.version, this.params, ['complete', 'fragment'], null,true);
         if (cs !== null) {
           await this.worker.checkSupplements(cs, null);
@@ -1004,7 +1004,7 @@ class ValueSetChecker {
     let result = new Parameters();
 
     const msg = (s, clear = false) => {
-      if (s === '') {
+      if (!s) {
         return;
       }
       if (clear) {
@@ -1043,12 +1043,12 @@ class ValueSetChecker {
         cause.value = 'code-invalid';
       }
       let ws;
-      if (impliedSystem.value !== '') {
+      if (impliedSystem.value) {
         ws = impliedSystem.value;
       } else {
         ws = c.system;
       }
-      if (tcode === '' || v == true) {
+      if (!tcode || v == true) {
         tsys = c.system;
         tcode = c.code;
         tver = c.version;
@@ -1065,7 +1065,7 @@ class ValueSetChecker {
       if (c.display) {
         cc = cc + ' (\'' + c.display + '\')';
       }
-      codelist = codelist === '' ? '\'' + cc + '\'' : codelist + ', \'' + cc + '\'';
+      codelist = !codelist ? '\'' + cc + '\'' : codelist + ', \'' + cc + '\'';
 
       if (v === false && !this.valueSet.jsonObj.internallyDefined && mode === 'codeableConcept') {
         let m = this.worker.i18n.translate('None_of_the_provided_codes_are_in_the_value_set_one', this.params.HTTPLanguages, ['', this.valueSet.vurl, '\'' + cc + '\'']);
@@ -1168,7 +1168,7 @@ class ValueSetChecker {
           let ctxt = await prov.locate(c.code);
           if (!ctxt.context) {
             // message can never be populated in pascal?
-            // if (ctxt.message !== '') {
+            // if (ctxt.message) {
             //   let p;
             //   if (mode !== 'code') {
             //     p = path + '.code';
@@ -1198,10 +1198,10 @@ class ValueSetChecker {
           } else {
             await this.worker.listDisplaysFromCodeSystem(list, prov, ctxt.context);
             let pd = list.preferredDisplay(this.params.workingLanguages());
-            if (pd !== '') {
+            if (pd) {
               pdisp = pd;
             }
-            if (pdisp === '') {
+            if (!pdisp) {
               pdisp = list.preferredDisplay(null);
             }
             let severity = this.dispWarning();
@@ -1250,7 +1250,7 @@ class ValueSetChecker {
 
       if (mode === 'codeableConcept') {
         p = '';
-      } else if (issuePath === '') {
+      } else if (!issuePath) {
         p = 'code';
       } else if (issuePath !== 'CodeableConcept') {
         p = issuePath + '.code';
@@ -1284,13 +1284,13 @@ class ValueSetChecker {
         result.addParamCanonical('x-caused-by-unknown-system', us);
       }
     }
-    if (normalForm.value !== '') {
+    if (normalForm.value) {
       result.addParamCode('normalized-code', normalForm.value);
     }
 
     if (pcode) {
       result.addParamCode('code', pcode);
-    } else if (tcode !== '' && mode !== 'codeableConcept') {
+    } else if (tcode && mode !== 'codeableConcept') {
       result.addParamCode('code', tcode);
     }
     if (pver) {
@@ -1299,7 +1299,7 @@ class ValueSetChecker {
       result.addParamStr('version', tver);
     }
 
-    if (pdisp && (pcode !== '' || (tcode !== '' && mode !== 'codeableConcept'))) {
+    if (pdisp && (pcode || (tcode && mode !== 'codeableConcept'))) {
       result.addParamStr('display', pdisp);
     }
 
@@ -1358,7 +1358,7 @@ class ValueSetChecker {
       let m, ds;
       if (dc === 0) {
         ds = await list.preferredDisplay(null);
-        if (ds === '') {
+        if (!ds) {
           m = this.worker.i18n.translate('NO_VALID_DISPLAY_AT_ALL', this.params.HTTPLanguages, [c.display, c.system, c.code]);
           mid = 'NO_VALID_DISPLAY_AT_ALL';
         } else {
@@ -1439,7 +1439,7 @@ class ValueSetChecker {
     if (ok === true) {
       result.AddParamBool('result', true);
       let pd = list.preferredDisplay(this.params.workingLanguages());
-      if (pd !== '') {
+      if (pd) {
         result.addParamStr('display', pd);
       }
       result.addParamUri('system', system);
@@ -1451,7 +1451,7 @@ class ValueSetChecker {
       }
       if (inactive.value) {
         result.addParamBool('inactive', inactive.value);
-        if (vstatus.value !== '' && vstatus.value !== 'inactive') {
+        if (vstatus.value && vstatus.value !== 'inactive') {
           result.addParamStr('status', vstatus.value);
         }
         let msg = this.worker.i18n.translate('INACTIVE_CONCEPT_FOUND', this.params.HTTPLanguages, [vstatus.value, code]);
@@ -1618,7 +1618,7 @@ class ValueSetChecker {
       let prep = await cs.getPrepContext(false);
       for (let fc of cfl) {
         this.worker.deadCheck('checkConceptSet#2');
-        if (fc.value === '') {
+        if (!fc.value) {
           throw new Issue('error', 'invalid', null, 'UNABLE_TO_HANDLE_SYSTEM_FILTER_WITH_NO_VALUE', this.worker.i18n.translate('UNABLE_TO_HANDLE_SYSTEM_FILTER_WITH_NO_VALUE', this.params.HTTPLanguages, [cs.system(), fc.property, fc.op]));
         }
         await cs.filter(prep, fc.property, fc.op, fc.value);
@@ -1792,7 +1792,7 @@ class ValueSetChecker {
 }
 
 function addToPath(path, name) {
-  if (path === '') {
+  if (!path) {
     return name;
   } else {
     return path + '.' + name;
@@ -1809,7 +1809,7 @@ function Unknown_Code_in_VersionSCT(url) {
 }
 
 function SCTVersion(url, ver) {
-  if (url !== 'http://snomed.info/sct' || ver === '') {
+  if (url !== 'http://snomed.info/sct' || !ver) {
     return '';
   } else {
     let result = 'unknown';

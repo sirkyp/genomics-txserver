@@ -30,14 +30,14 @@ class Renderer {
 
 static renderCodedProvider(system) {
   let result = system.systemUri + '|' + system.version;
-  if (system.sourcePackage !== '') {
+  if (system.sourcePackage) {
     result = result + ' (from ' + system.sourcePackage + ')';
   }
   return result;
 }
 
 static renderCodedSystemVersion(system, version) {
-  if (version === '') {
+  if (!version) {
     return system;
   } else {
     return system + '|' + version;
@@ -59,7 +59,7 @@ static renderCodedCoding(code) {
 static renderCodedCodeableConcept(code) {
   let result = '';
   for (const c of code.coding) {
-    if (result !== '') {
+    if (result) {
       result = result + ', ';
     }
     result = result + Renderer.renderCodedCoding(c);
@@ -69,7 +69,7 @@ static renderCodedCodeableConcept(code) {
 
 static renderInclude(inc) {
   let result;
-  if (inc.systemUri !== '') {
+  if (inc.systemUri) {
     result = '(' + inc.systemUri + ')';
     if (inc.hasConcepts) {
       result = result + '(';
@@ -100,7 +100,7 @@ static renderInclude(inc) {
   } else {
     result = '(';
     let first = true;
-    for (const s of inc.valueSets) {
+    for (const s of inc.valueSets || []) {
       if (first) {
         first = false;
       } else {

@@ -470,12 +470,12 @@ class OMOPServices extends CodeSystemProvider {
   }
 
   async #ensureContext(context) {
-    if (context == null) {
+    if (!context) {
       return null;
     }
     if (typeof context === 'string') {
       const ctxt = await this.locate(context);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message ? ctxt.message : `OMOP Concept '${context}' not found`);
       } else {
         return ctxt.context;
@@ -490,7 +490,7 @@ class OMOPServices extends CodeSystemProvider {
   // Lookup methods
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     return new Promise((resolve, reject) => {

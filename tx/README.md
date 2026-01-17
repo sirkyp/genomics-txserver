@@ -30,6 +30,7 @@ Add the `tx` section to your `config.json`:
     "tx": {
       "enabled": true,
       "librarySource": "/path/to/library.yml",
+      "cacheTimeout": 30,
       "endpoints": [
         {
           "path": "/tx/r5",
@@ -62,6 +63,7 @@ Add the `tx` section to your `config.json`:
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
 | `enabled` | boolean | Yes | Whether the module is enabled |
+| `cacheTimeout` | integer | Yes | How many minutes to keep client side caches (for cache-id parameter) |
 | `librarySource` | string | Yes | Path to the YAML file that defines the terminology sources to load |
 | `endpoints` | array | Yes | List of endpoint configurations (at least one required) |
 

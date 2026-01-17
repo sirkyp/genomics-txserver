@@ -106,12 +106,12 @@ class USStateServices extends CodeSystemProvider {
   }
 
   async #ensureContext(code) {
-    if (code == null) {
+    if (!code) {
       return code;
     }
     if (typeof code === 'string') {
       const ctxt = await this.locate(code);
-      if (ctxt.context == null) {
+      if (!ctxt.context) {
         throw new Error(ctxt.message ? ctxt.message : `US State Code '${code}' not found`);
       } else {
         return ctxt.context;
@@ -126,7 +126,7 @@ class USStateServices extends CodeSystemProvider {
   // Lookup methods
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     const concept = this.codeMap.get(code);

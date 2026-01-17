@@ -129,7 +129,7 @@ class UriServices extends CodeSystemProvider {
 
 
   async #ensureContext(code) {
-    if (code == null || typeof code === 'string') {
+    if (!code || typeof code === 'string') {
       return code;
     }
     throw new Error("Unknown Type at #ensureContext: "+ (typeof code));
@@ -141,7 +141,7 @@ class UriServices extends CodeSystemProvider {
 
   async locate(code) {
     
-    assert(code == null || typeof code === 'string', 'code must be string');
+    assert(!code || typeof code === 'string', 'code must be string');
     if (!code) return { context: null, message: 'Empty code' };
 
     // For URIs, any string is potentially valid

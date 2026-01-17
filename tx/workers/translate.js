@@ -252,7 +252,7 @@ class TranslateWorker extends TerminologyWorker {
       const lct = cp.locate(this.opContext, code);
       if (op.error('InstanceValidator', 'invalid', path, lct != null, 'Unknown Code (' + system + '#' + code + ')')) {
         result = op.warning('InstanceValidator', 'invalid', path,
-          (display === '') || (display === cp.display(this.opContext, lct, null)),
+          (!display) || (display === cp.display(this.opContext, lct, null)),
           'Display for ' + system + ' code "' + code + '" should be "' + cp.display(this.opContext, lct, null) + '"');
       }
     }
