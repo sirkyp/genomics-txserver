@@ -166,6 +166,16 @@ class TXModule {
       expansionCache: new ExpansionCache()
     };
 
+    // Set up periodic pruning of the resource cache
+    // cacheTimeout is in minutes, default to 30 minutes
+    const cacheTimeoutMinutes = this.config.cacheTimeout || 30;
+    const cacheTimeoutMs = cacheTimeoutMinutes * 60 * 1000;
+    const pruneIntervalMs = 5 * 60 * 1000; // Run every 5 minutes
+    setInterval(() => {
+      endpointInfo.resourceCache.prune(cacheTimeoutMs);
+    }, pruneIntervalMs);
+    this.log.info(`Resource cache pruning enabled for ${endpointPath}: timeout ${cacheTimeoutMinutes} minutes, check interval 5 minutes`);
+
     // Middleware to attach provider, context, and timing to request, and wrap res.json for HTML
     router.use((req, res, next) => {
       // Increment request count
