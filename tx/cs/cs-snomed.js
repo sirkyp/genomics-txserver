@@ -1013,6 +1013,9 @@ class SnomedServicesFactory extends CodeSystemFactoryProvider {
     return `SCT ${getEditionCode(this._sharedData.edition)}`;
   }
 
+  id() {
+    return "SCT"+this.version();
+  }
 }
 
 

@@ -1420,6 +1420,9 @@ class LoincServicesFactory extends CodeSystemFactoryProvider {
     });
   }
 
+  id() {
+    return "loinc"+this.version();
+  }
 }
 
 module.exports = {

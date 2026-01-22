@@ -14,7 +14,6 @@
 const { TerminologyWorker } = require('./worker');
 const {Languages, Language} = require("../../library/languages");
 const {Extensions} = require("../library/extensions");
-const {Renderer} = require("../library/renderer");
 const {validateParameter, isAbsoluteUrl, validateOptionalParameter, getValuePrimitive} = require("../../library/utilities");
 const {TxParameters} = require("../params");
 const {OperationOutcome, Issue} = require("../library/operation-outcome");
@@ -335,7 +334,7 @@ class ValueSetChecker {
   async prepareConceptSet(desc, cc) {
     this.worker.deadCheck('prepareConceptSet');
     Extensions.checkNoModifiers(cc, 'ValueSetChecker.prepare', desc);
-    this.worker.opContext.addNote(this.valueSet, 'Prepare ' + desc + ': "' + Renderer.renderInclude(cc) + '"', this.indentCount);
+    this.worker.opContext.addNote(this.valueSet, 'Prepare ' + desc + ': "' + this.worker.renderer.displayValueSetInclude(cc) + '"', this.indentCount);
     if (cc.valueSet) {
       for (let u of cc.valueSet) {
         let s = this.worker.pinValueSet(u);
@@ -355,7 +354,7 @@ class ValueSetChecker {
     let v = this.worker.determineVersionBase(cc.system, cc.version, this.params);
     let cs = await this.worker.findCodeSystem(cc.system, v, this.params, ['complete', 'fragment'], null, true, false, false);
     if (cs !== null) {
-      this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: "' + Renderer.renderCoded(cs) + '"', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: "' + this.worker.renderer.displayCoded(cs) + '"', this.indentCount);
       for (let i = this.worker.requiredSupplements.length - 1; i >= 0; i--) {
         if (cs.hasSupplement(this.worker.requiredSupplements[i])) {
           this.worker.requiredSupplements.splice(i, 1);
@@ -378,7 +377,7 @@ class ValueSetChecker {
         i++;
       }
     } else if (cc.system) {
-      this.worker.opContext.addNote(this.valueSet, 'CodeSystem version ' + v + ' not found: "' + Renderer.renderCoded(cc.system, cc.version) + '"', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'CodeSystem version ' + v + ' not found: "' + this.worker.renderer.displayCoded(cc.system, cc.version) + '"', this.indentCount);
     }
   }
 
@@ -420,7 +419,7 @@ class ValueSetChecker {
     if (inferSystem) {
       this.worker.opContext.addNote(this.valueSet, 'Validate "' + code + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(system, version, code) + '"', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + this.worker.renderer.displayCoded(system, version, code) + '"', this.indentCount);
     }
     let unknownSystems = new Set();
     let ts = [];
@@ -438,7 +437,7 @@ class ValueSetChecker {
 
   async check(path, system, version, code, abstractOk, inferSystem, displays, unknownSystems, ver, inactive, normalForm, vstatus, cause, op, vcc, params, contentMode, impliedSystem, unkCodes, messages, defLang) {
     defLang.value = new Language('en');
-    this.worker.opContext.addNote(this.valueSet, 'Check "' + Renderer.renderCoded(system, version, code) + '"', this.indentCount);
+    this.worker.opContext.addNote(this.valueSet, 'Check "' + this.worker.renderer.displayCoded(system, version, code) + '"', this.indentCount);
     if (!system && !inferSystem) {
       let msg = this.worker.i18n.translate('Coding_has_no_system__cannot_validate', this.params.HTTPLanguages, []);
       messages.push(msg);
@@ -458,7 +457,7 @@ class ValueSetChecker {
       let cs = await this.worker.findCodeSystem(system, version, this.params, ['complete', 'fragment'], op,true);
       this.seeSourceProvider(cs, system);
       if (cs === null) {
-        this.worker.opContext.addNote(this.valueSet, 'Didn\'t find CodeSystem "' + Renderer.renderCoded(system, version) + '"', this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Didn\'t find CodeSystem "' + this.worker.renderer.displayCoded(system, version) + '"', this.indentCount);
         result = null;
         cause.value = 'not-found';
         let vss = await this.worker.findValueSet(system, '');
@@ -501,7 +500,7 @@ class ValueSetChecker {
         }
       } else {
         defLang.value = cs.defLang();
-        this.worker.opContext.addNote(this.valueSet, 'Using CodeSystem "' + Renderer.renderCoded(cs) + '" (content = ' + cs.contentMode() + ')', this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Using CodeSystem "' + this.worker.renderer.displayCoded(cs) + '" (content = ' + cs.contentMode() + ')', this.indentCount);
         await this.checkCanonicalStatus(path, op, cs, this.valueSet);
         ver.value = cs.version();
         contentMode.value = cs.contentMode();
@@ -675,7 +674,7 @@ class ValueSetChecker {
             let v = await this.determineVersion(path, cc.system, cc.version, version, op, unknownSystems, messages);
             let cs = await this.worker.findCodeSystem(system, v, this.params, ["complete", "fragment"], op,true, true, false);
             if (cs === null) {
-              this.worker.opContext.addNote(this.valueSet, 'CodeSystem not found: ' + Renderer.renderCoded(cc.system, v), this.indentCount);
+              this.worker.opContext.addNote(this.valueSet, 'CodeSystem not found: ' + this.worker.renderer.displayCoded(cc.system, v), this.indentCount);
               if (!this.params.membershipOnly) {
                 let bAdd = true;
                 let msg, mid, vn;
@@ -708,7 +707,7 @@ class ValueSetChecker {
               }
             }
             defLang.value = new Language(cs.defLang());
-            this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: ' + Renderer.renderCoded(cs) + ' for ' + Renderer.renderCoded(cc.system, v), this.indentCount);
+            this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: ' + this.worker.renderer.displayCoded(cs) + ' for ' + this.worker.renderer.displayCoded(cc.system, v), this.indentCount);
             await this.checkCanonicalStatusCS(path, op, cs, this.valueSet);
             ver.value = cs.version();
             this.worker.checkSupplements(cs, cc);
@@ -864,9 +863,9 @@ class ValueSetChecker {
 
     this.worker.opContext.clearContexts();
     if (inferSystem) {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(coding) + '" and infer system', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + this.worker.renderer.displayCoded(coding) + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(coding) + '"', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + this.worker.renderer.displayCoded(coding) + '"', this.indentCount);
     }
 
     let op = new OperationOutcome();
@@ -973,9 +972,9 @@ class ValueSetChecker {
   async checkCodeableConcept(issuePath, code, abstractOk, inferSystem, mode) {
     this.worker.opContext.clearContexts();
     if (inferSystem) {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(code) + '" and infer system', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + this.worker.renderer.displayCoded(code) + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(code) + '"', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + this.worker.renderer.displayCoded(code) + '"', this.indentCount);
     }
 
     let inactive = { value: false };
@@ -1417,7 +1416,7 @@ class ValueSetChecker {
     if (inferSystem) {
       this.worker.opContext.addNote(this.valueSet, 'Validate "' + code + '" and infer system', this.indentCount);
     } else {
-      this.worker.opContext.addNote(this.valueSet, 'Validate "' + Renderer.renderCoded(system, version, code) + '"', this.indentCount);
+      this.worker.opContext.addNote(this.valueSet, 'Validate "' + this.worker.renderer.displayCoded(system, version, code) + '"', this.indentCount);
     }
     let unknownSystems = new Set();
     let unkCodes = [];
@@ -1485,14 +1484,14 @@ class ValueSetChecker {
   }
 
   async checkConceptSet(path, role, cs, cset, code, abstractOk, displays, vs, message, inactive, normalForm, vstatus, op, vcc, messages) {
-    this.worker.opContext.addNote(vs, 'check code ' + role + ' ' + Renderer.renderInclude(cset) + ' at ' + path, this.indentCount);
+    this.worker.opContext.addNote(vs, 'check code ' + role + ' ' + this.worker.renderer.displayValueSetInclude(cset) + ' at ' + path, this.indentCount);
     inactive.value = false;
     let result = false;
     if (!cset.concept && !cset.filter) {
       let loc = await cs.locate(code);
       result = false;
       if (loc.context == null) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+": "+loc.mesage, this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" not found in ' + this.worker.renderer.displayCoded(cs)+": "+loc.mesage, this.indentCount);
         if (!this.params.membershipOnly) {
           if (cs.contentMode() !== 'complete') {
             op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'UNKNOWN_CODE_IN_FRAGMENT', this.worker.i18n.translate('UNKNOWN_CODE_IN_FRAGMENT', this.params.HTTPLanguages, [code, cs.system(), cs.version()]), 'invalid-code'));
@@ -1506,12 +1505,12 @@ class ValueSetChecker {
           op.addIssue(new Issue('information', 'code-invalid', addToPath(path, 'code'), null, loc.message, 'invalid-code'));
         }
       } else if (!(abstractOk || !cs.IsAbstract(loc.context))) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is abstract', this.indentCount);
         if (!this.params.membershipOnly) {
           op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
         }
       } else if (this.excludeInactives() && await cs.isInactive(loc.context)) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is inactive', this.indentCount);
         let msg = this.worker.i18n.translate('STATUS_CODE_WARNING_CODE', this.params.HTTPLanguages, ['not active', code]);
         op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
         result = false;
@@ -1524,7 +1523,7 @@ class ValueSetChecker {
           }
         }
       } else if (this.params.activeOnly && await cs.isInactive(loc.context)) {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is inactive', this.indentCount);
         result = false;
         inactive.value = true;
         inactive.path = path;
@@ -1533,7 +1532,7 @@ class ValueSetChecker {
         messages.push(msg);
         op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'STATUS_CODE_WARNING_CODE', msg, 'code-rule'));
       } else {
-        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
+        this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
         result = true;
         if (await cs.code(loc.context) != code) {
           let msg;
@@ -1576,7 +1575,7 @@ class ValueSetChecker {
         let loc = await cs.locate(code);
         if (loc.context !== null) {
           loc = loc.context;
-          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
           await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
           this.worker.listDisplaysFromIncludeConcept(displays, cc, vs);
           if (!(abstractOk || !cs.IsAbstract(loc))) {
@@ -1608,7 +1607,7 @@ class ValueSetChecker {
             return result;
           }
         } else {
-          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" in concept list, but not found in ' + Renderer.renderCoded(cs)+": "+loc.message, this.indentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Code "' + code + '" in concept list, but not found in ' + this.worker.renderer.displayCoded(cs)+": "+loc.message, this.indentCount);
         }
       }
     }
@@ -1633,20 +1632,20 @@ class ValueSetChecker {
         if (loc != null && !(typeof loc === 'string')) {
           await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
           if (!(abstractOk || !cs.IsAbstract(loc))) {
-            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is abstract', this.indentCount);
             if (!this.params.membershipOnly) {
               op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
             }
           } else if (this.excludeInactives() && await cs.isInactive(loc)) {
             result = false;
-            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is inactive', this.indentCount);
             if (!this.params.membershipOnly) {
               inactive.value = true;
               inactive.path = path;
               vstatus.value = await cs.getStatus(loc);
             }
           } else {
-            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
+            this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
             if (vcc !== null) {
               if (!vcc.coding) { vcc.coding = []}
               vcc.coding.push( { system : cs.system(), version: cs.version(), code: await cs.code(loc), display: displays.preferredDisplay(this.params.workingLanguages())});
@@ -1655,10 +1654,10 @@ class ValueSetChecker {
             return result;
           }
         } else if (loc != null) {
-          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+ ": "+loc, this.indentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + this.worker.renderer.displayCoded(cs)+ ": "+loc, this.indentCount);
           messages.push(loc);
         } else {
-          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
+          this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
         }
       } else {
         result = true;
@@ -1670,12 +1669,12 @@ class ValueSetChecker {
             if (loc !== null) {
               await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
               if (!(abstractOk || !cs.IsAbstract(loc))) {
-                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + '' + fc.op + '' + fc.value + '": Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + '' + fc.op + '' + fc.value + '": Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is abstract', this.indentCount);
                 if (!this.params.membershipOnly) {
                   op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
                 }
               } else {
-                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
                 if (vcc !== null) {
                   vcc.addCoding(cs.system(), cs.version(), await cs.code(loc), displays.preferredDisplay(this.params.workingLanguages()));
                 }
@@ -1684,7 +1683,7 @@ class ValueSetChecker {
               }
             } else {
               result = false;
-              this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
+              this.worker.opContext.addNote(this.valueSet, 'Filter "' + fc.property + fc.op + fc.value + '": Code "' + code + '" not found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
             }
           } else if (fc.property === 'concept' && fc.op === 'is-not-a') {
             let loc = await cs.locateIsA(code, fc.value);
@@ -1695,12 +1694,12 @@ class ValueSetChecker {
               if (loc !== null) {
                 await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
                 if (!(abstractOk || !cs.IsAbstract(loc))) {
-                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
+                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is abstract', this.indentCount);
                   if (!this.params.membershipOnly) {
                     op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
                   }
                 } else if (this.excludeInactives() && await cs.isInactive(loc)) {
-                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
+                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is inactive', this.indentCount);
                   result = false;
                   if (!this.params.membershipOnly) {
                     inactive.value = true;
@@ -1708,7 +1707,7 @@ class ValueSetChecker {
                     vstatus.value = await cs.getStatus(loc);
                   }
                 } else {
-                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
+                  this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
                   if (vcc !== null) {
                     vcc.addCoding(cs.system(), cs.version(), await cs.code(loc), displays.preferredDisplay(this.params.workingLanguages()));
                   }
@@ -1717,7 +1716,7 @@ class ValueSetChecker {
                 }
               }
             } else {
-              this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs), this.indentCount);
+              this.worker.opContext.addNote(this.valueSet, 'Filter ' + fc.property + fc.op + fc.value + ': Code "' + code + '" not found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
             }
           } else {
             let ctxt = filters[i];
@@ -1726,12 +1725,12 @@ class ValueSetChecker {
             if (!(typeof loc === 'string')) {
               await this.worker.listDisplaysFromCodeSystem(displays, cs, loc);
               if (!(abstractOk || !cs.IsAbstract(loc))) {
-                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is abstract', this.indentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is abstract', this.indentCount);
                 if (!this.params.membershipOnly) {
                   op.addIssue(new Issue('error', 'business-rule', addToPath(path, 'code'), 'ABSTRACT_CODE_NOT_ALLOWED', this.worker.i18n.translate('ABSTRACT_CODE_NOT_ALLOWED', this.params.HTTPLanguages, [cs.system(), code]), 'code-rule'));
                 }
               } else if (this.excludeInactives() && await cs.isInactive(loc)) {
-                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs) + ' but is inactive', this.indentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs) + ' but is inactive', this.indentCount);
                 result = false;
                 if (!this.params.membershipOnly) {
                   inactive.value = true;
@@ -1739,7 +1738,7 @@ class ValueSetChecker {
                   vstatus.value = await cs.getStatus(loc);
                 }
               } else {
-                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + Renderer.renderCoded(cs), this.indentCount);
+                this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" found in ' + this.worker.renderer.displayCoded(cs), this.indentCount);
                 if (vcc !== null) {
                   vcc.addCoding(cs.system(), cs.version(), await cs.code(loc), displays.preferredDisplay(this.params.workingLanguages()));
                 }
@@ -1747,7 +1746,7 @@ class ValueSetChecker {
                 return result;
               }
             } else {
-              this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + Renderer.renderCoded(cs)+": "+loc, this.indentCount);
+              this.worker.opContext.addNote(this.valueSet, 'Filter ' + ctxt.summary + ': Code "' + code + '" not found in ' + this.worker.renderer.displayCoded(cs)+": "+loc, this.indentCount);
             }
           }
           if (!result) {

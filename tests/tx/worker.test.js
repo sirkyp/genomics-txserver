@@ -321,22 +321,22 @@ describe('TerminologyWorker', () => {
 
   describe('renderCoded static method', () => {
     test('should render system only', () => {
-      const result = TerminologyWorker.renderCoded('http://test.com');
+      const result = worker.displayCoded('http://test.com');
       expect(result).toBe('http://test.com');
     });
 
     test('should render system with version', () => {
-      const result = TerminologyWorker.renderCoded('http://test.com', '1.0.0');
+      const result = worker.displayCoded('http://test.com', '1.0.0');
       expect(result).toBe('http://test.com|1.0.0');
     });
 
     test('should render system, version, and code', () => {
-      const result = TerminologyWorker.renderCoded('http://test.com', '1.0.0', 'CODE123');
+      const result = worker.displayCoded('http://test.com', '1.0.0', 'CODE123');
       expect(result).toBe('http://test.com|1.0.0#CODE123');
     });
 
     test('should render full coding with display', () => {
-      const result = TerminologyWorker.renderCoded('http://test.com', '1.0.0', 'CODE123', 'Test Display');
+      const result = worker.displayCoded('http://test.com', '1.0.0', 'CODE123', 'Test Display');
       expect(result).toBe('http://test.com|1.0.0#CODE123 ("Test Display")');
     });
 
@@ -348,7 +348,7 @@ describe('TerminologyWorker', () => {
         display: 'Test Display'
       };
 
-      const result = TerminologyWorker.renderCoded(coding);
+      const result = worker.displayCoded(coding);
       expect(result).toBe('http://test.com|1.0.0#CODE123 ("Test Display")');
     });
   });

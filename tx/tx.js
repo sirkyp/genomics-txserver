@@ -31,6 +31,8 @@ const {ParametersXML} = require("./xml/parameters-xml");
 const {OperationOutcomeXML} = require("./xml/operationoutcome-xml");
 const {ValueSetXML} = require("./xml/valueset-xml");
 const {ConceptMapXML} = require("./xml/conceptmap-xml");
+const {TxHtmlRenderer} = require("./tx-html");
+const {Renderer} = require("./library/renderer");
 
 class TXModule {
   constructor() {
@@ -153,9 +155,14 @@ class TXModule {
     this.log.info(`Setting up endpoint: ${endpointPath} (FHIR v${fhirVersion}, context: ${context || 'none'})`);
 
     // Create the provider once for this endpoint
-    const provider = await this.library.cloneWithFhirVersion(fhirVersion, context);
+    const provider = await this.library.cloneWithFhirVersion(fhirVersion, context, endpointPath);
 
     const router = express.Router();
+
+    // Get cache configuration
+    const cacheTimeoutMinutes = this.config.cacheTimeout || 30;
+    const expansionCacheSize = this.config.expansionCacheSize || 1000;
+    const expansionCacheMemoryThreshold = this.config.expansionCacheMemoryThreshold || 0;
 
     // Store endpoint info for provider creation
     const endpointInfo = {
@@ -163,18 +170,29 @@ class TXModule {
       fhirVersion,
       context: context || null,
       resourceCache: new ResourceCache(),
-      expansionCache: new ExpansionCache()
+      expansionCache: new ExpansionCache(expansionCacheSize, expansionCacheMemoryThreshold)
     };
 
     // Set up periodic pruning of the resource cache
     // cacheTimeout is in minutes, default to 30 minutes
-    const cacheTimeoutMinutes = this.config.cacheTimeout || 30;
     const cacheTimeoutMs = cacheTimeoutMinutes * 60 * 1000;
     const pruneIntervalMs = 5 * 60 * 1000; // Run every 5 minutes
     setInterval(() => {
       endpointInfo.resourceCache.prune(cacheTimeoutMs);
     }, pruneIntervalMs);
     this.log.info(`Resource cache pruning enabled for ${endpointPath}: timeout ${cacheTimeoutMinutes} minutes, check interval 5 minutes`);
+
+    // Set up periodic memory pressure check for expansion cache (if threshold configured)
+    if (expansionCacheMemoryThreshold > 0) {
+      setInterval(() => {
+        if (endpointInfo.expansionCache.checkMemoryPressure()) {
+          this.log.info(`Expansion cache memory pressure detected for ${endpointPath}, evicted oldest half`);
+        }
+      }, pruneIntervalMs);
+      this.log.info(`Expansion cache for ${endpointPath}: max ${expansionCacheSize} entries, memory threshold ${expansionCacheMemoryThreshold}MB`);
+    } else {
+      this.log.info(`Expansion cache for ${endpointPath}: max ${expansionCacheSize} entries, no memory threshold`);
+    }
 
     // Middleware to attach provider, context, and timing to request, and wrap res.json for HTML
     router.use((req, res, next) => {
@@ -208,18 +226,19 @@ class TXModule {
       // Wrap res.json to intercept and convert to HTML if browser requests it, and log the request
       const originalJson = res.json.bind(res);
 
-      res.json = (data) => {
+      let txhtml = new TxHtmlRenderer(new Renderer(opContext, provider));
+      res.json = async (data) => {
         const duration = Date.now() - req.txStartTime;
-        const isHtml = txHtml.acceptsHtml(req);
+        const isHtml = txhtml.acceptsHtml(req);
         const isXml = this.acceptsXml(req);
 
         let responseSize;
         let result;
 
         if (isHtml) {
-          const title = txHtml.buildTitle(data, req);
-          const content = txHtml.render(data, req);
-          const html = txHtml.renderPage(title, content, req.txEndpoint, req.txStartTime);
+          const title = txhtml.buildTitle(data, req);
+          const content= await txhtml.render(data, req);
+          const html = await txhtml.renderPage(title, content, req.txEndpoint, req.txStartTime);
           responseSize = Buffer.byteLength(html, 'utf8');
           res.setHeader('Content-Type', 'text/html');
           result = res.send(html);

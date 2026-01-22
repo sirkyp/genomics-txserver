@@ -176,12 +176,18 @@ class ExpansionCache {
   static MIN_CACHE_TIME_MS = 2000;
 
   /**
-   * Maximum age (ms) for cached entries before pruning
+   * Default maximum number of cached entries
    */
-  static MAX_AGE_MS = 3600000; // 1 hour
+  static DEFAULT_MAX_SIZE = 1000;
 
-  constructor() {
+  /**
+   * @param {number} maxSize - Maximum number of entries to keep (default 1000)
+   * @param {number} memoryThresholdMB - Heap usage in MB that triggers dropping oldest half (0 = disabled)
+   */
+  constructor(maxSize = ExpansionCache.DEFAULT_MAX_SIZE, memoryThresholdMB = 0) {
     this.cache = new Map();
+    this.maxSize = maxSize;
+    this.memoryThresholdBytes = memoryThresholdMB * 1024 * 1024;
   }
 
   /**
@@ -277,6 +283,11 @@ class ExpansionCache {
       return false;
     }
 
+    // Enforce max size before adding - evict oldest (by lastUsed) if needed
+    if (this.cache.size >= this.maxSize) {
+      this.evictOldest(1);
+    }
+
     this.cache.set(key, {
       expansion: expansion,
       createdAt: Date.now(),
@@ -285,6 +296,50 @@ class ExpansionCache {
       hitCount: 0
     });
     return true;
+  }
+
+  /**
+   * Evict the N oldest entries by lastUsed time
+   * @param {number} count - Number of entries to evict
+   * @returns {number} Number of entries actually evicted
+   */
+  evictOldest(count) {
+    if (this.cache.size === 0 || count <= 0) return 0;
+
+    // Get entries sorted by lastUsed (oldest first)
+    const entries = Array.from(this.cache.entries())
+      .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+
+    const toEvict = Math.min(count, entries.length);
+    for (let i = 0; i < toEvict; i++) {
+      this.cache.delete(entries[i][0]);
+    }
+    return toEvict;
+  }
+
+  /**
+   * Drop the oldest half of entries (by lastUsed)
+   * Called when memory pressure is detected
+   * @returns {number} Number of entries evicted
+   */
+  evictOldestHalf() {
+    const halfSize = Math.floor(this.cache.size / 2);
+    return this.evictOldest(halfSize);
+  }
+
+  /**
+   * Check memory usage and evict oldest half if over threshold
+   * @returns {boolean} True if eviction was triggered
+   */
+  checkMemoryPressure() {
+    if (this.memoryThresholdBytes <= 0) return false;
+
+    const heapUsed = process.memoryUsage().heapUsed;
+    if (heapUsed > this.memoryThresholdBytes) {
+      this.evictOldestHalf();
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -318,19 +373,6 @@ class ExpansionCache {
   }
 
   /**
-   * Remove entries older than maxAge
-   * @param {number} maxAge - Maximum age in milliseconds
-   */
-  prune(maxAge = ExpansionCache.MAX_AGE_MS) {
-    const now = Date.now();
-    for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.lastUsed > maxAge) {
-        this.cache.delete(key);
-      }
-    }
-  }
-
-  /**
    * Get cache statistics
    * @returns {Object} Stats object
    */
@@ -343,6 +385,8 @@ class ExpansionCache {
     }
     return {
       size: this.cache.size,
+      maxSize: this.maxSize,
+      memoryThresholdMB: this.memoryThresholdBytes > 0 ? this.memoryThresholdBytes / (1024 * 1024) : 0,
       totalHits,
       totalDurationSaved: totalHits > 0 ? totalDuration * totalHits : 0
     };

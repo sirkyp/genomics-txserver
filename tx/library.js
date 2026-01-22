@@ -81,7 +81,6 @@ class Library {
     }
   }
 
-
   constructor(configFile) {
     this.configFile = configFile;
     // Only synchronous initialization here
@@ -543,7 +542,7 @@ class Library {
    * @param {string} context - other information from the client that sets the context
    * @returns {Promise<Provider>} New provider instance with FHIR packages loaded
    */
-  async cloneWithFhirVersion(fhirVersion, context) {
+  async cloneWithFhirVersion(fhirVersion, context, path) {
     // Create new provider instance
     const provider = new Provider();
     provider.i18n = this.i18n;
@@ -551,6 +550,7 @@ class Library {
     provider.codeSystems = new Map();
     provider.valueSetProviders = [];
     provider.conceptMapProviders = [];
+    provider.path = path;
     if (VersionUtilities.isR5Ver(fhirVersion)) {
       provider.fhirVersion = 5;
     } else if (VersionUtilities.isR4Ver(fhirVersion)) {

@@ -37,7 +37,47 @@
 </head>
 
 <body>
-  
+  <script>
+      function toggleJsonSource(id) {
+          const elem = document.getElementById(id);
+          const btn = elem.previousElementSibling;
+          if (elem.style.display === 'none') {
+              elem.style.display = 'block';
+              btn.textContent = 'Hide JSON Source';
+          } else {
+              elem.style.display = 'none';
+              btn.textContent = 'Show JSON Source';
+          }
+      }
+      function toggleOriginalNarrative(id) {
+          const elem = document.getElementById(id);
+          const btn = elem.previousElementSibling;
+          if (elem.style.display === 'none') {
+              elem.style.display = 'block';
+              btn.textContent = 'Hide Original Narrative';
+          } else {
+              elem.style.display = 'none';
+              btn.textContent = 'Show Original Narrative';
+          }
+      }
+      function toggleOperations(id) {
+          const elem = document.getElementById(id);
+          const btn = elem.previousElementSibling;
+          if (elem.style.display === 'none') {
+              elem.style.display = 'block';
+              btn.textContent = 'Hide Operations';
+          } else {
+              elem.style.display = 'none';
+              btn.textContent = 'Show Operations';
+          }
+      }
+
+      function updateInferSystem(systemId, inferSystemId) {
+          const systemInput = document.getElementById(systemId);
+          const inferSystemInput = document.getElementById(inferSystemId);
+          inferSystemInput.disabled = (systemInput.value.trim() !== '');
+      }
+  </script>
 	<div id="segment-navbar" class="segment">
 		<div id="stripe"> </div>
 		<div class="container">
@@ -58,7 +98,7 @@
             	<div class="inner-wrapper">
  <div class="col-12">
 
-  <h2><img border="0" src="../FHIRsmith32.png" style="vertical-align: text-bottom"/> TX: [%title%] </h2>
+  <h2><img border="0" src="/FHIRsmith32.png" style="vertical-align: text-bottom"/> TX: [%title%] </h2>
 
 [%content%]
 

@@ -501,6 +501,9 @@ class UcumCodeSystemFactory extends CodeSystemFactoryProvider {
     return 'UCUM';
   }
 
+  id() {
+    return "ucum";
+  }
 }
 
 module.exports = {

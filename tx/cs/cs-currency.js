@@ -525,6 +525,9 @@ class Iso4217FactoryProvider extends CodeSystemFactoryProvider {
     return 'Currencies';
   }
 
+  id() {
+    return "currencies";
+  }
 
 }
 

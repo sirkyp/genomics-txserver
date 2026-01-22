@@ -6,6 +6,7 @@ const {getValuePrimitive} = require("../../library/utilities");
 const {Issue} = require("../library/operation-outcome");
 const {Languages} = require("../../library/languages");
 const {ConceptMap} = require("../library/conceptmap");
+const {Renderer} = require("../library/renderer");
 
 /**
  * Custom error for terminology setup issues
@@ -24,6 +25,7 @@ class TerminologyWorker {
   usedSources = [];
   additionalResources = []; // Resources provided via tx-resource parameter or cache
   foundParameters = [];
+  renderer;
 
   /**
    * @param {OperationContext} opContext - Operation context
@@ -41,6 +43,7 @@ class TerminologyWorker {
     this.noCacheThisOne = false;
     this.params = null; // Will be set by subclasses
     this.requiredSupplements = [];
+    this.renderer = new Renderer(i18n, languages, provider);
   }
 
   /**
@@ -731,15 +734,15 @@ class TerminologyWorker {
    * @param {string} display - Display (optional)
    * @returns {string} Rendered string
    */
-  static renderCoded(system, version = '', code = '', display = '') {
+  displayCoded(system, version = '', code = '', display = '') {
     if (typeof system === 'object') {
       // Handle coding or codeable concept objects
       if (system.system !== undefined) {
         // Coding object
-        return TerminologyWorker.renderCoded(system.system, system.version, system.code, system.display);
+        return this.renderer.displayCoded(system.system, system.version, system.code, system.display);
       } else if (system.codings) {
         // Codeable concept object
-        const rendered = system.codings.map(c => TerminologyWorker.renderCoded(c)).join(', ');
+        const rendered = system.codings.map(c => this.displayCoded(c)).join(', ');
         return `[${rendered}]`;
       }
     }

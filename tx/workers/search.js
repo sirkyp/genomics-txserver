@@ -33,7 +33,7 @@ class SearchWorker extends TerminologyWorker {
     '_offset', '_count', '_elements', '_sort',
     'url', 'version', 'content-mode', 'date', 'description',
     'supplements', 'identifier', 'jurisdiction', 'name',
-    'publisher', 'status', 'system', 'title'
+    'publisher', 'status', 'system', 'title', 'text'
   ];
 
   // Sortable fields
@@ -143,6 +143,12 @@ class SearchWorker extends TerminologyWorker {
           if (param === 'jurisdiction') {
             // Special handling for jurisdiction - array of CodeableConcept
             if (!this.matchJurisdiction(json.jurisdiction, searchValue)) {
+              isMatch = false;
+              break;
+            }
+          } else if (param === 'text') {
+            const propValue = json.title + json.description;
+            if (!this.matchValue(propValue, searchValue)) {
               isMatch = false;
               break;
             }

@@ -451,6 +451,10 @@ class IETFLanguageCodeFactory extends CodeSystemFactoryProvider  {
   async buildKnownValueSet(url, version) {
     return null;
   }
+
+  id() {
+    return "languages";
+  }
 }
 
 module.exports = {

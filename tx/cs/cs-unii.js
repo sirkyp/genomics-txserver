@@ -258,6 +258,9 @@ class UniiServicesFactory extends CodeSystemFactoryProvider {
     return 'UNII Codes';
   }
 
+  id() {
+    return "unii";
+  }
 
 }
 

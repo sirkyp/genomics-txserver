@@ -692,6 +692,9 @@ class NdcServicesFactory extends CodeSystemFactoryProvider {
   }
 
 
+  id() {
+    return "ndc";
+  }
 }
 
 module.exports = {

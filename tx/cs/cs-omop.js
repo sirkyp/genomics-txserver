@@ -1012,6 +1012,9 @@ class OMOPServicesFactory extends CodeSystemFactoryProvider {
     return `OMOP Concepts`;
   }
 
+  id() {
+    return "omop";
+  }
 }
 
 module.exports = {

@@ -226,6 +226,9 @@ class MimeTypeServicesFactory extends CodeSystemFactoryProvider {
   }
 
 
+  id() {
+    return "mimetypes";
+  }
 }
 
 module.exports = {

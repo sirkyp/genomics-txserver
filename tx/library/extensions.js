@@ -97,6 +97,7 @@ const Extensions = {
     }
     return null;
   },
+
   has(object, url) {
     if (!object) {
       return undefined;

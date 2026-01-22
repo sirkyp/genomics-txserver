@@ -780,6 +780,9 @@ class RxNormTypeServicesFactory extends CodeSystemFactoryProvider {
     return this.isNCI ? 'NCI' : 'RxNorm';
   }
 
+  id() {
+    return this.name();
+  }
 
 }
 

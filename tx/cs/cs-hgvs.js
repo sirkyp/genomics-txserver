@@ -317,6 +317,9 @@ class HGVSServicesFactory extends CodeSystemFactoryProvider {
   }
 
 
+  id() {
+    return "hgvs";
+  }
 }
 
 module.exports = {

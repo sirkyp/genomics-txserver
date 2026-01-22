@@ -207,6 +207,9 @@ class UriServicesFactory extends CodeSystemFactoryProvider {
   }
 
 
+  id() {
+    return "urls";
+  }
 }
 
 module.exports = {

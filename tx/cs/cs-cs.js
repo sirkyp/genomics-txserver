@@ -1564,6 +1564,11 @@ class FhirCodeSystemFactory extends CodeSystemFactoryProvider {
   name() {
     return "CodeSystem";
   }
+
+  id() {
+    return "cs";
+  }
+
 }
 
 module.exports = {

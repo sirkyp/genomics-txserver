@@ -36,12 +36,6 @@ class CodeSystem extends CanonicalResource {
   }
 
   /**
-   * Assigned id for the code system. defaults to the loaded id, but might be overwritten
-   * @type {String}
-   */
-  id;
-
-  /**
    * Map of code to concept object for fast lookup
    * @type {Map<string, Object>}
    */
@@ -454,8 +448,6 @@ class CodeSystem extends CanonicalResource {
    * @private
    */
   buildMaps() {
-    this.id = this.jsonObj.id;
-
     this.codeMap.clear();
     if (this.caseInsensitive()) {
       this.codeMapNC = new Map();
@@ -770,6 +762,13 @@ class CodeSystem extends CanonicalResource {
     return this.jsonObj.caseSensitive == undefined || this.jsonObj.caseSensitive == false;
   }
 
+  get id() {
+    return this.jsonObj.id;
+  }
+
+  set id(value) {
+    this.jsonObj.id = value;
+  }
 }
 
 module.exports = { CodeSystem, CodeSystemContentMode };

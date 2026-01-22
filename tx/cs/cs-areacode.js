@@ -602,6 +602,9 @@ class AreaCodeFactoryProvider extends CodeSystemFactoryProvider {
     return 'Region Codes';
   }
 
+  id() {
+    return "areas";
+  }
 }
 
 module.exports = {

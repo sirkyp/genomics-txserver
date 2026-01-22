@@ -1,3 +1,4 @@
+const {validateParameter, validateOptionalParameter} = require("./utilities");
 const NodeType = {
   Document: 'Document',
   Element: 'Element',
@@ -458,6 +459,262 @@ class XhtmlNode {
       }
     }
     return result;
+  }
+
+  startCommaList(lastWord) {
+    validateParameter(lastWord, 'lastWord', String);
+    if (this.lastWord) {
+      throw new Error('Unclosed list');
+    }
+    this.lastWord = lastWord;
+    this.commaItems = [];
+    this.commaFirst = true;
+  }
+
+  commaItem(text, link) {
+    validateParameter(text, 'text', String);
+    validateOptionalParameter(link, 'link', String);
+
+    if (!this.commaFirst) {
+      this.commaItems.push(this.tx(", "));
+    }
+    this.commaFirst = false;
+    if (link) {
+      this.ah(link).tx(text);
+    } else {
+      this.tx(text);
+    }
+  }
+
+  stopCommaList() {
+    if (this.commaItems && this.commaItems.length > 0) {
+      this.commaItems[this.commaItems.length-1].content = " "+this.lastWord+" ";
+    }
+    this.lastWord = undefined;
+    this.commaItems = undefined;
+  }
+
+// Script execution methods
+
+  startScript(name) {
+    if (this.namedParams) {
+      throw new Error(`Sequence Error - script is already open @ ${name}`);
+    }
+    this.namedParams = new Map();
+    this.namedParamValues = new Map();
+  }
+
+  param(name) {
+    if (!this.namedParams) {
+      throw new Error('Sequence Error - script is not already open');
+    }
+    // Create a detached node that will be inserted when the script executes
+    const node = new XhtmlNode(NodeType.Element, 'p');
+    node.inPara = true;
+    this.namedParams.set(name, node);
+    return node;
+  }
+
+  paramValue(name, value) {
+    if (!this.namedParamValues) {
+      throw new Error('Sequence Error - script is not already open');
+    }
+    this.namedParamValues.set(name, String(value));
+  }
+
+  execScript(structure) {
+    const scriptNodes = this.#parseFragment(`<div>${structure}</div>`);
+    this.#parseNodes(scriptNodes, this.childNodes);
+  }
+
+  #parseNodes(source, dest) {
+    for (const n of source) {
+      if (n.name === 'param') {
+        const paramName = n.getAttribute('name');
+        const node = this.namedParams.get(paramName);
+        if (node) {
+          this.#parseNodes(node.childNodes, dest);
+        }
+      } else if (n.name === 'if') {
+        const test = n.getAttribute('test');
+        if (this.#passesTest(test)) {
+          this.#parseNodes(n.childNodes, dest);
+        }
+      } else {
+        dest.push(n);
+      }
+    }
+  }
+
+  #passesTest(test) {
+    const parts = test.trim().split(/\s+/);
+    if (parts.length !== 3) {
+      return false;
+    }
+
+    const [paramName, operator, compareValue] = parts;
+
+    if (!this.namedParamValues.has(paramName)) {
+      return false;
+    }
+
+    const paramValue = this.namedParamValues.get(paramName);
+
+    switch (operator) {
+      case '=':
+        return compareValue.toLowerCase() === paramValue.toLowerCase();
+      case '!=':
+        return compareValue.toLowerCase() !== paramValue.toLowerCase();
+      case '<':
+        return this.#isInteger(paramValue) && this.#isInteger(compareValue) &&
+            parseInt(paramValue, 10) < parseInt(compareValue, 10);
+      case '<=':
+        return this.#isInteger(paramValue) && this.#isInteger(compareValue) &&
+            parseInt(paramValue, 10) <= parseInt(compareValue, 10);
+      case '>':
+        return this.#isInteger(paramValue) && this.#isInteger(compareValue) &&
+            parseInt(paramValue, 10) > parseInt(compareValue, 10);
+      case '>=':
+        return this.#isInteger(paramValue) && this.#isInteger(compareValue) &&
+            parseInt(paramValue, 10) >= parseInt(compareValue, 10);
+      default:
+        return false;
+    }
+  }
+
+  #isInteger(str) {
+    return /^-?\d+$/.test(str);
+  }
+
+  #parseFragment(html) {
+    const nodes = [];
+    const stack = [{ children: nodes }];
+    let current = stack[0];
+    let i = 0;
+
+    while (i < html.length) {
+      if (html[i] === '<') {
+        // Check for closing tag
+        if (html[i + 1] === '/') {
+          const endTag = html.indexOf('>', i);
+          stack.pop();
+          current = stack[stack.length - 1];
+          i = endTag + 1;
+          continue;
+        }
+
+        // Find tag end
+        const tagEnd = html.indexOf('>', i);
+        const tagContent = html.substring(i + 1, tagEnd);
+        const selfClosing = tagContent.endsWith('/');
+        const cleanContent = selfClosing ? tagContent.slice(0, -1).trim() : tagContent.trim();
+
+        // Parse tag name and attributes
+        const spaceIndex = cleanContent.indexOf(' ');
+        const tagName = spaceIndex === -1 ? cleanContent : cleanContent.substring(0, spaceIndex);
+        const attrString = spaceIndex === -1 ? '' : cleanContent.substring(spaceIndex + 1);
+
+        const node = new XhtmlNode(NodeType.Element, tagName);
+
+        // Parse attributes
+        const attrRegex = /(\w+)=["']([^"']*)["']/g;
+        let match;
+        while ((match = attrRegex.exec(attrString)) !== null) {
+          node.setAttribute(match[1], match[2]);
+        }
+
+        current.children.push(node);
+
+        if (!selfClosing) {
+          stack.push({ children: node.childNodes });
+          current = stack[stack.length - 1];
+        }
+
+        i = tagEnd + 1;
+      } else {
+        // Text content
+        const nextTag = html.indexOf('<', i);
+        const textContent = nextTag === -1 ? html.substring(i) : html.substring(i, nextTag);
+
+        if (textContent.trim()) {
+          const textNode = new XhtmlNode(NodeType.Text);
+          textNode.content = textContent;
+          current.children.push(textNode);
+        }
+
+        i = nextTag === -1 ? html.length : nextTag;
+      }
+    }
+
+    // Return children of the wrapper div
+    return nodes.length > 0 && nodes[0].childNodes ? nodes[0].childNodes : nodes;
+  }
+
+  closeScript() {
+    if (!this.namedParams) {
+      throw new Error('Sequence Error - script is not already open');
+    }
+    this.namedParams = null;
+    this.namedParamValues = null;
+  }
+
+  /**
+   * Process markdown content and add it as HTML child nodes
+   * @param {string} md - Markdown content to process
+   * @returns {XhtmlNode} - this node for chaining
+   */
+  markdown(md) {
+    if (!md) {
+      return this;
+    }
+
+    const commonmark = require('commonmark');
+    const reader = new commonmark.Parser();
+    const writer = new commonmark.HtmlRenderer({ safe: true });
+
+    const parsed = reader.parse(md);
+    const html = writer.render(parsed);
+
+    // Parse the HTML and add as children
+    const nodes = this.#parseFragment(`<div>${html}</div>`);
+    for (const node of nodes) {
+      this.childNodes.push(node);
+    }
+
+    return this;
+  }
+
+  /**
+   * Process markdown content and add it inline (strips block-level wrapper)
+   * Useful when you want to add markdown content within a paragraph
+   * @param {string} md - Markdown content to process
+   * @returns {XhtmlNode} - this node for chaining
+   */
+  markdownInline(md) {
+    if (!md) {
+      return this;
+    }
+
+    const commonmark = require('commonmark');
+    const reader = new commonmark.Parser();
+    const writer = new commonmark.HtmlRenderer({ safe: true });
+
+    const parsed = reader.parse(md);
+    const html = writer.render(parsed);
+
+    // Strip outer <p> tags if present for inline usage
+    const trimmedHtml = html.trim().replace(/^<p>/, '').replace(/<\/p>\s*$/, '');
+
+    // Parse the HTML and add as children
+    const nodes = this.#parseFragment(`<span>${trimmedHtml}</span>`);
+    for (const node of nodes) {
+      // Add children of the wrapper span, not the span itself
+      for (const child of node.childNodes) {
+        this.childNodes.push(child);
+      }
+    }
+
+    return this;
   }
 
   render(indent = 0, pretty = true) {

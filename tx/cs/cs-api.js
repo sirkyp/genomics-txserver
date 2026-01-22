@@ -762,6 +762,14 @@ class CodeSystemFactoryProvider {
   async findImplicitConceptMap(url, version) {
     return null;
   }
+
+  id() {
+    throw new Error("Must override");
+  }
+
+  codeLink() {
+    return undefined;
+  }
 }
 
 module.exports = {

@@ -46,6 +46,7 @@ class Provider {
   contentSources;
 
   baseUrl = null;
+  path;
   cacheFolder = null;
   startTime = Date.now();
   startMemory = process.memoryUsage();
@@ -252,6 +253,68 @@ class Provider {
       default: return "R5";
     }
   }
+
+  async resolveURL(opContext, system, version) {
+    validateParameter(opContext, "opContext", OperationContext);
+    validateParameter(system, "system", String);
+    validateOptionalParameter(version, "version", String);
+
+    if (system.includes("|")) {
+      const url = system.substring(0, system.indexOf("|"));
+      const v = system.substring(system.indexOf("|")+1);
+      if (version == null || v === version) {
+        version = v;
+      } else {
+        throw new TerminologyError(`Version inconsistent in ${system}: ${v} vs ${version}`);
+      }
+      system = url;
+    } else if (!version) {
+      version = null;
+    }
+    const vurl = system+(version ? "|"+version : "");
+    const vurlMM = VersionUtilities.isSemVer(version) ? system+"|"+VersionUtilities.getMajMin(version) : null;
+    let factory = this.codeSystemFactories.get(vurl);
+    if (factory == null && vurlMM) {
+      factory = this.codeSystemFactories.get(vurlMM);
+    }
+    if (factory != null) {
+      return {
+        link: this.path+"/CodeSystem/"+factory.id(),
+        description: factory.name()
+      };
+    }
+    let cs = this.codeSystems.get(vurl);
+    if (cs == null && vurlMM) {
+      cs = this.codeSystems.get(vurlMM);
+    }
+    if (cs != null) {
+      return {
+        link: this.path+"/CodeSystem/"+cs.id,
+        description: cs.title ? cs.title : cs.name
+      };
+    }
+
+    let vs = await this.findValueSet(opContext, system, version);
+    if (vs) {
+      return {
+        link: this.path+"/ValueSet/"+vs.id,
+        description: vs.title ? vs.title : vs.name
+      };
+    }
+    // let cm = await this.findConceptMap(opContext, system, version);
+    // if (cm) {
+    //   return {
+    //     link: this.path+"/ConceptMap/"+cm.id,
+    //     description: cm.title ? cm.title : cm.name
+    //   };
+    // }
+    return null;
+  }
+
+  resolveCode(opContext, url, version, code) {
+    return null;
+  }
+
 }
 
 module.exports = { Provider };
