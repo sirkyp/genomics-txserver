@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const TEST_CASES_FILE = '/Users/grahamegrieve/igs/fhir-tx-ecosystem-ig/tests/test-cases.json';
+const TEST_CASES_FILE = '/Users/grahamegrieve/igs/tx-ecosystem-ig/tests/test-cases.json';
 const OUTPUT_FILE = path.join(__dirname, 'test-cases.test.js');
 
 
