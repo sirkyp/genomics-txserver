@@ -682,7 +682,7 @@ class ValueSetExpander {
         // nothing
       } else {
 
-        this.worker.checkSupplements(cs, cset);
+        this.worker.checkSupplements(cs, cset, this.requiredSupplements);
         this.checkProviderCanonicalStatus(expansion, cs, this.valueSet);
         const sv = this.canonical(await cs.system(), await cs.version());
         this.addParamUri(expansion, 'used-codesystem', sv);
@@ -707,7 +707,7 @@ class ValueSetExpander {
           if (cs.specialEnumeration() && this.params.limitedExpansion && filters.length === 0) {
             this.worker.opContext.log('import special value set ' + cs.specialEnumeration());
             const base = await this.expandValueSet(cs.specialEnumeration(), '', filter, notClosed);
-            expansion.addExtensionV('http://hl7.org/fhir/StructureDefinition/valueset-toocostly', this.factory.makeBoolean(true));
+            Extensions.addBoolean(expansion, 'http://hl7.org/fhir/StructureDefinition/valueset-toocostly', true);
             await this.importValueSet(base, expansion, valueSets, 0);
             notClosed.value = true;
           } else if (filter.isNull) {
@@ -902,7 +902,7 @@ class ValueSetExpander {
       const prep = null;
       const cs = await this.worker.findCodeSystem(cset.system, cset.version, this.params, ['complete', 'fragment'], false, true, true, null);
 
-      this.worker.checkSupplements(cs, cset);
+      this.worker.checkSupplements(cs, cset, this.requiredSupplements);
       this.checkResourceCanonicalStatus(expansion, cs, this.valueSet);
       const sv = this.canonical(await cs.system(), await cs.version());
       this.addParamUri(expansion, 'used-codesystem', sv);
@@ -926,7 +926,7 @@ class ValueSetExpander {
         this.opContext.log('handle system');
         if (cs.specialEnumeration() && this.params.limitedExpansion && filters.length === 0) {
           const base = await this.expandValueSet(cs.specialEnumeration(), '', filter, notClosed);
-          expansion.addExtensionV('http://hl7.org/fhir/StructureDefinition/valueset-toocostly', this.factory.makeBoolean(true));
+          Extensions.addBoolean(expansion, 'http://hl7.org/fhir/StructureDefinition/valueset-toocostly', true);
           this.excludeValueSet(base, expansion, valueSets, 0);
           notClosed.value = true;
         } else if (filter.isNull) {
@@ -1160,9 +1160,9 @@ class ValueSetExpander {
       result.text = undefined;
     }
 
-    this.worker.requiredSupplements = [];
+    this.requiredSupplements = [];
     for (const ext of Extensions.list(source.jsonObj, 'http://hl7.org/fhir/StructureDefinition/valueset-supplement')) {
-      this.worker.requiredSupplements.push(getValuePrimitive(ext));
+      this.requiredSupplements.push(getValuePrimitive(ext));
     }
 
     if (result.expansion) {
@@ -1260,8 +1260,8 @@ class ValueSetExpander {
         await this.handleCompose(source, filter, exp, notClosed);
       }
 
-      if (this.worker.requiredSupplements.length > 0) {
-        throw new Issue('error', 'not-found', null, 'VALUESET_SUPPLEMENT_MISSING',  this.worker.opContext.i18n.translatePlural(this.worker.requiredSupplements.length, 'VALUESET_SUPPLEMENT_MISSING', this.params.httpLanguages, [this.worker.requiredSupplements.join(', ')]), 'not-found', 400);
+      if (this.requiredSupplements.length > 0) {
+        throw new Issue('error', 'not-found', null, 'VALUESET_SUPPLEMENT_MISSING',  this.worker.opContext.i18n.translatePlural(this.requiredSupplements.length, 'VALUESET_SUPPLEMENT_MISSING', this.params.httpLanguages, [this.requiredSupplements.join(', ')]), 'not-found', 400);
       }
     } catch (e) {
       if (e instanceof Issue) {

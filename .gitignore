@@ -39,3 +39,5 @@ shl/private-key.pem
 shl/public-key.pem
 
 bin/validator_cli.jar.version
+
+tx/tests/test-cases-summary.txt
