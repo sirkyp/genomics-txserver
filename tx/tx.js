@@ -54,6 +54,7 @@ class TXModule {
       extname: '.liquid'    // optional: default extension
     });
     this.stats = stats;
+    stats.cachingModules.push(this);
   }
 
   /**
@@ -756,6 +757,14 @@ class TXModule {
     if (this.stats) {
       this.stats.requestCount++;
     }
+  }
+
+  cacheCount() {
+    let count = 0;
+    for (let ep of this.endpoints) {
+      count = count + ep.resourceCache.size() + ep.expansionCache.size();
+    }
+    return count;
   }
 }
 

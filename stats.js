@@ -1,4 +1,5 @@
 const { monitorEventLoopDelay } = require('perf_hooks');
+const {cache} = require("express/lib/application");
 
 class ServerStats {
   started = false;
@@ -10,6 +11,7 @@ class ServerStats {
   startMem = 0;
   startTime = Date.now();
   timer;
+  cachingModules = [];
 
   constructor() {
     this.timer = setInterval(() => {
@@ -32,9 +34,13 @@ class ServerStats {
       const usage = process.cpuUsage(this.lastUsage);
       const percent = 100 * (usage.user + usage.system) / elapsed;
       const loopDelay = this.eventLoopMonitor.mean / 1e6;
+      let cacheCount = 0;
+      for (let m of this.cachingModules) {
+        cacheCount = cacheCount + m.cacheCount();
+      }
       this.eventLoopMonitor.reset();
 
-      this.history.push({time: now, mem: currentMem - this.startMem, rpm: requestsPerMin, cpu: percent, block: loopDelay});
+      this.history.push({time: now, mem: currentMem - this.startMem, rpm: requestsPerMin, cpu: percent, block: loopDelay, cache : cacheCount});
       this.requestCountSnapshot = this.requestCount;
       this.lastUsage = process.cpuUsage();
       this.lastTime = now;

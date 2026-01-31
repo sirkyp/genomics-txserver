@@ -24,6 +24,7 @@ const UPPER_LIMIT_NO_TEXT = 1000;
 const UPPER_LIMIT_TEXT = 1000;
 const INTERNAL_LIMIT = 10000;
 const EXPANSION_DEAD_TIME_SECS = 30;
+const CACHE_WHEN_DEBUGGING = false;
 
 /**
  * Total status for expansion
@@ -718,18 +719,10 @@ class ValueSetExpander {
 
               } else {
                 throw new Issue("error", "too-costly", null, null, 'The code System "' + cs.system() + '" has a grammar, and cannot be enumerated directly', null, 400).withDiagnostics(this.worker.opContext.diagnostics());
-
               }
             }
 
             const iter = await cs.iterator(null);
-            if (this.logExtraOutput) {
-              console.log("valueSets.length: "+valueSets.length);
-              console.log("iter && iter.total: "+iter && iter.total);
-              console.log("this.params.limitedExpansion: "+this.params.limitedExpansion);
-              console.log("this.limitCount: "+this.limitCount);
-              console.log("this.offset: "+this.offset);              
-            }
             if (valueSets.length === 0 && this.limitCount > 0 && (iter && iter.total > this.limitCount) && !this.params.limitedExpansion && this.offset < 0)  {
               throw new Issue("error", "too-costly", null, 'VALUESET_TOO_COSTLY', this.worker.i18n.translate('VALUESET_TOO_COSTLY', this.params.httpLanguages, [vsSrc.vurl, '>' + this.limitCount]), null, 400).withDiagnostics(this.worker.opContext.diagnostics());
 
@@ -1257,9 +1250,6 @@ class ValueSetExpander {
       this.offset = 0;
     }
 
-    if (this.logExtraOutput) {
-      console.log('c/o/l: '+this.count+", "+this.offset+", "+this.limitCount);
-    }
     this.worker.opContext.log('start working');
     this.worker.deadCheck('expand');
 
@@ -1657,9 +1647,6 @@ class ExpandWorker extends TerminologyWorker {
     // Handle tx-resource and cache-id parameters
     this.setupAdditionalResources(params);
     const logExtraOutput = this.findParameter(params, 'logExtraOutput');
-    if (logExtraOutput) {
-      console.log('Extra Logging:');
-    }
 
     let txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n, false);
     txp.readParams(params);
@@ -1731,10 +1718,6 @@ class ExpandWorker extends TerminologyWorker {
     // Handle tx-resource and cache-id parameters
     this.setupAdditionalResources(params);
     const logExtraOutput = this.findParameter(params, 'logExtraOutput');
-    if (logExtraOutput) {
-      console.log('Extra Logging:');
-    }
-
 
     let txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n, false);
     txp.readParams(params);
@@ -1760,11 +1743,9 @@ class ExpandWorker extends TerminologyWorker {
     this.deadCheck('doExpand');
 
     const expansionCache = this.opContext.expansionCache;
-    const debugging = this.opContext.debugging;
-
     // Compute cache key (only if caching is available and not debugging)
     let cacheKey = null;
-    if (expansionCache && !debugging) {
+    if (expansionCache && (CACHE_WHEN_DEBUGGING || !this.opContext.debugging)) {
       cacheKey = expansionCache.computeKey(valueSet, params, this.additionalResources);
 
       // Check for cached expansion
@@ -1781,7 +1762,7 @@ class ExpandWorker extends TerminologyWorker {
     const durationMs = performance.now() - startTime;
 
     // Cache if it took long enough (and not debugging)
-    if (cacheKey && expansionCache && !debugging) {
+    if (cacheKey && expansionCache && (CACHE_WHEN_DEBUGGING || !this.opContext.debugging)) {
       const wasCached = expansionCache.set(cacheKey, result, durationMs);
       if (wasCached) {
         this.log.debug(`Cached expansion (took ${Math.round(durationMs)}ms)`);
@@ -1814,9 +1795,6 @@ class ExpandWorker extends TerminologyWorker {
     // Create expander and run expansion
     const expander = new ValueSetExpander(this, params);
     expander.logExtraOutput = logExtraOutput;
-    if (logExtraOutput) {
-      console.log(params.summary());
-    }
     return await expander.expand(valueSet, filter);
   }
 
