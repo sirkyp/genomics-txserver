@@ -8,7 +8,6 @@ const path = require('path');
 const htmlServer = require('../common/html-server');
 const Logger = require('../common/logger');
 const packageJson = require("../package.json");
-const { Liquid } = require('liquidjs');
 
 const txHtmlLog = Logger.getInstance().child({ module: 'tx-html' });
 

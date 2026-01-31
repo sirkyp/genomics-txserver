@@ -8,12 +8,21 @@
     <canvas id="requestChart" height="200"></canvas>
   </div>
 </div>
+<div style="display: flex; gap: 20px; margin-bottom: 20px;">
+  <div style="flex: 1;">
+    <h6>CPU Usage (%)</h6>
+    <canvas id="cpuChart" height="200"></canvas>
+  </div>
+  <div style="flex: 1;">
+    <h6>Node Blocking</h6>
+    <canvas id="blockChart" height="200"></canvas>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function() {
-  const memoryData = {{ memoryHistoryJson }};
-  const requestData = {{ requestHistoryJson }};
+  const historyData = {{ historyJson }};
   const startTime = {{ startTime }};
 
   function formatTime(timestamp) {
@@ -57,9 +66,9 @@
   new Chart(document.getElementById('memoryChart'), {
     type: 'line',
     data: {
-      labels: memoryData.map(d => formatTime(d.time)),
+      labels: historyData.map(d => formatTime(d.time)),
       datasets: [{
-        data: memoryData.map(d => parseFloat(formatMB(d.mem))),
+        data: historyData.map(d => parseFloat(formatMB(d.mem))),
         borderColor: '#007bff',
         backgroundColor: 'rgba(0, 123, 255, 0.1)',
         fill: true,
@@ -75,7 +84,36 @@
           ...chartOptions.scales.y,
           title: {
             display: true,
-            text: 'MB (delta)'
+            text: 'MB (𝚫 from start)'
+          }
+        }
+      }
+    }
+  });
+
+  // CPU chart
+  new Chart(document.getElementById('cpuChart'), {
+    type: 'line',
+    data: {
+      labels: historyData.map(d => formatTime(d.time)),
+      datasets: [{
+        data: historyData.map(d => parseFloat(formatMB(d.cpu))),
+        borderColor: '#ff7b00',
+        backgroundColor: 'rgba(255, 123, 0, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2
+      }]
+    },
+    options: {
+      ...chartOptions,
+      scales: {
+        ...chartOptions.scales,
+        y: {
+          ...chartOptions.scales.y,
+          title: {
+            display: true,
+            text: '%'
           }
         }
       }
@@ -86,9 +124,9 @@
   new Chart(document.getElementById('requestChart'), {
     type: 'line',
     data: {
-      labels: requestData.map(d => formatTime(d.time)),
+      labels: historyData.map(d => formatTime(d.time)),
       datasets: [{
-        data: requestData.map(d => d.rpm.toFixed(2)),
+        data: historyData.map(d => d.rpm.toFixed(2)),
         borderColor: '#28a745',
         backgroundColor: 'rgba(40, 167, 69, 0.1)',
         fill: true,
@@ -105,6 +143,34 @@
           title: {
             display: true,
             text: 'req/min'
+          }
+        }
+      }
+    }
+  });
+  // Blocking chart
+  new Chart(document.getElementById('blockChart'), {
+    type: 'line',
+    data: {
+      labels: historyData.map(d => formatTime(d.time)),
+      datasets: [{
+        data: historyData.map(d => d.block),
+        borderColor: '#2845a7',
+        backgroundColor: 'rgba(40, 69, 167, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2
+      }]
+    },
+    options: {
+      ...chartOptions,
+      scales: {
+        ...chartOptions.scales,
+        y: {
+          ...chartOptions.scales.y,
+          title: {
+            display: true,
+            text: 'points'
           }
         }
       }

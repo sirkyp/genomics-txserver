@@ -29,6 +29,12 @@ in-build support for SSL, rate limiting etc.
 
 ## Quick Start
 
+There are 4 executable programs:
+* the server (`node server`)
+* the test cases (`npm test`)
+* the terminology importer (`node --max-old-space-size=8192 tx/importers/tx-import XXX`) - see [Doco](tx/importers/readme.md)
+* the test cases generater (`node tx/tests/testcases-generator.js`)
+
 ### Prerequisites
 - Node.js 16+ 
 - NPM or Yarn

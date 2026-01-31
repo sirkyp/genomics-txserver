@@ -342,8 +342,7 @@ async function buildRootPageContent() {
     extname: '.liquid'
   });
   content += await liquid.renderFile('home-metrics', {
-    memoryHistoryJson: JSON.stringify(stats.memoryHistory),
-    requestHistoryJson: JSON.stringify(stats.requestHistory),
+    historyJson: JSON.stringify(stats.history),
     startTime: stats.startTime
   });
 
