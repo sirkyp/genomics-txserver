@@ -723,6 +723,13 @@ class ValueSetExpander {
             }
 
             const iter = await cs.iterator(null);
+            if (this.logExtraOutput) {
+              console.log("valueSets.length: "+valueSets.length);
+              console.log("iter && iter.total: "+iter && iter.total);
+              console.log("this.params.limitedExpansion: "+this.params.limitedExpansion);
+              console.log("this.limitCount: "+this.limitCount);
+              console.log("this.offset: "+this.offset);              
+            }
             if (valueSets.length === 0 && this.limitCount > 0 && (iter && iter.total > this.limitCount) && !this.params.limitedExpansion && this.offset < 0)  {
               throw new Issue("error", "too-costly", null, 'VALUESET_TOO_COSTLY', this.worker.i18n.translate('VALUESET_TOO_COSTLY', this.params.httpLanguages, [vsSrc.vurl, '>' + this.limitCount]), null, 400).withDiagnostics(this.worker.opContext.diagnostics());
 
@@ -1646,6 +1653,7 @@ class ExpandWorker extends TerminologyWorker {
 
     // Handle tx-resource and cache-id parameters
     this.setupAdditionalResources(params);
+    let logExtraOutput = this.findParameter(params, 'logExtraOutput');
 
     let txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n, false);
     txp.readParams(params);
@@ -1672,7 +1680,7 @@ class ExpandWorker extends TerminologyWorker {
     }
 
     // Perform the expansion
-    const result = await this.doExpand(valueSet, txp);
+    const result = await this.doExpand(valueSet, txp, logExtraOutput);
     req.logInfo = this.usedSources.join("|")+txp.logInfo();
     return res.json(this.fixForVersion(result));
   }
@@ -1716,12 +1724,13 @@ class ExpandWorker extends TerminologyWorker {
 
     // Handle tx-resource and cache-id parameters
     this.setupAdditionalResources(params);
+    let logExtraOutput = this.findParameter(params, 'logExtraOutput');
 
     let txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n, false);
     txp.readParams(params);
 
     // Perform the expansion
-    const result = await this.doExpand(valueSet, txp);
+    const result = await this.doExpand(valueSet, txp, logExtraOutput);
     req.logInfo = this.usedSources.join("|")+txp.logInfo();
     return res.json(this.fixForVersion(result));
   }
@@ -1737,7 +1746,7 @@ class ExpandWorker extends TerminologyWorker {
    * @param {Object} params - Parameters resource with expansion options
    * @returns {Object} Expanded ValueSet resource
    */
-  async doExpand(valueSet, params) {
+  async doExpand(valueSet, params, logExtraOutput) {
     this.deadCheck('doExpand');
 
     const expansionCache = this.opContext.expansionCache;
@@ -1758,7 +1767,7 @@ class ExpandWorker extends TerminologyWorker {
 
     // Perform the actual expansion
     const startTime = performance.now();
-    const result = await this.performExpansion(valueSet, params);
+    const result = await this.performExpansion(valueSet, params, logExtraOutput);
     const durationMs = performance.now() - startTime;
 
     // Cache if it took long enough (and not debugging)
@@ -1778,7 +1787,7 @@ class ExpandWorker extends TerminologyWorker {
    * @param {Object} params - Parameters resource with expansion options
    * @returns {Object} Expanded ValueSet resource
    */
-  async performExpansion(valueSet, params) {
+  async performExpansion(valueSet, params, logExtraOutput) {
     this.deadCheck('performExpansion');
 
     // Store params for worker methods
@@ -1794,6 +1803,7 @@ class ExpandWorker extends TerminologyWorker {
     //txResources = processAdditionalResources(context, manager, nil, params);
     // Create expander and run expansion
     const expander = new ValueSetExpander(this, params);
+    expander.logExtraOutput = logExtraOutput;
     return await expander.expand(valueSet, filter);
   }
 
