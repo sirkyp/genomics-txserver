@@ -220,7 +220,7 @@ class ExpansionCache {
           return `${p.name}=${value}`;
         })
         .sort();
-      keyParts.push(`params:${filteredParams.join('&')}`);
+      keyParts.push(`params:${filteredParams.join('&')},${params.count},${params.limit},${params.offset}`);
     }
 
     // Additional resources - hash the full content of each resource
