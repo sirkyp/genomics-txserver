@@ -23,32 +23,34 @@ class ServerStats {
   recordMetrics() {
     if (this.started) {
       const now = Date.now();
-      const cutoff = now - (24 * 60 * 60 * 1000); // 24 hours ago
 
       const currentMem = process.memoryUsage().heapUsed;
       const requestsDelta = this.requestCount - this.requestCountSnapshot;
-      const requestsTat = this.requestTime / requestsDelta;
+      const requestsTat = requestsDelta > 0 ? this.requestTime / requestsDelta : 0;
       const minutesSinceStart = this.history.length > 1
         ? this.intervalMs / 60000
         : (now - this.startTime) / 60000;
       const requestsPerMin = minutesSinceStart > 0 ? requestsDelta / minutesSinceStart : 0;
-      const elapsed = (now - this.lastTime) * 1000; // convert to microseconds
+      const elapsedMs = (now - this.lastTime);
       const usage = process.cpuUsage(this.lastUsage);
-      const percent = 100 * (usage.user + usage.system) / elapsed;
+      const cpuMs = (usage.user + usage.system) / 1000; // microseconds → milliseconds
+      const percent = elapsedMs > 0 ? 100 * cpuMs / elapsedMs : 0;
       const loopDelay = this.eventLoopMonitor.mean / 1e6;
       let cacheCount = 0;
       for (let m of this.cachingModules) {
         cacheCount = cacheCount + m.cacheCount();
       }
-      this.eventLoopMonitor.reset();
 
       this.history.push({time: now, mem: currentMem - this.startMem, rpm: requestsPerMin, tat: requestsTat, cpu: percent, block: loopDelay, cache : cacheCount});
+
+      this.eventLoopMonitor.reset();
       this.requestCountSnapshot = this.requestCount;
       this.requestTime = 0;
       this.lastUsage = process.cpuUsage();
       this.lastTime = now;
 
       // Prune old data (keep 24 hours)
+      const cutoff = now - (24 * 60 * 60 * 1000); // 24 hours ago
       this.history = this.history.filter(m => m.time > cutoff);
     }
   }
