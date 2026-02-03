@@ -54,7 +54,9 @@ class TXModule {
       extname: '.liquid'    // optional: default extension
     });
     this.stats = stats;
-    stats.cachingModules.push(this);
+    if (stats) {
+      stats.cachingModules.push(this);
+    }
   }
 
   /**

@@ -246,11 +246,14 @@ class LoincServices extends CodeSystemProvider {
       // Add main display
       displays.addDesignation(true, 'active', 'en-US', CodeSystem.makeUseForDisplay(), ctxt.desc.trim());
 
-      // Add cached designations (use promise guard for concurrent requests)
-      if (!ctxt._displaysPromise) {
-        ctxt._displaysPromise = this.#loadDesignationsForContext(ctxt);
+      // Add cached designations — load into local array then assign atomically.
+      // This avoids duplication from concurrent pushes and allows retry if a prior load failed.
+      if (ctxt.displays.length === 0) {
+        const loaded = await this.#loadDesignationsForContext(ctxt);
+        if (ctxt.displays.length === 0) {
+          ctxt.displays = loaded;
+        }
       }
-      await ctxt._displaysPromise;
 
       for (const entry of ctxt.displays) {
         let use = undefined;
@@ -385,10 +388,12 @@ class LoincServices extends CodeSystemProvider {
   }
 
   async #addRelatedNames(ctxt, params) {
-    if (!ctxt._relatedNamesPromise) {
-      ctxt._relatedNamesPromise = this.#loadRelatedNames(ctxt);
+    if (!ctxt.relatedNames || ctxt.relatedNames.length === 0) {
+      const loaded = await this.#loadRelatedNames(ctxt);
+      if (!ctxt.relatedNames || ctxt.relatedNames.length === 0) {
+        ctxt.relatedNames = loaded;
+      }
     }
-    await ctxt._relatedNamesPromise;
     for (let d of ctxt.relatedNames) {
       this.#addProperty(params, 'property', 'RELATEDNAMES2', d.value, d.lang);
     }
@@ -534,18 +539,18 @@ class LoincServices extends CodeSystemProvider {
         if (err) {
           reject(err);
         } else {
+          const results = [];
           for (const row of rows) {
             const isDisplay = row.DType === 'LONG_COMMON_NAME';
-            ctxt.displays.push(new DescriptionCacheEntry(isDisplay, row.Lang, row.Value, row.DType));
+            results.push(new DescriptionCacheEntry(isDisplay, row.Lang, row.Value, row.DType));
           }
-          resolve();
+          resolve(results);
         }
       });
     });
   }
 
   async #loadRelatedNames(ctxt) {
-    ctxt.relatedNames = [];
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT Languages.Code as Lang, Descriptions.Value
@@ -559,10 +564,11 @@ class LoincServices extends CodeSystemProvider {
         if (err) {
           reject(err);
         } else {
+          const results = [];
           for (const row of rows) {
-            ctxt.relatedNames.push(new DescriptionCacheEntry(false, row.Lang, row.Value, 'RELATEDNAMES2'));
+            results.push(new DescriptionCacheEntry(false, row.Lang, row.Value, 'RELATEDNAMES2'));
           }
-          resolve();
+          resolve(results);
         }
       });
     });
