@@ -630,441 +630,474 @@ class PublisherModule {
 
   // Route handlers
   async renderDashboard(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const htmlServer = require('../library/html-server');
 
-      // Get recent tasks
-      const tasks = await this.getTasks(10);
+      try {
+        const htmlServer = require('../library/html-server');
 
-      let content = '<div class="row mb-4">';
-      content += '<div class="col-12">';
+        // Get recent tasks
+        const tasks = await this.getTasks(10);
 
-      if (req.session.userId) {
-        content += '<p>Welcome, ' + req.session.userName + '!</p>';
-        content += '<div class="mb-3">';
-        content += '<a href="/publisher/tasks" class="btn btn-primary me-2">View All Tasks</a>';
-        if (req.session.isAdmin) {
-          content += '<a href="/publisher/admin/websites" class="btn btn-secondary me-2">Manage Websites</a>';
-          content += '<a href="/publisher/admin/users" class="btn btn-secondary">Manage Users</a>';
+        let content = '<div class="row mb-4">';
+        content += '<div class="col-12">';
+
+        if (req.session.userId) {
+          content += '<p>Welcome, ' + req.session.userName + '!</p>';
+          content += '<div class="mb-3">';
+          content += '<a href="/publisher/tasks" class="btn btn-primary me-2">View All Tasks</a>';
+          if (req.session.isAdmin) {
+            content += '<a href="/publisher/admin/websites" class="btn btn-secondary me-2">Manage Websites</a>';
+            content += '<a href="/publisher/admin/users" class="btn btn-secondary">Manage Users</a>';
+          }
+          content += '<form style="display: inline-block; margin-left: 10px;" method="post" action="/publisher/logout">';
+          content += '<button type="submit" class="btn btn-outline-secondary">Logout</button>';
+          content += '</form>';
+          content += '</div>';
+        } else {
+          content += '<p><a href="/publisher/login" class="btn btn-primary">Login</a> to create and manage publication tasks.</p>';
         }
-        content += '<form style="display: inline-block; margin-left: 10px;" method="post" action="/publisher/logout">';
-        content += '<button type="submit" class="btn btn-outline-secondary">Logout</button>';
-        content += '</form>';
+
+        // Recent tasks
+        content += '<h3>Recent Tasks</h3>';
+        if (tasks.length === 0) {
+          content += '<p>No tasks found.</p>';
+        } else {
+          content += '<div class="table-responsive">';
+          content += '<table class="table table-striped">';
+          content += '<thead><tr><th>ID</th><th>Package</th><th>Version</th><th>Status</th><th>Queued</th><th>User</th></tr></thead>';
+          content += '<tbody>';
+
+          tasks.forEach(task => {
+            content += '<tr>';
+            content += '<td><strong>#' + task.id + '</strong></td>';
+            content += '<td>' + task.npm_package_id + '</td>';
+            content += '<td>' + task.version + '</td>';
+            content += '<td><span class="badge bg-' + this.getStatusColor(task.status) + '">' + task.status + '</span></td>';
+            content += '<td>' + new Date(task.queued_at).toLocaleString() + '</td>';
+            content += '<td>' + task.user_name + '</td>';
+            content += '</tr>';
+          });
+
+          content += '</tbody></table>';
+          content += '</div>';
+        }
+
         content += '</div>';
-      } else {
-        content += '<p><a href="/publisher/login" class="btn btn-primary">Login</a> to create and manage publication tasks.</p>';
-      }
+        content += '</div>';
 
-      // Recent tasks
-      content += '<h3>Recent Tasks</h3>';
-      if (tasks.length === 0) {
-        content += '<p>No tasks found.</p>';
-      } else {
-        content += '<div class="table-responsive">';
-        content += '<table class="table table-striped">';
-        content += '<thead><tr><th>ID</th><th>Package</th><th>Version</th><th>Status</th><th>Queued</th><th>User</th></tr></thead>';
-        content += '<tbody>';
-
-        tasks.forEach(task => {
-          content += '<tr>';
-          content += '<td><strong>#' + task.id + '</strong></td>';
-          content += '<td>' + task.npm_package_id + '</td>';
-          content += '<td>' + task.version + '</td>';
-          content += '<td><span class="badge bg-' + this.getStatusColor(task.status) + '">' + task.status + '</span></td>';
-          content += '<td>' + new Date(task.queued_at).toLocaleString() + '</td>';
-          content += '<td>' + task.user_name + '</td>';
-          content += '</tr>';
+        const html = htmlServer.renderPage('publisher', 'FHIR Publisher', content, {
+          taskCount: tasks.length
         });
 
-        content += '</tbody></table>';
-        content += '</div>';
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } catch (error) {
+        this.logger.error('Error rendering dashboard:', error);
+        res.status(500).send('Internal server error');
       }
-
-      content += '</div>';
-      content += '</div>';
-
-      const html = htmlServer.renderPage('publisher', 'FHIR Publisher', content, {
-        taskCount: tasks.length
-      });
-
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
-    } catch (error) {
-      this.logger.error('Error rendering dashboard:', error);
-      res.status(500).send('Internal server error');
+    } finally {
+      this.stats.countRequest('dashboard', Date.now() - start);
     }
   }
 
   renderLogin(req, res) {
-    this.countRequest();
+    const start = Date.now();
+    try {
 
-    const htmlServer = require('../library/html-server');
+      const htmlServer = require('../library/html-server');
 
-    let content = '<div class="row justify-content-center">';
-    content += '<div class="col-md-6">';
-    content += '<h3>Login</h3>';
-    content += '<form method="post" action="/publisher/login">';
-    content += '<div class="mb-3">';
-    content += '<label for="login" class="form-label">Username</label>';
-    content += '<input type="text" class="form-control" id="login" name="login" required>';
-    content += '</div>';
-    content += '<div class="mb-3">';
-    content += '<label for="password" class="form-label">Password</label>';
-    content += '<input type="password" class="form-control" id="password" name="password" required>';
-    content += '</div>';
-    content += '<button type="submit" class="btn btn-primary">Login</button>';
-    content += '</form>';
-    content += '</div>';
-    content += '</div>';
+      let content = '<div class="row justify-content-center">';
+      content += '<div class="col-md-6">';
+      content += '<h3>Login</h3>';
+      content += '<form method="post" action="/publisher/login">';
+      content += '<div class="mb-3">';
+      content += '<label for="login" class="form-label">Username</label>';
+      content += '<input type="text" class="form-control" id="login" name="login" required>';
+      content += '</div>';
+      content += '<div class="mb-3">';
+      content += '<label for="password" class="form-label">Password</label>';
+      content += '<input type="password" class="form-control" id="password" name="password" required>';
+      content += '</div>';
+      content += '<button type="submit" class="btn btn-primary">Login</button>';
+      content += '</form>';
+      content += '</div>';
+      content += '</div>';
 
-    const html = htmlServer.renderPage('publisher', 'Login - FHIR Publisher', content);
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
+      const html = htmlServer.renderPage('publisher', 'Login - FHIR Publisher', content);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } finally {
+      this.stats.countRequest('login', Date.now() - start);
+    }
   }
 
   async handleLogin(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const { login, password } = req.body;
 
-      const user = await new Promise((resolve, reject) => {
-        this.db.get(
-          'SELECT * FROM users WHERE login = ?',
-          [login],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
+      try {
+        const {login, password} = req.body;
 
-      if (!user) {
-        return res.redirect('/publisher/login?error=invalid');
+        const user = await new Promise((resolve, reject) => {
+          this.db.get(
+            'SELECT * FROM users WHERE login = ?',
+            [login],
+            (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            }
+          );
+        });
+
+        if (!user) {
+          return res.redirect('/publisher/login?error=invalid');
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+        if (!passwordMatch) {
+          return res.redirect('/publisher/login?error=invalid');
+        }
+
+        req.session.userId = user.id;
+        req.session.userName = user.name;
+        req.session.isAdmin = user.is_admin;
+
+        // Log the action
+        this.logUserAction(user.id, 'login', null, req.ip);
+
+        res.redirect('/publisher');
+      } catch (error) {
+        this.logger.error('Login error:', error);
+        res.redirect('/publisher/login?error=server');
       }
-
-      const passwordMatch = await bcrypt.compare(password, user.password_hash);
-      if (!passwordMatch) {
-        return res.redirect('/publisher/login?error=invalid');
-      }
-
-      req.session.userId = user.id;
-      req.session.userName = user.name;
-      req.session.isAdmin = user.is_admin;
-
-      // Log the action
-      this.logUserAction(user.id, 'login', null, req.ip);
-
-      res.redirect('/publisher');
-    } catch (error) {
-      this.logger.error('Login error:', error);
-      res.redirect('/publisher/login?error=server');
+    } finally {
+      this.stats.countRequest('login', Date.now() - start);
     }
   }
 
   handleLogout(req, res) {
-    this.countRequest();
+    const start = Date.now();
+    try {
 
-    req.session.destroy();
-    res.redirect('/publisher');
+      req.session.destroy();
+      res.redirect('/publisher');
+    } finally {
+      this.stats.countRequest('logout', Date.now() - start);
+    }
   }
 
   async renderTasks(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const htmlServer = require('../library/html-server');
-      const tasks = await this.getTasks();
-      const userWebsites = req.session.userId ? await this.getUserWebsites(req.session.userId) : [];
 
-      let content = '<div class="row mb-4">';
+      try {
+        const htmlServer = require('../library/html-server');
+        const tasks = await this.getTasks();
+        const userWebsites = req.session.userId ? await this.getUserWebsites(req.session.userId) : [];
 
-      // Create task form for logged in users
-      if (req.session.userId && userWebsites.length > 0) {
-        content += '<div class="col-12 mb-4">';
-        content += '<h3>Create New Publication Task</h3>';
-        content += '<form id="create-task-form" method="post" action="/publisher/tasks" class="row g-3">';
-        content += '<div class="col-md-3">';
-        content += '<label for="website_id" class="form-label">Target Website</label>';
-        content += '<select class="form-select" id="website_id" name="website_id" required>';
-        userWebsites.forEach(website => {
-          content += '<option value="' + website.id + '">' + website.name + '</option>';
-        });
-        content += '</select>';
-        content += '</div>';
-        content += '<div class="col-md-3">';
-        content += '<label for="github_org" class="form-label">GitHub Org</label>';
-        content += '<input type="text" class="form-control" id="github_org" name="github_org" required placeholder="hl7">';
-        content += '</div>';
-        content += '<div class="col-md-3">';
-        content += '<label for="github_repo" class="form-label">GitHub Repo</label>';
-        content += '<input type="text" class="form-control" id="github_repo" name="github_repo" required placeholder="fhir-us-core">';
-        content += '</div>';
-        content += '<div class="col-md-3">';
-        content += '<label for="git_branch" class="form-label">Branch</label>';
-        content += '<input type="text" class="form-control" id="git_branch" name="git_branch" required placeholder="main">';
-        content += '</div>';
-        content += '<div class="col-md-4">';
-        content += '<label for="npm_package_id" class="form-label">NPM Package ID</label>';
-        content += '<input type="text" class="form-control" id="npm_package_id" name="npm_package_id" required placeholder="hl7.fhir.us.core">';
-        content += '</div>';
-        content += '<div class="col-md-4">';
-        content += '<label for="version" class="form-label">Version</label>';
-        content += '<input type="text" class="form-control" id="version" name="version" required placeholder="6.0.0">';
-        content += '</div>';
-        content += '<div class="col-md-4 d-flex align-items-end">';
-        content += '<button type="submit" class="btn btn-primary">Create Task</button>';
-        content += '</div>';
-        content += '</form>';
-        content += '</div>';
-      }
+        let content = '<div class="row mb-4">';
 
-      // Tasks list
-      content += '<div class="col-12">';
-      content += '<h3>Publication Tasks</h3>';
-
-      if (tasks.length === 0) {
-        content += '<p>No tasks found.</p>';
-      } else {
-        content += '<div class="table-responsive">';
-        content += '<table class="table table-striped">';
-        content += '<thead><tr><th>ID</th><th>Package</th><th>Version</th><th>Website</th><th>Status</th><th>Queued</th><th>User</th><th>Actions</th></tr></thead>';
-        content += '<tbody>';
-
-        for (const task of tasks) {
-          const canApprove = req.session.userId && task.status === 'waiting for approval' &&
-            await this.userCanApprove(req.session.userId, task.website_id);
-
-          content += '<tr>';
-          content += '<td><strong>#' + task.id + '</strong></td>';
-          content += '<td><code>' + task.npm_package_id + '</code></td>';
-          content += '<td>' + task.version + '</td>';
-          content += '<td>' + task.website_name + '</td>';
-          content += '<td><span class="badge bg-' + this.getStatusColor(task.status) + '">' + task.status + '</span></td>';
-          content += '<td>' + new Date(task.queued_at).toLocaleString() + '</td>';
-          content += '<td>' + task.user_name + '</td>';
-          content += '<td class="task-actions">';
-
-          if (task.status === 'waiting for approval') {
-            content += '<a href="/publisher/tasks/' + task.id + '/output" class="btn btn-sm btn-outline-info">View Output</a>';
-            if (canApprove) {
-              content += '<form method="post" action="/publisher/tasks/' + task.id + '/approve" style="display: inline;">';
-              content += '<button type="submit" name="approve" class="btn btn-sm btn-success">Approve</button>';
-              content += '</form>';
-            }
-          } else if (task.build_output_path) {
-            content += '<a href="/publisher/tasks/' + task.id + '/output" class="btn btn-sm btn-outline-info">View Output</a>';
-          }
-
-          content += '</td>';
-          content += '</tr>';
+        // Create task form for logged in users
+        if (req.session.userId && userWebsites.length > 0) {
+          content += '<div class="col-12 mb-4">';
+          content += '<h3>Create New Publication Task</h3>';
+          content += '<form id="create-task-form" method="post" action="/publisher/tasks" class="row g-3">';
+          content += '<div class="col-md-3">';
+          content += '<label for="website_id" class="form-label">Target Website</label>';
+          content += '<select class="form-select" id="website_id" name="website_id" required>';
+          userWebsites.forEach(website => {
+            content += '<option value="' + website.id + '">' + website.name + '</option>';
+          });
+          content += '</select>';
+          content += '</div>';
+          content += '<div class="col-md-3">';
+          content += '<label for="github_org" class="form-label">GitHub Org</label>';
+          content += '<input type="text" class="form-control" id="github_org" name="github_org" required placeholder="hl7">';
+          content += '</div>';
+          content += '<div class="col-md-3">';
+          content += '<label for="github_repo" class="form-label">GitHub Repo</label>';
+          content += '<input type="text" class="form-control" id="github_repo" name="github_repo" required placeholder="fhir-us-core">';
+          content += '</div>';
+          content += '<div class="col-md-3">';
+          content += '<label for="git_branch" class="form-label">Branch</label>';
+          content += '<input type="text" class="form-control" id="git_branch" name="git_branch" required placeholder="main">';
+          content += '</div>';
+          content += '<div class="col-md-4">';
+          content += '<label for="npm_package_id" class="form-label">NPM Package ID</label>';
+          content += '<input type="text" class="form-control" id="npm_package_id" name="npm_package_id" required placeholder="hl7.fhir.us.core">';
+          content += '</div>';
+          content += '<div class="col-md-4">';
+          content += '<label for="version" class="form-label">Version</label>';
+          content += '<input type="text" class="form-control" id="version" name="version" required placeholder="6.0.0">';
+          content += '</div>';
+          content += '<div class="col-md-4 d-flex align-items-end">';
+          content += '<button type="submit" class="btn btn-primary">Create Task</button>';
+          content += '</div>';
+          content += '</form>';
+          content += '</div>';
         }
 
-        content += '</tbody></table>';
+        // Tasks list
+        content += '<div class="col-12">';
+        content += '<h3>Publication Tasks</h3>';
+
+        if (tasks.length === 0) {
+          content += '<p>No tasks found.</p>';
+        } else {
+          content += '<div class="table-responsive">';
+          content += '<table class="table table-striped">';
+          content += '<thead><tr><th>ID</th><th>Package</th><th>Version</th><th>Website</th><th>Status</th><th>Queued</th><th>User</th><th>Actions</th></tr></thead>';
+          content += '<tbody>';
+
+          for (const task of tasks) {
+            const canApprove = req.session.userId && task.status === 'waiting for approval' &&
+              await this.userCanApprove(req.session.userId, task.website_id);
+
+            content += '<tr>';
+            content += '<td><strong>#' + task.id + '</strong></td>';
+            content += '<td><code>' + task.npm_package_id + '</code></td>';
+            content += '<td>' + task.version + '</td>';
+            content += '<td>' + task.website_name + '</td>';
+            content += '<td><span class="badge bg-' + this.getStatusColor(task.status) + '">' + task.status + '</span></td>';
+            content += '<td>' + new Date(task.queued_at).toLocaleString() + '</td>';
+            content += '<td>' + task.user_name + '</td>';
+            content += '<td class="task-actions">';
+
+            if (task.status === 'waiting for approval') {
+              content += '<a href="/publisher/tasks/' + task.id + '/output" class="btn btn-sm btn-outline-info">View Output</a>';
+              if (canApprove) {
+                content += '<form method="post" action="/publisher/tasks/' + task.id + '/approve" style="display: inline;">';
+                content += '<button type="submit" name="approve" class="btn btn-sm btn-success">Approve</button>';
+                content += '</form>';
+              }
+            } else if (task.build_output_path) {
+              content += '<a href="/publisher/tasks/' + task.id + '/output" class="btn btn-sm btn-outline-info">View Output</a>';
+            }
+
+            content += '</td>';
+            content += '</tr>';
+          }
+
+          content += '</tbody></table>';
+          content += '</div>';
+        }
+
         content += '</div>';
+        content += '</div>';
+
+        const html = htmlServer.renderPage('publisher', 'Tasks - FHIR Publisher', content);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } catch (error) {
+        this.logger.error('Error rendering tasks:', error);
+        res.status(500).send('Internal server error');
       }
 
-      content += '</div>';
-      content += '</div>';
-
-      const html = htmlServer.renderPage('publisher', 'Tasks - FHIR Publisher', content);
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
-    } catch (error) {
-      this.logger.error('Error rendering tasks:', error);
-      res.status(500).send('Internal server error');
+    } finally {
+      this.stats.countRequest('tasks', Date.now() - start);
     }
   }
 
   async createTask(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const { website_id, github_org, github_repo, git_branch, npm_package_id, version } = req.body;
 
-      // Verify user has permission for this website
-      const canQueue = await this.userCanQueue(req.session.userId, website_id);
-      if (!canQueue) {
-        return res.status(403).send('You do not have permission to create tasks for this website');
+
+      try {
+        const {website_id, github_org, github_repo, git_branch, npm_package_id, version} = req.body;
+
+        // Verify user has permission for this website
+        const canQueue = await this.userCanQueue(req.session.userId, website_id);
+        if (!canQueue) {
+          return res.status(403).send('You do not have permission to create tasks for this website');
+        }
+
+        // Check for duplicate active tasks (only block if there's an active task for this package/version)
+        const existingTask = await this.findActiveTask(npm_package_id, version);
+        if (existingTask) {
+          return res.status(400).send('An active task for this package and version is already in progress. Wait for it to complete or fail before resubmitting.');
+        }
+
+        // Insert task (ID will be auto-generated)
+        const result = await new Promise((resolve, reject) => {
+          this.db.run(
+            'INSERT INTO tasks (user_id, website_id, github_org, github_repo, git_branch, npm_package_id, version) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.session.userId, website_id, github_org, github_repo, git_branch, npm_package_id, version],
+            function (err) {
+              if (err) reject(err);
+              else resolve(this.lastID);
+            }
+          );
+        });
+
+        const taskId = result;
+
+        // Log the action
+        this.logUserAction(req.session.userId, 'create_task', taskId.toString(), req.ip);
+
+        this.logger.info('Task created: ID=' + taskId + ' (' + npm_package_id + '#' + version + ') by user ' + req.session.userId);
+        res.redirect('/publisher/tasks');
+      } catch (error) {
+        this.logger.error('Error creating task:', error);
+        res.status(500).send('Failed to create task');
       }
-
-      // Check for duplicate active tasks (only block if there's an active task for this package/version)
-      const existingTask = await this.findActiveTask(npm_package_id, version);
-      if (existingTask) {
-        return res.status(400).send('An active task for this package and version is already in progress. Wait for it to complete or fail before resubmitting.');
-      }
-
-      // Insert task (ID will be auto-generated)
-      const result = await new Promise((resolve, reject) => {
-        this.db.run(
-          'INSERT INTO tasks (user_id, website_id, github_org, github_repo, git_branch, npm_package_id, version) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [req.session.userId, website_id, github_org, github_repo, git_branch, npm_package_id, version],
-          function(err) {
-            if (err) reject(err);
-            else resolve(this.lastID);
-          }
-        );
-      });
-
-      const taskId = result;
-
-      // Log the action
-      this.logUserAction(req.session.userId, 'create_task', taskId.toString(), req.ip);
-
-      this.logger.info('Task created: ID=' + taskId + ' (' + npm_package_id + '#' + version + ') by user ' + req.session.userId);
-      res.redirect('/publisher/tasks');
-    } catch (error) {
-      this.logger.error('Error creating task:', error);
-      res.status(500).send('Failed to create task');
+    } finally {
+      this.stats.countRequest('create-task', Date.now() - start);
     }
   }
 
   async approveTask(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const taskId = req.params.id;
+      try {
+        const taskId = req.params.id;
 
-      // Get task details
-      const task = await this.getTask(taskId);
-      if (!task) {
-        return res.status(404).send('Task not found');
+        // Get task details
+        const task = await this.getTask(taskId);
+        if (!task) {
+          return res.status(404).send('Task not found');
+        }
+
+        if (task.status !== 'waiting for approval') {
+          return res.status(400).send('Task is not waiting for approval');
+        }
+
+        // Check user permissions
+        const canApprove = await this.userCanApprove(req.session.userId, task.website_id);
+        if (!canApprove) {
+          return res.status(403).send('You do not have permission to approve tasks for this website');
+        }
+
+        // Update task status
+        await new Promise((resolve, reject) => {
+          this.db.run(
+            'UPDATE tasks SET status = ?, approved_by = ?, publishing_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['publishing', req.session.userId, taskId],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+
+        // Log the action
+        this.logUserAction(req.session.userId, 'approve_task', taskId, req.ip);
+
+        this.logger.info('Task approved: ' + taskId + ' by user ' + req.session.userId);
+        res.redirect('/publisher/tasks');
+      } catch (error) {
+        this.logger.error('Error approving task:', error);
+        res.status(500).send('Failed to approve task');
       }
-
-      if (task.status !== 'waiting for approval') {
-        return res.status(400).send('Task is not waiting for approval');
-      }
-
-      // Check user permissions
-      const canApprove = await this.userCanApprove(req.session.userId, task.website_id);
-      if (!canApprove) {
-        return res.status(403).send('You do not have permission to approve tasks for this website');
-      }
-
-      // Update task status
-      await new Promise((resolve, reject) => {
-        this.db.run(
-          'UPDATE tasks SET status = ?, approved_by = ?, publishing_at = CURRENT_TIMESTAMP WHERE id = ?',
-          ['publishing', req.session.userId, taskId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-
-      // Log the action
-      this.logUserAction(req.session.userId, 'approve_task', taskId, req.ip);
-
-      this.logger.info('Task approved: ' + taskId + ' by user ' + req.session.userId);
-      res.redirect('/publisher/tasks');
-    } catch (error) {
-      this.logger.error('Error approving task:', error);
-      res.status(500).send('Failed to approve task');
+    } finally {
+      this.stats.countRequest('approve-task', Date.now() - start);
     }
   }
 
   async getTaskOutput(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const taskId = req.params.id;
-      const task = await this.getTask(taskId);
 
-      if (!task) {
-        return res.status(404).send('Task not found');
-      }
+      try {
+        const taskId = req.params.id;
+        const task = await this.getTask(taskId);
 
-      // Get task logs
-      const logs = await this.getTaskLogs(taskId);
-
-      // Get build log if available
-      let buildLog = '';
-      if (task.build_output_path && fs.existsSync(task.build_output_path)) {
-        try {
-          buildLog = fs.readFileSync(task.build_output_path, 'utf8');
-        } catch (error) {
-          buildLog = 'Error reading build log: ' + error.message;
-        }
-      }
-
-      if (req.headers.accept && req.headers.accept.includes('text/html')) {
-        const htmlServer = require('../library/html-server');
-        let content = '<h3>Task Output: #' + task.id + ' - ' + task.npm_package_id + '#' + task.version + '</h3>';
-        content += '<p><strong>Status:</strong> <span class="badge bg-' + this.getStatusColor(task.status) + '">' + task.status + '</span></p>';
-        content += '<p><strong>GitHub:</strong> ' + task.github_org + '/' + task.github_repo + ' (' + task.git_branch + ')</p>';
-
-        if (task.local_folder) {
-          content += '<p><strong>Local Folder:</strong> <code>' + task.local_folder + '</code></p>';
+        if (!task) {
+          return res.status(404).send('Task not found');
         }
 
-        if (task.failure_reason) {
-          content += '<div class="alert alert-danger"><strong>Failure Reason:</strong> ' + task.failure_reason + '</div>';
+        // Get task logs
+        const logs = await this.getTaskLogs(taskId);
+
+        // Get build log if available
+        let buildLog = '';
+        if (task.build_output_path && fs.existsSync(task.build_output_path)) {
+          try {
+            buildLog = fs.readFileSync(task.build_output_path, 'utf8');
+          } catch (error) {
+            buildLog = 'Error reading build log: ' + error.message;
+          }
         }
 
-        // Task logs section
-        content += '<h4>Task Logs</h4>';
-        if (logs.length === 0) {
-          content += '<p>No task logs available yet.</p>';
+        if (req.headers.accept && req.headers.accept.includes('text/html')) {
+          const htmlServer = require('../library/html-server');
+          let content = '<h3>Task Output: #' + task.id + ' - ' + task.npm_package_id + '#' + task.version + '</h3>';
+          content += '<p><strong>Status:</strong> <span class="badge bg-' + this.getStatusColor(task.status) + '">' + task.status + '</span></p>';
+          content += '<p><strong>GitHub:</strong> ' + task.github_org + '/' + task.github_repo + ' (' + task.git_branch + ')</p>';
+
+          if (task.local_folder) {
+            content += '<p><strong>Local Folder:</strong> <code>' + task.local_folder + '</code></p>';
+          }
+
+          if (task.failure_reason) {
+            content += '<div class="alert alert-danger"><strong>Failure Reason:</strong> ' + task.failure_reason + '</div>';
+          }
+
+          // Task logs section
+          content += '<h4>Task Logs</h4>';
+          if (logs.length === 0) {
+            content += '<p>No task logs available yet.</p>';
+          } else {
+            content += '<div class="output-viewer" style="max-height: 300px;">';
+            logs.forEach(log => {
+              const timestamp = new Date(log.timestamp).toLocaleString();
+              const levelClass = log.level === 'error' ? 'text-danger' : (log.level === 'warn' ? 'text-warning' : '');
+              content += '<div class="' + levelClass + '">[' + timestamp + '] [' + log.level.toUpperCase() + '] ' + log.message + '</div>';
+            });
+            content += '</div>';
+          }
+
+          // Build log section
+          if (buildLog) {
+            content += '<h4>Build Log</h4>';
+            content += '<div class="output-viewer">' + this.escapeHtml(buildLog) + '</div>';
+          } else if (task.status === 'building') {
+            content += '<h4>Build Log</h4>';
+            content += '<p><em>Build in progress... Log will appear when available.</em></p>';
+          }
+
+          content += '<div class="mt-3"><a href="/publisher/tasks" class="btn btn-secondary">Back to Tasks</a></div>';
+
+          const html = htmlServer.renderPage('publisher', 'Task Output - FHIR Publisher', content);
+          res.setHeader('Content-Type', 'text/html');
+          res.send(html);
         } else {
-          content += '<div class="output-viewer" style="max-height: 300px;">';
+          // Return plain text logs
+          let output = 'Task #' + task.id + ' - ' + task.npm_package_id + '#' + task.version + '\n';
+          output += 'Status: ' + task.status + '\n';
+          output += 'GitHub: ' + task.github_org + '/' + task.github_repo + ' (' + task.git_branch + ')\n';
+
+          if (task.local_folder) {
+            output += 'Local Folder: ' + task.local_folder + '\n';
+          }
+
+          output += '\n';
+
+          if (task.failure_reason) {
+            output += 'Failure Reason: ' + task.failure_reason + '\n\n';
+          }
+
+          output += 'Task Logs:\n';
           logs.forEach(log => {
             const timestamp = new Date(log.timestamp).toLocaleString();
-            const levelClass = log.level === 'error' ? 'text-danger' : (log.level === 'warn' ? 'text-warning' : '');
-            content += '<div class="' + levelClass + '">[' + timestamp + '] [' + log.level.toUpperCase() + '] ' + log.message + '</div>';
+            output += '[' + timestamp + '] [' + log.level.toUpperCase() + '] ' + log.message + '\n';
           });
-          content += '</div>';
+
+          if (buildLog) {
+            output += '\n--- Build Log ---\n';
+            output += buildLog;
+          }
+
+          res.setHeader('Content-Type', 'text/plain');
+          res.send(output);
         }
-
-        // Build log section
-        if (buildLog) {
-          content += '<h4>Build Log</h4>';
-          content += '<div class="output-viewer">' + this.escapeHtml(buildLog) + '</div>';
-        } else if (task.status === 'building') {
-          content += '<h4>Build Log</h4>';
-          content += '<p><em>Build in progress... Log will appear when available.</em></p>';
-        }
-
-        content += '<div class="mt-3"><a href="/publisher/tasks" class="btn btn-secondary">Back to Tasks</a></div>';
-
-        const html = htmlServer.renderPage('publisher', 'Task Output - FHIR Publisher', content);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-      } else {
-        // Return plain text logs
-        let output = 'Task #' + task.id + ' - ' + task.npm_package_id + '#' + task.version + '\n';
-        output += 'Status: ' + task.status + '\n';
-        output += 'GitHub: ' + task.github_org + '/' + task.github_repo + ' (' + task.git_branch + ')\n';
-
-        if (task.local_folder) {
-          output += 'Local Folder: ' + task.local_folder + '\n';
-        }
-
-        output += '\n';
-
-        if (task.failure_reason) {
-          output += 'Failure Reason: ' + task.failure_reason + '\n\n';
-        }
-
-        output += 'Task Logs:\n';
-        logs.forEach(log => {
-          const timestamp = new Date(log.timestamp).toLocaleString();
-          output += '[' + timestamp + '] [' + log.level.toUpperCase() + '] ' + log.message + '\n';
-        });
-
-        if (buildLog) {
-          output += '\n--- Build Log ---\n';
-          output += buildLog;
-        }
-
-        res.setHeader('Content-Type', 'text/plain');
-        res.send(output);
+      } catch (error) {
+        this.logger.error('Error getting task output:', error);
+        res.status(500).send('Failed to get task output');
       }
-    } catch (error) {
-      this.logger.error('Error getting task output:', error);
-      res.status(500).send('Failed to get task output');
+    } finally {
+      this.stats.countRequest('task-output', Date.now() - start);
     }
   }
 
@@ -1078,272 +1111,290 @@ class PublisherModule {
   }
 
   async renderWebsites(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const htmlServer = require('../library/html-server');
-      const websites = await this.getWebsites();
+      try {
+        const htmlServer = require('../library/html-server');
+        const websites = await this.getWebsites();
 
-      let content = '<div class="row mb-4">';
+        let content = '<div class="row mb-4">';
 
-      // Add website form
-      content += '<div class="col-12 mb-4">';
-      content += '<h3>Add New Website</h3>';
-      content += '<form method="post" action="/publisher/admin/websites" class="row g-3">';
-      content += '<div class="col-md-4">';
-      content += '<label for="name" class="form-label">Website Name</label>';
-      content += '<input type="text" class="form-control" id="name" name="name" required>';
-      content += '</div>';
-      content += '<div class="col-md-4">';
-      content += '<label for="local_folder" class="form-label">Local Folder</label>';
-      content += '<input type="text" class="form-control" id="local_folder" name="local_folder" required>';
-      content += '</div>';
-      content += '<div class="col-md-4">';
-      content += '<label for="server_update_script" class="form-label">Update Script</label>';
-      content += '<input type="text" class="form-control" id="server_update_script" name="server_update_script" required>';
-      content += '</div>';
-      content += '<div class="col-12">';
-      content += '<button type="submit" class="btn btn-primary">Add Website</button>';
-      content += '</div>';
-      content += '</form>';
-      content += '</div>';
-
-      // Websites list
-      content += '<div class="col-12">';
-      content += '<h3>Websites</h3>';
-
-      if (websites.length === 0) {
-        content += '<p>No websites configured.</p>';
-      } else {
-        content += '<div class="table-responsive">';
-        content += '<table class="table table-striped">';
-        content += '<thead><tr><th>Name</th><th>Local Folder</th><th>Update Script</th><th>Active</th><th>Created</th></tr></thead>';
-        content += '<tbody>';
-
-        websites.forEach(website => {
-          content += '<tr>';
-          content += '<td>' + website.name + '</td>';
-          content += '<td><code>' + website.local_folder + '</code></td>';
-          content += '<td><code>' + website.server_update_script + '</code></td>';
-          content += '<td>' + (website.is_active ? '✓' : '✗') + '</td>';
-          content += '<td>' + new Date(website.created_at).toLocaleString() + '</td>';
-          content += '</tr>';
-        });
-
-        content += '</tbody></table>';
+        // Add website form
+        content += '<div class="col-12 mb-4">';
+        content += '<h3>Add New Website</h3>';
+        content += '<form method="post" action="/publisher/admin/websites" class="row g-3">';
+        content += '<div class="col-md-4">';
+        content += '<label for="name" class="form-label">Website Name</label>';
+        content += '<input type="text" class="form-control" id="name" name="name" required>';
         content += '</div>';
+        content += '<div class="col-md-4">';
+        content += '<label for="local_folder" class="form-label">Local Folder</label>';
+        content += '<input type="text" class="form-control" id="local_folder" name="local_folder" required>';
+        content += '</div>';
+        content += '<div class="col-md-4">';
+        content += '<label for="server_update_script" class="form-label">Update Script</label>';
+        content += '<input type="text" class="form-control" id="server_update_script" name="server_update_script" required>';
+        content += '</div>';
+        content += '<div class="col-12">';
+        content += '<button type="submit" class="btn btn-primary">Add Website</button>';
+        content += '</div>';
+        content += '</form>';
+        content += '</div>';
+
+        // Websites list
+        content += '<div class="col-12">';
+        content += '<h3>Websites</h3>';
+
+        if (websites.length === 0) {
+          content += '<p>No websites configured.</p>';
+        } else {
+          content += '<div class="table-responsive">';
+          content += '<table class="table table-striped">';
+          content += '<thead><tr><th>Name</th><th>Local Folder</th><th>Update Script</th><th>Active</th><th>Created</th></tr></thead>';
+          content += '<tbody>';
+
+          websites.forEach(website => {
+            content += '<tr>';
+            content += '<td>' + website.name + '</td>';
+            content += '<td><code>' + website.local_folder + '</code></td>';
+            content += '<td><code>' + website.server_update_script + '</code></td>';
+            content += '<td>' + (website.is_active ? '✓' : '✗') + '</td>';
+            content += '<td>' + new Date(website.created_at).toLocaleString() + '</td>';
+            content += '</tr>';
+          });
+
+          content += '</tbody></table>';
+          content += '</div>';
+        }
+
+        content += '</div>';
+        content += '</div>';
+
+        const html = htmlServer.renderPage('publisher', 'Websites - FHIR Publisher', content);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } catch (error) {
+        this.logger.error('Error rendering websites:', error);
+        res.status(500).send('Internal server error');
       }
-
-      content += '</div>';
-      content += '</div>';
-
-      const html = htmlServer.renderPage('publisher', 'Websites - FHIR Publisher', content);
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
-    } catch (error) {
-      this.logger.error('Error rendering websites:', error);
-      res.status(500).send('Internal server error');
+    } finally {
+      this.stats.countRequest('websites', Date.now() - start);
     }
   }
 
   async createWebsite(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const { name, local_folder, server_update_script } = req.body;
+      try {
+        const {name, local_folder, server_update_script} = req.body;
 
-      await new Promise((resolve, reject) => {
-        this.db.run(
-          'INSERT INTO websites (name, local_folder, server_update_script) VALUES (?, ?, ?)',
-          [name, local_folder, server_update_script],
-          function(err) {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
+        await new Promise((resolve, reject) => {
+          this.db.run(
+            'INSERT INTO websites (name, local_folder, server_update_script) VALUES (?, ?, ?)',
+            [name, local_folder, server_update_script],
+            function (err) {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
 
-      this.logUserAction(req.session.userId, 'create_website', name, req.ip);
-      this.logger.info('Website created: ' + name + ' by user ' + req.session.userId);
+        this.logUserAction(req.session.userId, 'create_website', name, req.ip);
+        this.logger.info('Website created: ' + name + ' by user ' + req.session.userId);
 
-      res.redirect('/publisher/admin/websites');
-    } catch (error) {
-      this.logger.error('Error creating website:', error);
-      res.status(500).send('Failed to create website');
+        res.redirect('/publisher/admin/websites');
+      } catch (error) {
+        this.logger.error('Error creating website:', error);
+        res.status(500).send('Failed to create website');
+      }
+    } finally {
+      this.stats.countRequest('website', Date.now() - start);
     }
   }
 
   async renderUsers(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const htmlServer = require('../library/html-server');
-      const users = await this.getUsers();
-      const websites = await this.getWebsites();
 
-      let content = '<div class="row mb-4">';
 
-      // Add user form
-      content += '<div class="col-12 mb-4">';
-      content += '<h3>Add New User</h3>';
-      content += '<form method="post" action="/publisher/admin/users" class="row g-3">';
-      content += '<div class="col-md-3">';
-      content += '<label for="name" class="form-label">Full Name</label>';
-      content += '<input type="text" class="form-control" id="name" name="name" required>';
-      content += '</div>';
-      content += '<div class="col-md-3">';
-      content += '<label for="login" class="form-label">Username</label>';
-      content += '<input type="text" class="form-control" id="login" name="login" required>';
-      content += '</div>';
-      content += '<div class="col-md-3">';
-      content += '<label for="password" class="form-label">Password</label>';
-      content += '<input type="password" class="form-control" id="password" name="password" required>';
-      content += '</div>';
-      content += '<div class="col-md-3 d-flex align-items-end">';
-      content += '<div class="form-check">';
-      content += '<input class="form-check-input" type="checkbox" id="is_admin" name="is_admin">';
-      content += '<label class="form-check-label" for="is_admin">Administrator</label>';
-      content += '</div>';
-      content += '</div>';
-      content += '<div class="col-12">';
-      content += '<button type="submit" class="btn btn-primary">Add User</button>';
-      content += '</div>';
-      content += '</form>';
-      content += '</div>';
+      try {
+        const htmlServer = require('../library/html-server');
+        const users = await this.getUsers();
+        const websites = await this.getWebsites();
 
-      // Users list
-      content += '<div class="col-12">';
-      content += '<h3>Users & Permissions</h3>';
+        let content = '<div class="row mb-4">';
 
-      if (users.length === 0) {
-        content += '<p>No users found.</p>';
-      } else {
-        for (const user of users) {
-          const permissions = await this.getUserPermissions(user.id);
+        // Add user form
+        content += '<div class="col-12 mb-4">';
+        content += '<h3>Add New User</h3>';
+        content += '<form method="post" action="/publisher/admin/users" class="row g-3">';
+        content += '<div class="col-md-3">';
+        content += '<label for="name" class="form-label">Full Name</label>';
+        content += '<input type="text" class="form-control" id="name" name="name" required>';
+        content += '</div>';
+        content += '<div class="col-md-3">';
+        content += '<label for="login" class="form-label">Username</label>';
+        content += '<input type="text" class="form-control" id="login" name="login" required>';
+        content += '</div>';
+        content += '<div class="col-md-3">';
+        content += '<label for="password" class="form-label">Password</label>';
+        content += '<input type="password" class="form-control" id="password" name="password" required>';
+        content += '</div>';
+        content += '<div class="col-md-3 d-flex align-items-end">';
+        content += '<div class="form-check">';
+        content += '<input class="form-check-input" type="checkbox" id="is_admin" name="is_admin">';
+        content += '<label class="form-check-label" for="is_admin">Administrator</label>';
+        content += '</div>';
+        content += '</div>';
+        content += '<div class="col-12">';
+        content += '<button type="submit" class="btn btn-primary">Add User</button>';
+        content += '</div>';
+        content += '</form>';
+        content += '</div>';
 
-          content += '<div class="card mb-3">';
-          content += '<div class="card-header">';
-          content += '<h5>' + user.name + ' (' + user.login + ') ' + (user.is_admin ? '<span class="badge bg-warning">Admin</span>' : '') + '</h5>';
-          content += '</div>';
-          content += '<div class="card-body">';
+        // Users list
+        content += '<div class="col-12">';
+        content += '<h3>Users & Permissions</h3>';
 
-          if (websites.length === 0) {
-            content += '<p>No websites available for permission assignment.</p>';
-          } else {
-            content += '<form method="post" action="/publisher/admin/permissions">';
-            content += '<input type="hidden" name="user_id" value="' + user.id + '">';
-            content += '<div class="permission-grid">';
-            content += '<div><strong>Website</strong></div>';
-            content += '<div><strong>Can Queue</strong></div>';
-            content += '<div><strong>Can Approve</strong></div>';
+        if (users.length === 0) {
+          content += '<p>No users found.</p>';
+        } else {
+          for (const user of users) {
+            const permissions = await this.getUserPermissions(user.id);
 
-            websites.forEach(website => {
-              const perm = permissions.find(p => p.website_id === website.id) || {};
-              content += '<div>' + website.name + '</div>';
-              content += '<div>';
-              content += '<input type="checkbox" name="queue_' + website.id + '"' + (perm.can_queue ? ' checked' : '') + '>';
+            content += '<div class="card mb-3">';
+            content += '<div class="card-header">';
+            content += '<h5>' + user.name + ' (' + user.login + ') ' + (user.is_admin ? '<span class="badge bg-warning">Admin</span>' : '') + '</h5>';
+            content += '</div>';
+            content += '<div class="card-body">';
+
+            if (websites.length === 0) {
+              content += '<p>No websites available for permission assignment.</p>';
+            } else {
+              content += '<form method="post" action="/publisher/admin/permissions">';
+              content += '<input type="hidden" name="user_id" value="' + user.id + '">';
+              content += '<div class="permission-grid">';
+              content += '<div><strong>Website</strong></div>';
+              content += '<div><strong>Can Queue</strong></div>';
+              content += '<div><strong>Can Approve</strong></div>';
+
+              websites.forEach(website => {
+                const perm = permissions.find(p => p.website_id === website.id) || {};
+                content += '<div>' + website.name + '</div>';
+                content += '<div>';
+                content += '<input type="checkbox" name="queue_' + website.id + '"' + (perm.can_queue ? ' checked' : '') + '>';
+                content += '</div>';
+                content += '<div>';
+                content += '<input type="checkbox" name="approve_' + website.id + '"' + (perm.can_approve ? ' checked' : '') + '>';
+                content += '</div>';
+              });
+
               content += '</div>';
-              content += '<div>';
-              content += '<input type="checkbox" name="approve_' + website.id + '"' + (perm.can_approve ? ' checked' : '') + '>';
+              content += '<div class="mt-3">';
+              content += '<button type="submit" class="btn btn-secondary btn-sm">Update Permissions</button>';
               content += '</div>';
-            });
+              content += '</form>';
+            }
 
             content += '</div>';
-            content += '<div class="mt-3">';
-            content += '<button type="submit" class="btn btn-secondary btn-sm">Update Permissions</button>';
             content += '</div>';
-            content += '</form>';
           }
-
-          content += '</div>';
-          content += '</div>';
         }
+
+        content += '</div>';
+        content += '</div>';
+
+        const html = htmlServer.renderPage('publisher', 'Users - FHIR Publisher', content);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } catch (error) {
+        this.logger.error('Error rendering users:', error);
+        res.status(500).send('Internal server error');
       }
-
-      content += '</div>';
-      content += '</div>';
-
-      const html = htmlServer.renderPage('publisher', 'Users - FHIR Publisher', content);
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
-    } catch (error) {
-      this.logger.error('Error rendering users:', error);
-      res.status(500).send('Internal server error');
+    } finally {
+      this.stats.countRequest('users', Date.now() - start);
     }
   }
 
   async createUser(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const { name, login, password, is_admin } = req.body;
+      try {
+        const {name, login, password, is_admin} = req.body;
 
-      const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, 10);
 
-      await new Promise((resolve, reject) => {
-        this.db.run(
-          'INSERT INTO users (name, login, password_hash, is_admin) VALUES (?, ?, ?, ?)',
-          [name, login, passwordHash, is_admin ? 1 : 0],
-          function(err) {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
+        await new Promise((resolve, reject) => {
+          this.db.run(
+            'INSERT INTO users (name, login, password_hash, is_admin) VALUES (?, ?, ?, ?)',
+            [name, login, passwordHash, is_admin ? 1 : 0],
+            function (err) {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
 
-      this.logUserAction(req.session.userId, 'create_user', login, req.ip);
-      this.logger.info('User created: ' + login + ' by user ' + req.session.userId);
+        this.logUserAction(req.session.userId, 'create_user', login, req.ip);
+        this.logger.info('User created: ' + login + ' by user ' + req.session.userId);
 
-      res.redirect('/publisher/admin/users');
-    } catch (error) {
-      this.logger.error('Error creating user:', error);
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        res.status(400).send('Username already exists');
-      } else {
-        res.status(500).send('Failed to create user');
+        res.redirect('/publisher/admin/users');
+      } catch (error) {
+        this.logger.error('Error creating user:', error);
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+          res.status(400).send('Username already exists');
+        } else {
+          res.status(500).send('Failed to create user');
+        }
       }
+    } finally {
+      this.stats.countRequest('createUser', Date.now() - start);
     }
   }
 
   async updatePermissions(req, res) {
-    this.countRequest();
-
+    const start = Date.now();
     try {
-      const { user_id } = req.body;
-      const websites = await this.getWebsites();
 
-      // Clear existing permissions
-      await new Promise((resolve, reject) => {
-        this.db.run('DELETE FROM user_website_permissions WHERE user_id = ?', [user_id], (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
+      try {
+        const {user_id} = req.body;
+        const websites = await this.getWebsites();
 
-      // Add new permissions
-      for (const website of websites) {
-        const canQueue = req.body['queue_' + website.id] === 'on';
-        const canApprove = req.body['approve_' + website.id] === 'on';
-
-        if (canQueue || canApprove) {
-          await new Promise((resolve, reject) => {
-            this.db.run(
-              'INSERT INTO user_website_permissions (user_id, website_id, can_queue, can_approve) VALUES (?, ?, ?, ?)',
-              [user_id, website.id, canQueue ? 1 : 0, canApprove ? 1 : 0],
-              (err) => {
-                if (err) reject(err);
-                else resolve();
-              }
-            );
+        // Clear existing permissions
+        await new Promise((resolve, reject) => {
+          this.db.run('DELETE FROM user_website_permissions WHERE user_id = ?', [user_id], (err) => {
+            if (err) reject(err);
+            else resolve();
           });
-        }
-      }
+        });
 
-      this.logUserAction(req.session.userId, 'update_permissions', user_id, req.ip);
-      res.redirect('/publisher/admin/users');
-    } catch (error) {
-      this.logger.error('Error updating permissions:', error);
-      res.status(500).send('Failed to update permissions');
+        // Add new permissions
+        for (const website of websites) {
+          const canQueue = req.body['queue_' + website.id] === 'on';
+          const canApprove = req.body['approve_' + website.id] === 'on';
+
+          if (canQueue || canApprove) {
+            await new Promise((resolve, reject) => {
+              this.db.run(
+                'INSERT INTO user_website_permissions (user_id, website_id, can_queue, can_approve) VALUES (?, ?, ?, ?)',
+                [user_id, website.id, canQueue ? 1 : 0, canApprove ? 1 : 0],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            });
+          }
+        }
+
+        this.logUserAction(req.session.userId, 'update_permissions', user_id, req.ip);
+        res.redirect('/publisher/admin/users');
+      } catch (error) {
+        this.logger.error('Error updating permissions:', error);
+        res.status(500).send('Failed to update permissions');
+      }
+    } finally {
+      this.stats.countRequest('update', Date.now() - start);
     }
   }
 
@@ -1555,10 +1606,6 @@ class PublisherModule {
     };
   }
 
-
-  countRequest() {
-    this.stats.requestCount++;
-  }
 }
 
 module.exports = PublisherModule;

@@ -4,6 +4,7 @@ const {cache} = require("express/lib/application");
 class ServerStats {
   started = false;
   requestCount = 0;
+  requestTime = 0;
   // Collect metrics every 10 minutes
   intervalMs = 10 * 60 * 1000;
   history = [];
@@ -26,6 +27,7 @@ class ServerStats {
 
       const currentMem = process.memoryUsage().heapUsed;
       const requestsDelta = this.requestCount - this.requestCountSnapshot;
+      const requestsTat = this.requestTime / requestsDelta;
       const minutesSinceStart = this.history.length > 1
         ? this.intervalMs / 60000
         : (now - this.startTime) / 60000;
@@ -40,8 +42,9 @@ class ServerStats {
       }
       this.eventLoopMonitor.reset();
 
-      this.history.push({time: now, mem: currentMem - this.startMem, rpm: requestsPerMin, cpu: percent, block: loopDelay, cache : cacheCount});
+      this.history.push({time: now, mem: currentMem - this.startMem, rpm: requestsPerMin, tat: requestsTat, cpu: percent, block: loopDelay, cache : cacheCount});
       this.requestCountSnapshot = this.requestCount;
+      this.requestTime = 0;
       this.lastUsage = process.cpuUsage();
       this.lastTime = now;
 
@@ -59,6 +62,13 @@ class ServerStats {
     this.eventLoopMonitor = monitorEventLoopDelay({ resolution: 20 });
     this.eventLoopMonitor.enable();
     this.recordMetrics();
+  }
+
+  countRequest(name, tat) {
+    // we ignore name for now, but we might split the tat tracking up by name
+    // at some stage
+    this.requestCount++;
+    this.requestTime = this.requestTime + tat;
   }
 
   finishStats() {
