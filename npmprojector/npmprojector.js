@@ -253,7 +253,7 @@ class NpmProjectorModule {
 
         // Extract search parameters
         const searchParams = {};
-        for (const [key, value] of Object.entries(req.query)) {
+        for (const [key, value] of Object.entries(req.query || {})) {
           if (!key.startsWith('_') || key === '_id') {
             searchParams[key] = value;
           }

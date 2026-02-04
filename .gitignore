@@ -45,3 +45,5 @@ tx/tests/test-cases-summary.txt
 .idea/
 
 bin/validator_cli.jar.version
+
+*.log

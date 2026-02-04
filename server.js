@@ -117,6 +117,7 @@ async function initializeModules() {
       await modules.packages.initialize(config.modules.packages);
       app.use('/packages', modules.packages.router);
     } catch (error) {
+      console.error('Failed to initialize Server:', error);
       serverLog.error('Failed to initialize Packages module:', error);
       throw error;
     }
