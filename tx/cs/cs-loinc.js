@@ -240,7 +240,7 @@ class LoincServices extends CodeSystemProvider {
   }
 
   async designations(context, displays) {
-
+console.log('debug at '+new Date().toISOString()+': start-designations');
     const ctxt = await this.#ensureContext(context);
     if (ctxt) {
       // Add main display
@@ -273,13 +273,13 @@ class LoincServices extends CodeSystemProvider {
       // Add supplement designations
       this._listSupplementDesignations(ctxt.code, displays);
     }
-
+    console.log('debug at '+new Date().toISOString()+': finish-designations');
   }
 
   async extendLookup(ctxt, props, params) {
     validateArrayParameter(props, 'props', String);
     validateArrayParameter(params, 'params', Object);
-
+    console.log('debug at '+new Date().toISOString()+': extendLookup-1');
 
     if (typeof ctxt === 'string') {
       const located = await this.locate(ctxt);
@@ -288,26 +288,27 @@ class LoincServices extends CodeSystemProvider {
       }
       ctxt = located.context;
     }
+    console.log('debug at '+new Date().toISOString()+': extendLookup-2');
 
     if (!(ctxt instanceof LoincProviderContext)) {
       throw new Error('Invalid context for LOINC lookup');
     }
+    console.log('debug at '+new Date().toISOString()+': extendLookup-3');
 
     // Add relationships
     await this.#addRelationshipProperties(ctxt, params);
+    console.log('debug at '+new Date().toISOString()+': extendLookup-4');
 
     // Add properties
     await this.#addConceptProperties(ctxt, params);
+    console.log('debug at '+new Date().toISOString()+': extendLookup-5');
 
     // Add status
+    console.log('debug at '+new Date().toISOString()+': extendLookup-6');
     await this.#addStatusProperty(ctxt, params);
+    console.log('debug at '+new Date().toISOString()+': extendLookup-7');
     await this.#addRelatedNames(ctxt, params);
-    // // Add designations based on context kind
-    // const designationUse = this.#getDesignationUse(ctxt.kind);
-    // this.#addProperty(params, 'designation', designationUse, ctxt.desc, 'en-US');
-    //
-    // // Add all other designations
-    // await this.#addAllDesignations(ctxt, params);
+    console.log('debug at '+new Date().toISOString()+': extendLookup-8');
   }
 
   #getDesignationUse(kind) {
