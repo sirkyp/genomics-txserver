@@ -82,8 +82,9 @@ class Library {
     }
   }
 
-  constructor(configFile) {
+  constructor(configFile, log) {
     this.configFile = configFile;
+    this.log = log;
     // Only synchronous initialization here
     this.codeSystemFactories = new Map();
     this.codeSystemProviders = [];
