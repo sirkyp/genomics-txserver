@@ -2204,7 +2204,7 @@ function getDatabaseInfo() {
 
 // Routes
 router.get('/:packagePid/:resourceType/:resourceId', async (req, res) => {
-  const start = Date.now();;
+  const start = Date.now();
   try {
 
   const { packagePid, resourceType, resourceId } = req.params;
@@ -2325,7 +2325,7 @@ router.get('/', async (req, res) => {
 
 // Stats endpoint
 router.get('/stats', async (req, res) => {
-  const start = Date.now();;
+  const start = Date.now();
   try {
 
   const startTime = Date.now(); // Add this at the very beginning
@@ -2403,7 +2403,7 @@ router.get('/stats', async (req, res) => {
 
 // Resource detail endpoint - handles individual resource pages
 router.get('/resource/:packagePid/:resourceType/:resourceId', async (req, res) => {
-  const start = Date.now();;
+  const start = Date.now();
   try {
   const startTime = Date.now(); // Add this at the very beginning
   try {
@@ -2866,7 +2866,7 @@ function fixNarrative(narrativeHtml, baseUrl) {
 
 // JSON endpoints
 router.get('/status', async (req, res) => {
-  const start = Date.now();;
+  const start = Date.now();
   try {
 
   try {
@@ -2896,7 +2896,7 @@ router.get('/status', async (req, res) => {
 });
 
 router.get('/cache', async (req, res) => {
-  const start = Date.now();;
+  const start = Date.now();
   try {
 
     await res.json(getCacheStats());
