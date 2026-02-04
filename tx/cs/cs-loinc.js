@@ -301,7 +301,7 @@ class LoincServices extends CodeSystemProvider {
 
     // Add status
     await this.#addStatusProperty(ctxt, params);
-    // await this.#addRelatedNames(ctxt, params);
+    await this.#addRelatedNames(ctxt, params);
     // // Add designations based on context kind
     // const designationUse = this.#getDesignationUse(ctxt.kind);
     // this.#addProperty(params, 'designation', designationUse, ctxt.desc, 'en-US');
@@ -388,13 +388,8 @@ class LoincServices extends CodeSystemProvider {
   }
 
   async #addRelatedNames(ctxt, params) {
-    if (!ctxt.relatedNames || ctxt.relatedNames.length === 0) {
-      const loaded = await this.#loadRelatedNames(ctxt);
-      if (!ctxt.relatedNames || ctxt.relatedNames.length === 0) {
-        ctxt.relatedNames = loaded;
-      }
-    }
-    for (let d of ctxt.relatedNames) {
+    const loaded = await this.#loadRelatedNames(ctxt);
+    for (let d of loaded) {
       this.#addProperty(params, 'property', 'RELATEDNAMES2', d.value, d.lang);
     }
   }
