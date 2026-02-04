@@ -46,62 +46,64 @@ class VCLModule {
     return (req, res, next) => {
       try {
         const normalized = {};
-        
+
         // Check for parameter pollution (arrays) and validate
         for (const [key, value] of Object.entries(req.query)) {
           if (Array.isArray(value)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
               error: 'Parameter pollution detected',
-              parameter: key 
+              parameter: key
             });
           }
-          
+
           if (allowedParams[key]) {
             const config = allowedParams[key];
-            
+
             if (value !== undefined) {
               if (typeof value !== 'string') {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} must be a string` 
+                return res.status(400).json({
+                  error: `Parameter ${key} must be a string`
                 });
               }
-              
+
               if (value.length > (config.maxLength || 255)) {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} too long (max ${config.maxLength || 255})` 
+                return res.status(400).json({
+                  error: `Parameter ${key} too long (max ${config.maxLength || 255})`
                 });
               }
-              
+
               if (config.pattern && !config.pattern.test(value)) {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} has invalid format` 
+                return res.status(400).json({
+                  error: `Parameter ${key} has invalid format`
                 });
               }
-              
+
               normalized[key] = value;
             } else if (config.required) {
-              return res.status(400).json({ 
-                error: `Parameter ${key} is required` 
+              return res.status(400).json({
+                error: `Parameter ${key} is required`
               });
             } else {
               normalized[key] = config.default || '';
             }
           } else if (value !== undefined) {
             // Unknown parameter
-            return res.status(400).json({ 
-              error: `Unknown parameter: ${key}` 
+            return res.status(400).json({
+              error: `Unknown parameter: ${key}`
             });
           }
         }
-        
+
         // Set default values for missing optional parameters
         for (const [key, config] of Object.entries(allowedParams)) {
           if (normalized[key] === undefined && !config.required) {
             normalized[key] = config.default || '';
           }
         }
-        
-        req.query = normalized;
+
+        // Clear and repopulate in-place (Express 5 makes req.query a read-only getter)
+        for (const key of Object.keys(req.query)) delete req.query[key];
+        Object.assign(req.query, normalized);
         next();
       } catch (error) {
         vclLog.error('Parameter validation error:', error);
@@ -113,7 +115,7 @@ class VCLModule {
   // Enhanced HTML escaping
   escapeHtml(str) {
     if (!str || typeof str !== 'string') return '';
-    
+
     const escapeMap = {
       '&': '&amp;',
       '<': '&lt;',
@@ -124,7 +126,7 @@ class VCLModule {
       '`': '&#x60;',
       '=': '&#x3D;'
     };
-    
+
     return str.replace(/[&<>"'`=/]/g, (match) => escapeMap[match]);
   }
 
@@ -174,7 +176,7 @@ class VCLModule {
   setupRoutes() {
     // Parameter validation config for VCL endpoint
     const vclParams = {
-      vcl: { 
+      vcl: {
         required: true,
         maxLength: 10000
       }

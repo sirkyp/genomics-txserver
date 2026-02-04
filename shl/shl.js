@@ -68,59 +68,61 @@ class SHLModule {
     return (req, res, next) => {
       try {
         const normalized = {};
-        
+
         for (const [key, value] of Object.entries(req.query)) {
           if (Array.isArray(value)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
               error: 'Parameter pollution detected',
-              parameter: key 
+              parameter: key
             });
           }
-          
+
           if (allowedParams[key]) {
             const config = allowedParams[key];
-            
+
             if (value !== undefined) {
               if (typeof value !== 'string') {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} must be a string` 
+                return res.status(400).json({
+                  error: `Parameter ${key} must be a string`
                 });
               }
-              
+
               if (value.length > (config.maxLength || 255)) {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} too long (max ${config.maxLength || 255})` 
+                return res.status(400).json({
+                  error: `Parameter ${key} too long (max ${config.maxLength || 255})`
                 });
               }
-              
+
               if (config.pattern && !config.pattern.test(value)) {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} has invalid format` 
+                return res.status(400).json({
+                  error: `Parameter ${key} has invalid format`
                 });
               }
-              
+
               normalized[key] = value;
             } else if (config.required) {
-              return res.status(400).json({ 
-                error: `Parameter ${key} is required` 
+              return res.status(400).json({
+                error: `Parameter ${key} is required`
               });
             } else {
               normalized[key] = config.default || '';
             }
           } else if (value !== undefined) {
-            return res.status(400).json({ 
-              error: `Unknown parameter: ${key}` 
+            return res.status(400).json({
+              error: `Unknown parameter: ${key}`
             });
           }
         }
-        
+
         for (const [key, config] of Object.entries(allowedParams)) {
           if (normalized[key] === undefined && !config.required) {
             normalized[key] = config.default || '';
           }
         }
-        
-        req.query = normalized;
+
+        // Clear and repopulate in-place (Express 5 makes req.query a read-only getter)
+        for (const key of Object.keys(req.query)) delete req.query[key];
+        Object.assign(req.query, normalized);
         next();
       } catch (error) {
         shlLog.error('Parameter validation error:', error);
@@ -206,13 +208,13 @@ class SHLModule {
     if (typeof a !== 'string' || typeof b !== 'string') {
       return false;
     }
-    
+
     if (a.length !== b.length) {
       // Still do a comparison to prevent timing attacks
       crypto.timingSafeEqual(Buffer.from(a), Buffer.from(a));
       return false;
     }
-    
+
     try {
       return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
     } catch (error) {
@@ -223,7 +225,7 @@ class SHLModule {
   // Enhanced HTML escaping
   escapeHtml(str) {
     if (!str || typeof str !== 'string') return '';
-    
+
     const escapeMap = {
       '&': '&amp;',
       '<': '&lt;',
@@ -234,7 +236,7 @@ class SHLModule {
       '`': '&#x60;',
       '=': '&#x3D;'
     };
-    
+
     return str.replace(/[&<>"'`=/]/g, (match) => escapeMap[match]);
   }
 
@@ -242,21 +244,21 @@ class SHLModule {
   validateExternalUrl(url) {
     try {
       const parsed = new URL(url);
-      
+
       if (!['http:', 'https:', 'shlink:'].includes(parsed.protocol)) {
         throw new Error(`Protocol ${parsed.protocol} not allowed`);
       }
-      
+
       // Block private IP ranges
       const hostname = parsed.hostname;
-      if (hostname === 'localhost' || 
-          hostname === '127.0.0.1' ||
-          hostname.startsWith('10.') ||
-          hostname.startsWith('192.168.') ||
-          /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)) {
+      if (hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)) {
         throw new Error('Private IP addresses not allowed');
       }
-      
+
       return parsed;
     } catch (error) {
       throw new Error(`Invalid URL: ${error.message}`);
@@ -268,15 +270,15 @@ class SHLModule {
 
     // Initialize database
     await this.initializeDatabase();
-    
+
     // Initialize FHIR Validator if enabled
     if (config.validator.enabled) {
       await this.initializeFhirValidator();
     }
-    
+
     // Start cleanup cron job
     this.startCleanupJob();
-    
+
     shlLog.info('SHL module initialized successfully');
   }
 
@@ -313,35 +315,35 @@ class SHLModule {
   async createTables() {
     return new Promise((resolve, reject) => {
       const createSHLTable = `
-        CREATE TABLE IF NOT EXISTS SHL (
-          uuid TEXT PRIMARY KEY,
-          vhl BOOLEAN NOT NULL,
-          expires_at DATETIME NOT NULL,
-          password TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
+          CREATE TABLE IF NOT EXISTS SHL (
+                                             uuid TEXT PRIMARY KEY,
+                                             vhl BOOLEAN NOT NULL,
+                                             expires_at DATETIME NOT NULL,
+                                             password TEXT NOT NULL,
+                                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
       `;
-      
+
       const createSHLFilesTable = `
-        CREATE TABLE IF NOT EXISTS SHLFiles (
-          id TEXT PRIMARY KEY,
-          shl_uuid TEXT NOT NULL,
-          cnt TEXT NOT NULL,
-          type TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (shl_uuid) REFERENCES SHL (uuid) ON DELETE CASCADE
-        )
+          CREATE TABLE IF NOT EXISTS SHLFiles (
+                                                  id TEXT PRIMARY KEY,
+                                                  shl_uuid TEXT NOT NULL,
+                                                  cnt TEXT NOT NULL,
+                                                  type TEXT NOT NULL,
+                                                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                                  FOREIGN KEY (shl_uuid) REFERENCES SHL (uuid) ON DELETE CASCADE
+              )
       `;
-      
+
       const createSHLViewsTable = `
-        CREATE TABLE IF NOT EXISTS SHLViews (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          shl_uuid TEXT NOT NULL,
-          recipient TEXT,
-          ip_address TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (shl_uuid) REFERENCES SHL (uuid) ON DELETE CASCADE
-        )
+          CREATE TABLE IF NOT EXISTS SHLViews (
+                                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                  shl_uuid TEXT NOT NULL,
+                                                  recipient TEXT,
+                                                  ip_address TEXT,
+                                                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                                  FOREIGN KEY (shl_uuid) REFERENCES SHL (uuid) ON DELETE CASCADE
+              )
       `;
 
       let tablesCreated = 0;
@@ -363,7 +365,7 @@ class SHLModule {
           checkComplete();
         }
       });
-      
+
       this.db.run(createSHLFilesTable, (err) => {
         if (err) {
           shlLog.error('Error creating SHLFiles table:', err.message);
@@ -372,7 +374,7 @@ class SHLModule {
           checkComplete();
         }
       });
-      
+
       this.db.run(createSHLViewsTable, (err) => {
         if (err) {
           shlLog.error('Error creating SHLViews table:', err.message);
@@ -387,7 +389,7 @@ class SHLModule {
   async initializeFhirValidator() {
     try {
       shlLog.info('Initializing FHIR Validator...');
-      
+
       const validatorConfig = {
         version: this.config.validator.version,
         txServer: this.config.validator.txServer,
@@ -396,13 +398,13 @@ class SHLModule {
         igs: this.config.validator.packages,
         timeout: this.config.validator.timeout
       };
-      
+
       shlLog.info('Starting FHIR Validator with config:', validatorConfig);
 
       const validatorJarPath = folders.filePath('bin', 'validator_cli.jar');
       this.fhirValidator = new FhirValidator(validatorJarPath, shlLog);
       await this.fhirValidator.start(validatorConfig);
-      
+
       shlLog.info('FHIR Validator started successfully');
     } catch (error) {
       shlLog.error('Failed to start FHIR Validator:', error);
@@ -414,16 +416,16 @@ class SHLModule {
     try {
       const certPath = path.resolve(__dirname, this.config.certificates.certFile);
       const keyPath = path.resolve(__dirname, this.config.certificates.keyFile);
-      
+
       // Validate paths to prevent directory traversal
-      if (!certPath.startsWith(path.resolve(__dirname)) || 
-          !keyPath.startsWith(path.resolve(__dirname))) {
+      if (!certPath.startsWith(path.resolve(__dirname)) ||
+        !keyPath.startsWith(path.resolve(__dirname))) {
         throw new Error('Certificate paths outside allowed directory');
       }
-      
+
       const certPem = fs.readFileSync(certPath, 'utf8');
       const keyPem = fs.readFileSync(keyPath, 'utf8');
-      
+
       return { certPem, keyPem };
     } catch (error) {
       throw new Error(`Failed to load certificates: ${error.message}`);
@@ -449,7 +451,7 @@ class SHLModule {
 
   cleanupExpiredEntries() {
     const deleteSql = 'DELETE FROM SHL WHERE expires_at < datetime("now")';
-    
+
     this.db.run(deleteSql, function(err) {
       if (err) {
         shlLog.error('SHL cleanup error:', err.message);
@@ -468,11 +470,11 @@ class SHLModule {
     try {
       const keyObject = crypto.createPrivateKey(pemKey);
       const keyType = keyObject.asymmetricKeyType;
-      
+
       if (keyType !== 'ec') {
         throw new Error('Only EC (Elliptic Curve) keys are supported for COSE signing');
       }
-      
+
       const jwk = keyObject.export({ format: 'jwk' });
       return jwk;
     } catch (error) {
@@ -1083,7 +1085,7 @@ class SHLModule {
     shlLog.info('Shutting down SHL module...');
 
     this.stopCleanupJob();
-    
+
     // Stop FHIR validator
     if (this.fhirValidator) {
       try {
@@ -1094,7 +1096,7 @@ class SHLModule {
         shlLog.error('Error stopping FHIR validator:', error);
       }
     }
-    
+
     if (this.db) {
       return new Promise((resolve) => {
         this.db.close((err) => {

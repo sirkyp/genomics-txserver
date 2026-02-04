@@ -60,61 +60,63 @@ class PackagesModule {
       try {
         // Check for parameter pollution (arrays) and validate
         const normalized = {};
-        
+
         for (const [key, value] of Object.entries(req.query)) {
           if (Array.isArray(value)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
               error: 'Parameter pollution detected',
-              parameter: key 
+              parameter: key
             });
           }
-          
+
           if (allowedParams[key]) {
             const config = allowedParams[key];
-            
+
             if (value !== undefined) {
               if (typeof value !== 'string') {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} must be a string` 
+                return res.status(400).json({
+                  error: `Parameter ${key} must be a string`
                 });
               }
-              
+
               if (value.length > (config.maxLength || 255)) {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} too long (max ${config.maxLength || 255})` 
+                return res.status(400).json({
+                  error: `Parameter ${key} too long (max ${config.maxLength || 255})`
                 });
               }
-              
+
               if (config.pattern && !config.pattern.test(value)) {
-                return res.status(400).json({ 
-                  error: `Parameter ${key} has invalid format` 
+                return res.status(400).json({
+                  error: `Parameter ${key} has invalid format`
                 });
               }
-              
+
               normalized[key] = value;
             } else if (config.required) {
-              return res.status(400).json({ 
-                error: `Parameter ${key} is required` 
+              return res.status(400).json({
+                error: `Parameter ${key} is required`
               });
             } else {
               normalized[key] = config.default || '';
             }
           } else if (value !== undefined) {
             // Unknown parameter
-            return res.status(400).json({ 
-              error: `Unknown parameter: ${key}` 
+            return res.status(400).json({
+              error: `Unknown parameter: ${key}`
             });
           }
         }
-        
+
         // Set default values for missing optional parameters
         for (const [key, config] of Object.entries(allowedParams)) {
           if (normalized[key] === undefined && !config.required) {
             normalized[key] = config.default || '';
           }
         }
-        
-        req.query = normalized;
+
+        // Clear and repopulate in-place (Express 5 makes req.query a read-only getter)
+        for (const key of Object.keys(req.query)) delete req.query[key];
+        Object.assign(req.query, normalized);
         next();
       } catch (error) {
         pckLog.error('Parameter validation error:', error);
@@ -126,7 +128,7 @@ class PackagesModule {
   // Enhanced HTML escaping
   escapeHtml(str) {
     if (!str || typeof str !== 'string') return '';
-    
+
     const escapeMap = {
       '&': '&amp;',
       '<': '&lt;',
@@ -258,13 +260,13 @@ class PackagesModule {
         // Build appropriate base query
         if (versioned) {
           baseQuery = `SELECT Id, Version, PubDate, FhirVersions, Kind, Canonical, Description
-                     FROM PackageVersions 
-                     WHERE PackageVersions.PackageVersionKey > 0`;
+                       FROM PackageVersions
+                       WHERE PackageVersions.PackageVersionKey > 0`;
         } else {
-          baseQuery = `SELECT Packages.Id, Version, PubDate, FhirVersions, Kind, 
-                            PackageVersions.Canonical, Packages.DownloadCount, Description
-                     FROM Packages, PackageVersions
-                     WHERE Packages.CurrentVersion = PackageVersions.PackageVersionKey`;
+          baseQuery = `SELECT Packages.Id, Version, PubDate, FhirVersions, Kind,
+                              PackageVersions.Canonical, Packages.DownloadCount, Description
+                       FROM Packages, PackageVersions
+                       WHERE Packages.CurrentVersion = PackageVersions.PackageVersionKey`;
         }
 
         const { query, params: queryParams } = this.buildSecureQuery(baseQuery, conditions);
@@ -314,22 +316,22 @@ class PackagesModule {
   validateExternalUrl(url) {
     try {
       const parsed = new URL(url);
-      
+
       // Only allow http and https
       if (!['http:', 'https:'].includes(parsed.protocol)) {
         throw new Error(`Protocol ${parsed.protocol} not allowed`);
       }
-      
+
       // Block private IP ranges
       const hostname = parsed.hostname;
-      if (hostname === 'localhost' || 
-          hostname === '127.0.0.1' ||
-          hostname.startsWith('10.') ||
-          hostname.startsWith('192.168.') ||
-          /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)) {
+      if (hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)) {
         throw new Error('Private IP addresses not allowed');
       }
-      
+
       return parsed;
     } catch (error) {
       throw new Error(`Invalid URL: ${error.message}`);
@@ -342,9 +344,9 @@ class PackagesModule {
       try {
         const validatedUrl = this.validateExternalUrl(url);
         const { maxSize = 50 * 1024 * 1024, timeout = 30000 } = options;
-        
+
         const protocol = validatedUrl.protocol === 'https:' ? require('https') : require('http');
-        
+
         const request = protocol.get(validatedUrl, (response) => {
           // Check content length
           const contentLength = parseInt(response.headers['content-length'] || '0');
@@ -353,7 +355,7 @@ class PackagesModule {
             reject(new Error('Response too large'));
             return;
           }
-          
+
           // Handle redirects safely
           if (response.statusCode >= 300 && response.statusCode < 400) {
             const location = response.headers.location;
@@ -361,24 +363,24 @@ class PackagesModule {
               reject(new Error('Redirect without location'));
               return;
             }
-            
+
             const redirectCount = options.redirectCount || 0;
             if (redirectCount >= 5) {
               reject(new Error('Too many redirects'));
               return;
             }
-            
+
             this.safeHttpRequest(location, { ...options, redirectCount: redirectCount + 1 })
               .then(resolve)
               .catch(reject);
             return;
           }
-          
+
           if (response.statusCode !== 200) {
             reject(new Error(`HTTP ${response.statusCode}`));
             return;
           }
-          
+
           let data = Buffer.alloc(0);
           response.on('data', (chunk) => {
             data = Buffer.concat([data, chunk]);
@@ -388,18 +390,18 @@ class PackagesModule {
               return;
             }
           });
-          
+
           response.on('end', () => {
             resolve(data);
           });
         });
-        
+
         request.on('error', reject);
         request.setTimeout(timeout, () => {
           request.destroy();
           reject(new Error('Request timeout'));
         });
-        
+
       } catch (error) {
         reject(error);
       }
@@ -1054,8 +1056,8 @@ class PackagesModule {
     });
 
     // GET /packages/broken
-    this.router.get('/broken', this.validateQueryParams({ 
-      filter: { maxLength: 100, pattern: /^[a-zA-Z0-9._-]*$/ } 
+    this.router.get('/broken', this.validateQueryParams({
+      filter: { maxLength: 100, pattern: /^[a-zA-Z0-9._-]*$/ }
     }), async (req, res) => {
       const start = Date.now();
       try {
@@ -1144,7 +1146,7 @@ class PackagesModule {
     });
 
     // GET /packages/:id - Get package versions
-    this.router.get('/:id([^/]+)', async (req, res) => {
+    this.router.get('/:id', async (req, res) => {
       const start = Date.now();
       try {
 
@@ -1320,7 +1322,7 @@ class PackagesModule {
     });
 
     // Catch-all for unsupported operations (place this last)
-    this.router.all('*', (req, res) => {
+    this.router.all('{*splat}', (req, res) => {
       const start = Date.now();
       try {
         res.status(404).json({

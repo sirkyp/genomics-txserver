@@ -138,7 +138,6 @@ class NpmProjectorModule {
     this.router.get('/', (req, res) => {
       const start = Date.now();
       try {
-        let queryDate;
 
         const indexer = this.getIndexer();
         const types = indexer.getResourceTypes();
@@ -169,8 +168,6 @@ class NpmProjectorModule {
     this.router.get('/metadata', (req, res) => {
       const start = Date.now();
       try {
-        let queryDate;
-
         const indexer = this.getIndexer();
         res.json(this.buildCapabilityStatement(indexer));
       } finally {
@@ -182,8 +179,6 @@ class NpmProjectorModule {
     this.router.get('/_stats', (req, res) => {
       const start = Date.now();
       try {
-        let queryDate;
-
         const indexer = this.getIndexer();
         res.json({
           ...indexer.getStats(),
@@ -199,7 +194,6 @@ class NpmProjectorModule {
     this.router.post('/_reload', (req, res) => {
       const start = Date.now();
       try {
-        let queryDate;
 
         this.log.info('Manual reload triggered');
         this.watcher.triggerReload();
@@ -211,8 +205,8 @@ class NpmProjectorModule {
 
     // Read: GET /[type]/[id]
     this.router.get('/:resourceType/:id', (req, res) => {
+      const start = Date.now();
       try {
-        let queryDate;
 
         const {resourceType, id} = req.params;
         const indexer = this.getIndexer();
@@ -237,7 +231,6 @@ class NpmProjectorModule {
     this.router.get('/:resourceType', (req, res) => {
       const start = Date.now();
       try {
-        let queryDate;
 
         const {resourceType} = req.params;
         const indexer = this.getIndexer();
@@ -253,7 +246,7 @@ class NpmProjectorModule {
 
         // Extract search parameters
         const searchParams = {};
-        for (const [key, value] of Object.entries(req.query)) {
+        for (const [key, value] of Object.entries(req.query || {})) {
           if (!key.startsWith('_') || key === '_id') {
             searchParams[key] = value;
           }

@@ -140,24 +140,17 @@ class Library {
 
   async load() {
     this.startTime = Date.now();
-    this.log.info(`Load 1`);
     this.languageDefinitions = await LanguageDefinitions.fromFile(path.join(__dirname, '../tx/data/lang.dat'));
-    this.log.info(`Load 2`);
     this.i18n = new I18nSupport(path.join(__dirname, '../translations'), this.languageDefinitions);
-    this.log.info(`Load 3`);
     await this.i18n.load();
-    this.log.info(`Load 4`);
 
     // Read and parse YAML configuration
     const yamlPath = this.configFile ? this.configFile :  path.join(__dirname, '..', 'tx', 'tx.fhir.org.yml');
-    this.log.info(`Load 5`);
     const yamlContent = await fs.readFile(yamlPath, 'utf8');
-    this.log.info(`Load 6`);
     const config = yaml.parse(yamlContent);
-    this.log.info(`Load 7`);
     this.baseUrl = config.base.url;
 
-    this.log.info('Fetching Data');
+    this.log.info('Fetching Data from '+this.baseUrl);
 
     for (const source of config.sources) {
       await this.processSource(source, this.packageManager, "fetch");
