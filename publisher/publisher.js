@@ -540,12 +540,7 @@ class PublisherModule {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
-      let stdout = '';
       let stderr = '';
-
-      git.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
 
       git.stderr.on('data', (data) => {
         stderr += data.toString();
@@ -589,15 +584,11 @@ class PublisherModule {
       // Create log file stream
       const logStream = fs.createWriteStream(logFile);
 
-      let hasOutput = false;
-
       java.stdout.on('data', (data) => {
-        hasOutput = true;
         logStream.write(data);
       });
 
       java.stderr.on('data', (data) => {
-        hasOutput = true;
         logStream.write(data);
       });
 
@@ -944,10 +935,10 @@ class PublisherModule {
       content += '</div>';
 
       const html = htmlServer.renderPage('publisher', 'Login - FHIR Publisher', content, {
-          templateVars: {
+        templateVars: {
           loginTitle: req.session.userId ? "Logout" : 'Login',
-            loginPath: req.session.userId ? "logout" : 'login',
-            loginAction: req.session.userId ? "POST" : 'GET'
+          loginPath: req.session.userId ? "logout" : 'login',
+          loginAction: req.session.userId ? "POST" : 'GET'
         }});
       res.setHeader('Content-Type', 'text/html');
       res.send(html);
@@ -1258,7 +1249,7 @@ class PublisherModule {
         // Remove build output directory
         if (task.local_folder && fs.existsSync(task.local_folder)) {
           const rimraf = require('rimraf');
-          await new Promise((resolve, reject) => {
+          await new Promise((resolve) => {
             rimraf(task.local_folder, (err) => {
               if (err) {
                 this.logger.warn('Failed to remove task directory ' + task.local_folder + ': ' + err.message);
