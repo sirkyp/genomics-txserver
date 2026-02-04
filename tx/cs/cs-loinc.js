@@ -1147,7 +1147,7 @@ class LoincServicesFactory extends CodeSystemFactoryProvider {
   }
 
   async #optimizeDatabase(db) {
-    return new Promise((resolve, reject) => {
+    return new Promise(() => {
       db.serialize(() => {
         db.run('PRAGMA journal_mode = WAL');
         db.run('PRAGMA synchronous = NORMAL');
