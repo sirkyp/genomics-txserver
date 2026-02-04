@@ -205,6 +205,7 @@ class NpmProjectorModule {
 
     // Read: GET /[type]/[id]
     this.router.get('/:resourceType/:id', (req, res) => {
+      const start = Date.now();
       try {
 
         const {resourceType, id} = req.params;
