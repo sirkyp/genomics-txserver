@@ -301,7 +301,7 @@ class LoincServices extends CodeSystemProvider {
 
     // Add status
     await this.#addStatusProperty(ctxt, params);
-    await this.#addRelatedNames(ctxt, params);
+    // await this.#addRelatedNames(ctxt, params);
     // // Add designations based on context kind
     // const designationUse = this.#getDesignationUse(ctxt.kind);
     // this.#addProperty(params, 'designation', designationUse, ctxt.desc, 'en-US');
