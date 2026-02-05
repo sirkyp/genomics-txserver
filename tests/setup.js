@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const TestUtils = require('./utils/test-utils');
+const folders = require('../library/folder-setup');
 
 // Global test setup
 beforeAll(() => {
@@ -18,9 +19,7 @@ beforeAll(() => {
 });
 
 const testDirs = [
-  path.join(__dirname, '../package-cache'),
-  path.join(__dirname, '../test-cache'),
-  path.join(__dirname, '../test-cache/vsac')
+  folders.ensureFolder('package-cache/vsac')
 ];
 
 for (const dir of testDirs) {
