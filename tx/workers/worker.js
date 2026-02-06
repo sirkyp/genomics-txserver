@@ -896,6 +896,13 @@ class TerminologyWorker {
     const lastItem = items.pop();
     return `${items.join(', ')} and ${lastItem}`;
   }
+
+  checkNoLockedDate(url, compose) {
+    if (compose.lockedDate) {
+      throw new Issue("error", "business-rule", null, null, `Cannot process ValueSet ${url} due to the presence of a lockedDate on the compose`);
+    }
+  }
+
 }
 
 module.exports = {
