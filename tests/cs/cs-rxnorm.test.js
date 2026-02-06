@@ -5,8 +5,6 @@ const { RxNormImporter } = require('../../tx/importers/import-rxnorm.module');
 const { RxNormServices, RxNormServicesFactory, RxNormConcept } = require('../../tx/cs/cs-rxnorm');
 const { OperationContext } = require('../../tx/operation-context');
 const {Designations} = require("../../tx/library/designations");
-const {Languages, LanguageDefinitions} = require("../../library/languages");
-const {I18nSupport} = require("../../library/i18nsupport");
 const {TestUtilities, testOrSkip} = require("../test-utilities");
 const folders = require('../../library/folder-setup');
 
@@ -353,7 +351,7 @@ describe('RxNorm Provider', () => {
     testOrSkip('should return designations for codes', async () => {
       const sampleCode = await getFirstAvailableCode(testDbPath);
       if (sampleCode) {
-        let displays = new Designations(languageDefinitions);
+        let displays = new Designations(this.languageDefinitions);
         await provider.designations(sampleCode, displays);
 
         expect(displays.count).toBeGreaterThan(0);

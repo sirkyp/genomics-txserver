@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const TestUtils = require('./utils/test-utils');
 const folders = require('../library/folder-setup');
 
