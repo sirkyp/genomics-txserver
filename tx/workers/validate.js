@@ -315,6 +315,7 @@ class ValueSetChecker {
 
       if (this.valueSet.jsonObj.compose) {
         Extensions.checkNoModifiers(this.valueSet.jsonObj.compose, 'ValueSetChecker.prepare', 'ValueSet.compose');
+        this.worker.checkNoLockedDate(this.valueSet.url, this.valueSet.jsonObj.compose)
         let i = 0;
         for (let cc of this.valueSet.jsonObj.compose.include || []) {
           await this.prepareConceptSet('include['+i+']', cc);

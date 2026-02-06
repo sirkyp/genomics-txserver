@@ -1256,8 +1256,7 @@ class ValueSetExpander {
     let notClosed = { value :  false};
 
     try {
-      if (source.jsonObj.compose && Extensions.checkNoModifiers(source.jsonObj.compose, 'ValueSetExpander.Expand', 'compose')
-          && this.worker.checkNoLockedDate(source.url, source.jsonObj.compose)) {
+      if (source.jsonObj.compose && Extensions.checkNoModifiers(source.jsonObj.compose, 'ValueSetExpander.Expand', 'compose')) {
         await this.handleCompose(source, filter, exp, notClosed);
       }
 
@@ -1513,6 +1512,7 @@ class ValueSetExpander {
     }
     return undefined;
   }
+
 
 }
 
