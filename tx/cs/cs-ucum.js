@@ -9,6 +9,7 @@ const ValueSet = require("../library/valueset");
 const assert = require('assert');
 const {UcumService} = require("../library/ucum-service");
 const {validateArrayParameter} = require("../../library/utilities");
+const {DesignationUse} = require("../library/designations");
 
 /**
  * UCUM provider context for concepts
@@ -153,8 +154,8 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
       return supplementDisplay;
     }
 
-    // Fall back to analysis
-    return this.ucumService.analyse(ctxt.code);
+    // Fall back to code per THO advice
+    return ctxt.code;
   }
 
   async definition(code) {
@@ -187,15 +188,16 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
 
     // Primary display (analysis)
     const analysis = this.ucumService.analyse(ctxt.code);
-    displays.addDesignation(true, 'active', 'en', CodeSystem.makeUseForDisplay(), analysis);
+    displays.addDesignation(true, 'active', 'en', DesignationUse.DISPLAY, ctxt.code);
+    displays.addDesignation(true, 'active', 'en', DesignationUse.SYNONYM, analysis);
 
     // Common unit display if available
     if (this.commonUnitList) {
       for (const concept of this.commonUnitList) {
         if (concept.code === ctxt.code && concept.display) {
           const display = concept.display.trim();
-          if (display !== analysis) {
-            displays.addDesignation(false, 'active', 'en', CodeSystem.makeUseForDisplay(), display);
+          if (display !== ctxt.code) {
+            displays.addDesignation(false, 'active', 'en', DesignationUse.PREFERRED, display);
           }
         }
       }
@@ -447,6 +449,10 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
 
   isNotClosed() {
     return true;
+  }
+
+  makeUseForSynonym() {
+    return ;
   }
 }
 
