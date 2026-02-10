@@ -298,8 +298,16 @@ class SubsumesWorker extends TerminologyWorker {
       throw error;
     }
 
+    let equal = false;
+    if (csProvider.isCaseSensitive()) {
+      equal = codingA.code == codingB.code;
+    } else {
+      equal = codingA.code === codingB.code;
+    }
+    equal = equal || locateA == locateB;
+
     // Determine the subsumption relationship
-    let outcome = await csProvider.subsumesTest(codingA.code, codingB.code);
+    let outcome = equal ? 'equivalent' : await csProvider.subsumesTest(codingA.code, codingB.code);
 
     return {
       resourceType: 'Parameters',
