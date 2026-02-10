@@ -456,6 +456,10 @@ class TerminologyWorker {
     if (req.method === 'POST' && req.body && req.body.resourceType === 'Parameters') {
       return req.body;
     }
+    if (req.method === 'POST' && req.body && req.body.resourceType) {
+      let langs = this.languages.parse(req.headers['accept-language']);
+      throw new Issue('error', 'invalid', null, 'Wrong_type_for_resource_expected', this.i18n.translate('Wrong_type_for_resource_expected', langs, ["Parameters", req.body.resourceType])).handleAsOO(400);
+    }
 
     // Convert query params or form body to Parameters
     const source = req.method === 'POST' ? {...req.query, ...req.body} : req.query;

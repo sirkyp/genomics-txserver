@@ -1019,27 +1019,6 @@ class TXModule {
     }
   }
 
-
-  fixForVersion(resource) {
-    if (this.provider.fhirVersion >= 5) {
-      return resource;
-    }
-    let rt = resource.resourceType;
-    switch (rt) {
-      case "ValueSet": {
-        let vs = new ValueSet(resource);
-        if (this.provider.fhirVersion == 4) {
-          return vs.convertFromR5(resource, "R4");
-        } else if (this.provider.fhirVersion == 3) {
-          return vs.convertFromR5(resource, "R3");
-        } else {
-          return resource;
-        }
-      }
-      default:
-        return resource;
-    }
-  }
 }
 
 module.exports = TXModule;
