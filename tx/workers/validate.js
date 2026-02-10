@@ -150,6 +150,7 @@ class ValueSetChecker {
   async determineSystem(opContext, code, systems, op) {
     let result = '';
     let needDoExpansion = false;
+    let mayNeedExpansion = false;
 
     for (let vsi of this.valueSet.jsonObj.compose.exclude || []) {
       if (vsi.valueSet || !vsi.system || vsi.filter) {
@@ -157,8 +158,11 @@ class ValueSetChecker {
       }
     }
     for (let vsi of this.valueSet.jsonObj.compose.include || []) {
-      if (vsi.valueSet || !vsi.system || vsi.filter) {
+      if (vsi.valueSet || !vsi.system) {
         needDoExpansion = true;
+      }
+      if (vsi.filter) {
+        mayNeedExpansion = true;
       }
     }
 
@@ -191,7 +195,11 @@ class ValueSetChecker {
             if (!result) {
               result = vsi.system;
             } else if (result !== vsi.system) {
-              return '';
+              if (mayNeedExpansion) {
+                result = await this.determineSystemFromExpansion(code, systems);
+              } else {
+                return '';
+              }
             }
           }
         }
