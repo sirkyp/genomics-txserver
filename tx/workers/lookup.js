@@ -385,8 +385,7 @@ class LookupWorker extends TerminologyWorker {
       ]
     });
   }
-
-
+  
   /**
    * Build an OperationOutcome
    * @param {string} severity - error, warning, information
@@ -400,7 +399,7 @@ class LookupWorker extends TerminologyWorker {
       issue: [{
         severity,
         code,
-        diagnostics: message
+        details: {text : message}
       }]
     };
   }
