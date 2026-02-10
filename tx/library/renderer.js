@@ -1284,7 +1284,7 @@ class Renderer {
     return div_.toString();
   }
 
-  async renderCapabilityRest(x, rest, cs) {
+  async renderCapabilityRest(x, rest) {
     x.h3().tx(`REST ${rest.mode || 'server'} Definition`);
 
     if (rest.documentation) {

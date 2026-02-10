@@ -1,5 +1,4 @@
 const {CanonicalResource} = require("./canonical-resource");
-const {VersionUtilities} = require("../../library/version-utilities");
 const {terminologyCapabilitiesToR5, terminologyCapabilitiesFromR5} = require("../xversion/xv-terminologyCapabilities");
 
 /**

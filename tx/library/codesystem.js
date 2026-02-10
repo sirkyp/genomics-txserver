@@ -1,6 +1,5 @@
 const { Language } = require("../../library/languages");
 const {CanonicalResource} = require("./canonical-resource");
-const {VersionUtilities} = require("../../library/version-utilities");
 const {codeSystemFromR5, codeSystemToR5} = require("../xversion/xv-codesystem");
 const {getValuePrimitive} = require("../../library/utilities");
 

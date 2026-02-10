@@ -1,4 +1,3 @@
-const {VersionUtilities} = require("../../library/version-utilities");
 const {namingSystemToR5, namingSystemFromR5} = require("../xversion/xv-namingsystem");
 
 /**

@@ -1,6 +1,4 @@
 const {CanonicalResource} = require("./canonical-resource");
-const {getValueName} = require("../../library/utilities");
-const {VersionUtilities} = require("../../library/version-utilities");
 const {valueSetToR5, valueSetFromR5} = require("../xversion/xv-valueset");
 
 /**

@@ -67,28 +67,4 @@ function bundleFromR5(r5Obj, targetVersion) {
   return bundle;
 }
 
-/**
- * Converts R5 Bundle to R4 format
- * @param {Object} r5Obj - Cloned R5 Bundle object
- * @returns {Object} R4 format Bundle
- * @private
- */
-function bundleR5ToR4(r5Obj) {
-
-  return r5Obj;
-}
-
-/**
- * Converts R5 Bundle to R3 format
- * @param {Object} r5Obj - Cloned R5 Bundle object
- * @returns {Object} R3 format Bundle
- * @private
- */
-function bundleR5ToR3(r5Obj) {
-  // First apply R4 conversions
-  const r4Obj = bundleR5ToR4(r5Obj);
-
-  return r4Obj;
-}
-
 module.exports = { bundleToR5, bundleFromR5 };

@@ -1,4 +1,4 @@
-import { createReadStream, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
+import { createReadStream, writeFileSync } from 'fs';
 import { createInterface } from 'readline';
 import { createHash } from 'crypto';
 

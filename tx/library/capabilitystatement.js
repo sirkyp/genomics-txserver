@@ -1,5 +1,4 @@
 const {CanonicalResource} = require("./canonical-resource");
-const {VersionUtilities} = require("../../library/version-utilities");
 const {capabilityStatementFromR5, capabilityStatementToR5} = require("../xversion/xv-capabiliityStatement");
 
 /**
