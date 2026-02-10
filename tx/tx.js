@@ -82,12 +82,10 @@ class TXModule {
 
   acceptsXml(req) {
     let _fmt = req.query._format;
-    // Normalize _format to a single string to avoid type confusion (arrays vs strings)
-    if (Array.isArray(_fmt)) {
-      _fmt = _fmt.length > 0 ? _fmt[0] : undefined;
-    } else if (_fmt != null && typeof _fmt !== 'string') {
-      _fmt = String(_fmt);
+    if (_fmt && typeof _fmt !== 'string') {
+      _fmt = null
     }
+
     if (_fmt && _fmt == 'xml') {
       return 'application/fhir+xml';
     }
@@ -107,11 +105,8 @@ class TXModule {
 
   acceptsJson(req) {
     let _fmt = req.query._format;
-    // Normalize _format to a single string to avoid type confusion (arrays vs strings)
-    if (Array.isArray(_fmt)) {
-      _fmt = _fmt.length > 0 ? _fmt[0] : undefined;
-    } else if (_fmt != null && typeof _fmt !== 'string') {
-      _fmt = String(_fmt);
+    if (_fmt && typeof _fmt !== 'string') {
+      _fmt = null
     }
     if (_fmt && _fmt == 'json') {
       return 'application/fhir+json';
