@@ -88,12 +88,18 @@ class TXModule {
   }
 
   acceptsXml(req) {
-    const accept = req.headers.accept || '';
-    if (accept.includes('application/fhir+xml')) {
+    let _fmt = req.query._format;
+    if (_fmt && _fmt == 'xml') {
       return 'application/fhir+xml';
-    } else if (accept.includes('application/xml+fhir')) {
+    }
+    if (!_fmt) {
+      _fmt = req.headers.accept || '';
+    }
+    if (_fmt.includes('application/fhir+xml')) {
+      return 'application/fhir+xml';
+    } else if (_fmt.includes('application/xml+fhir')) {
       return 'application/xml+fhir';
-    } else if (accept.includes('application/xml')) {
+    } else if (_fmt.includes('application/xml')) {
       return 'application/xml';
     } else {
       return null;
@@ -101,12 +107,18 @@ class TXModule {
   }
 
   acceptsJson(req) {
-    const accept = req.headers.accept || '';
-    if (accept.includes('application/fhir+json')) {
+    let _fmt = req.query._format;
+    if (_fmt && _fmt == 'json') {
       return 'application/fhir+json';
-    } else if (accept.includes('application/json+fhir')) {
+    }
+    if (!_fmt) {
+      _fmt = req.headers.accept || '';
+    }
+    if (_fmt.includes('application/fhir+json')) {
+      return 'application/fhir+json';
+    } else if (_fmt.includes('application/json+fhir')) {
       return 'application/json+fhir';
-    } else if (accept.includes('application/json')) {
+    } else if (_fmt.includes('application/json')) {
       return 'application/json';
     } else {
       return 'application/fhir+json';
