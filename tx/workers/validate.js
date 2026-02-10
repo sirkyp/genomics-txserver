@@ -1936,7 +1936,7 @@ class ValidateWorker extends TerminologyWorker {
       mode = {mode: null};
       coded = this.extractCodedValue(params, true, mode);
       if (!coded) {
-        throw new Issue('error', 'invalid', null, null, 'Unable to find code to validate (looked for coding | codeableConcept | code in parameters =codingX:Coding)', null, 400).handleAsOO(400);
+        throw new Issue('error', 'invalid', null, null, 'Unable to find code to validate (looked for coding | codeableConcept | code in parameters)', null, 400).handleAsOO(400);
       }
 
       // Get the CodeSystem - from parameter or by url

@@ -384,6 +384,15 @@ class TXModule {
             });
           }
         }
+      } else {
+        return res.status(415).json({
+          resourceType: 'OperationOutcome',
+          issue: [{
+            severity: 'error',
+            code: 'invalid',
+            diagnostics: `Unsupported Media Type: ${contentType}`
+          }]
+        });
       }
 
       if (req.body) {
