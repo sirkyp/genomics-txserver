@@ -43,7 +43,6 @@ class ValueSetChecker {
   worker;
   valueSet;
   params;
-  requiredSupplements = [];
   others = new Map();
 
   constructor(worker, valueSet, params) {
@@ -168,7 +167,7 @@ class ValueSetChecker {
     } else {
       for (let vsi of this.valueSet.jsonObj.compose.include) {
         this.worker.deadCheck('determineSystem');
-        let cs = await this.worker.findCodeSystem(vsi.system, '', null, ['complete', 'fragment'], op,true);
+        let cs = await this.worker.findCodeSystem(vsi.system, '', null, ['complete', 'fragment'], op,true, false, false, this.worker.requiredSupplements);
         if (cs === null) {
           return '';
         }
@@ -212,7 +211,7 @@ class ValueSetChecker {
 
 
     let result;
-    let csa = await this.worker.findCodeSystem(system, '', this.params, "*",  op,true, false, true);
+    let csa = await this.worker.findCodeSystem(system, '', this.params, "*",  op,true, false, true, this.worker.requiredSupplements);
 
     result = this.worker.determineVersionBase(system, versionVS, this.params);
 
@@ -231,7 +230,7 @@ class ValueSetChecker {
         }
       }
 
-      let cs = await this.worker.findCodeSystem(system, result, this.params, ['complete', 'fragment'], op,true, false, false);
+      let cs = await this.worker.findCodeSystem(system, result, this.params, ['complete', 'fragment'], op,true, false, false, this.worker.requiredSupplements);
       if (cs !== null && cs.version() !== versionCoding && !cs.versionIsMoreDetailed(versionCoding, cs.version())) {
         let errLvl = 'error';
         let msg, mid;
@@ -252,7 +251,7 @@ class ValueSetChecker {
         if (errLvl === 'error') {
           messages.push(msg);
         }
-        let cs2 = await this.worker.findCodeSystem(system, versionCoding, this.params, ['complete', 'fragment'], op, true, false, true);
+        let cs2 = await this.worker.findCodeSystem(system, versionCoding, this.params, ['complete', 'fragment'], op, true, false, true, this.worker.requiredSupplements);
         if (cs2 !== null) {
           cs2 = null;
         } else {
@@ -300,11 +299,7 @@ class ValueSetChecker {
           this.worker.opContext.addNote(this.valueSet, 'Version Rules: ' + vrs, this.indentCount);
         }
       }
-      this.requiredSupplements = [];
-      for (let ext of Extensions.list(this.valueSet.jsonObj, 'http://hl7.org/fhir/StructureDefinition/valueset-supplement')) {
-        this.requiredSupplements.push(getValuePrimitive(ext));
-      }
-      if (this.requiredSupplements.length > 0) {
+      if (this.worker.requiredSupplements.size > 0) {
         await this.checkSupplementsExist(this.valueSet);
       }
 
@@ -328,8 +323,10 @@ class ValueSetChecker {
         }
       }
     }
-    if (this.requiredSupplements.length > 0) {
-     throw new Issue('error', 'not-found', null, 'VALUESET_SUPPLEMENT_MISSING', this.worker.i18n.translatePlural(this.requiredSupplements.length, 'VALUESET_SUPPLEMENT_MISSING', this.params.HTTPLanguages, [this.requiredSupplements.join(',')])).handleAsOO(400);
+
+    const unused = new Set([...this.worker.requiredSupplements].filter(s => !this.worker.usedSupplements.has(s)));
+    if (unused.size > 0) {
+     throw new Issue('error', 'not-found', null, 'VALUESET_SUPPLEMENT_MISSING', this.worker.i18n.translatePlural(unused.size, 'VALUESET_SUPPLEMENT_MISSING', this.params.HTTPLanguages, [[...unused].join(',')]), 'not-found').handleAsOO(400);
     }
   }
 
@@ -354,12 +351,12 @@ class ValueSetChecker {
       }
     }
     let v = this.worker.determineVersionBase(cc.system, cc.version, this.params);
-    let cs = await this.worker.findCodeSystem(cc.system, v, this.params, ['complete', 'fragment'], null, true, false, false);
+    let cs = await this.worker.findCodeSystem(cc.system, v, this.params, ['complete', 'fragment'], null, true, false, false, this.worker.requiredSupplements);
     if (cs !== null) {
       this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: "' + this.worker.renderer.displayCoded(cs) + '"', this.indentCount);
-      for (let i = this.requiredSupplements.length - 1; i >= 0; i--) {
-        if (cs.hasSupplement(this.requiredSupplements[i])) {
-          this.requiredSupplements.splice(i, 1);
+      for (const s of this.worker.requiredSupplements) {
+        if (cs.hasSupplement(s)) {
+          this.worker.usedSupplements.add(s);
         }
       }
       let i = 0;
@@ -456,7 +453,7 @@ class ValueSetChecker {
         op.addIssue(new Issue('warning', 'invalid', path, 'Coding_has_no_system__cannot_validate_NO_INFER', msg, 'invalid-data'));
         return false;
       }
-      let cs = await this.worker.findCodeSystem(system, version, this.params, ['complete', 'fragment'], op,true);
+      let cs = await this.worker.findCodeSystem(system, version, this.params, ['complete', 'fragment'], op,true, false, false, this.worker.requiredSupplements);
       this.seeSourceProvider(cs, system);
       if (cs === null) {
         this.worker.opContext.addNote(this.valueSet, 'Didn\'t find CodeSystem "' + this.worker.renderer.displayCoded(system, version) + '"', this.indentCount);
@@ -470,7 +467,7 @@ class ValueSetChecker {
           op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'Terminology_TX_System_ValueSet2', msg, 'invalid-data'));
           unknownSystems.add(system);
         } else {
-          let css = await this.worker.findCodeSystem(system, version, this.params, ['supplement'], op,true);
+          let css = await this.worker.findCodeSystem(system, version, this.params, ['supplement'], op,true, false, false, this.worker.requiredSupplements);
           if (css !== null) {
             vss = null;
             let msg = this.worker.i18n.translate('CODESYSTEM_CS_NO_SUPPLEMENT', this.params.HTTPLanguages, [this.canonical(css.system(), css.version())]);
@@ -566,7 +563,7 @@ class ValueSetChecker {
       }
     } else if (DEV_IGNORE_VALUESET) {
       // anyhow, we ignore the value set (at least for now)
-      let cs = await this.worker.findCodeSystem(system, version, this.params, ['complete', 'fragment'], op, true, true, false);
+      let cs = await this.worker.findCodeSystem(system, version, this.params, ['complete', 'fragment'], op, true, true, false, this.worker.requiredSupplements);
       if (cs === null) {
         result = null;
         cause.value = 'not-found';
@@ -662,8 +659,9 @@ class ValueSetChecker {
         }
       }
 
-      if (this.requiredSupplements.length > 0) {
-        throw new Issue('error', 'not-found', null, 'VALUESET_SUPPLEMENT_MISSING', this.worker.i18n.translatePlural(this.requiredSupplements.length, 'VALUESET_SUPPLEMENT_MISSING', this.params.HTTPLanguages, [this.requiredSupplements.join(',')])).handleAsOO(400);
+      const unused = new Set([...this.worker.requiredSupplements].filter(s => !this.worker.usedSupplements.has(s)));
+      if (unused.size > 0) {
+        throw new Issue('error', 'not-found', null, 'VALUESET_SUPPLEMENT_MISSING', this.worker.i18n.translatePlural(unused.size, 'VALUESET_SUPPLEMENT_MISSING', this.params.HTTPLanguages, [[...unused].join(',')]), 'not-found').handleAsOO(400);
       }
 
       if (Extensions.checkNoModifiers(this.valueSet.jsonObj.compose, 'ValueSetChecker.prepare', 'ValueSet.compose')) {
@@ -674,7 +672,7 @@ class ValueSetChecker {
             result = true;
           } else if (cc.system === system || system === '%%null%%') {
             let v = await this.determineVersion(path, cc.system, cc.version, version, op, unknownSystems, messages);
-            let cs = await this.worker.findCodeSystem(system, v, this.params, ["complete", "fragment"], op,true, true, false);
+            let cs = await this.worker.findCodeSystem(system, v, this.params, ["complete", "fragment"], op,true, true, false, this.worker.requiredSupplements);
             if (cs === null) {
               this.worker.opContext.addNote(this.valueSet, 'CodeSystem not found: ' + this.worker.renderer.displayCoded(cc.system, v), this.indentCount);
               if (!this.params.membershipOnly) {
@@ -712,7 +710,7 @@ class ValueSetChecker {
             this.worker.opContext.addNote(this.valueSet, 'CodeSystem found: ' + this.worker.renderer.displayCoded(cs) + ' for ' + this.worker.renderer.displayCoded(cc.system, v), this.indentCount);
             await this.checkCanonicalStatusCS(path, op, cs, this.valueSet);
             ver.value = cs.version();
-            this.worker.checkSupplements(cs, cc, this.requiredSupplements);
+            this.worker.checkSupplements(cs, cc, this.worker.requiredSupplements, this.worker.usedSupplements);
             contentMode.value = cs.contentMode();
 
             let msg = '';
@@ -751,12 +749,12 @@ class ValueSetChecker {
             if (!cc.system) {
               excluded = true;
             } else {
-              let cs = await this.worker.findCodeSystem(cc.system, cc.version, this.params, ['complete', 'fragment'], op,true, true, false);
+              let cs = await this.worker.findCodeSystem(cc.system, cc.version, this.params, ['complete', 'fragment'], op,true, true, false, this.worker.requiredSupplements);
               if (cs === null) {
                 throw new Issue('error', 'unknown', null, null, 'No Match for ' + cc.system + '|' + cc.version);
               }
               await this.checkCanonicalStatus(path, op, cs, this.valueSet);
-              this.worker.checkSupplements(cs, cc, this.requiredSupplements);
+              this.worker.checkSupplements(cs, cc, this.worker.requiredSupplements, this.worker.usedSupplements);
               ver.value = cs.version();
               contentMode.value = cs.contentMode();
               let msg = '';
@@ -800,7 +798,7 @@ class ValueSetChecker {
             op.addIssueNoId('error', 'not-found', addToPath(path, 'version'), msg, 'vs-invalid');
             return false;
           }
-          let cs = await this.worker.findCodeSystem(system, v, this.params, ['complete', 'fragment'], op, true, true, false);
+          let cs = await this.worker.findCodeSystem(system, v, this.params, ['complete', 'fragment'], op, true, true, false, this.worker.requiredSupplements);
           if (cs === null) {
             if (!this.params.membershipOnly) {
               let bAdd = true;
@@ -963,9 +961,9 @@ class ValueSetChecker {
   async checkSupplementsExist(vs) {
     for (let inc of vs.jsonObj.compose.include) {
       if (inc.system) {
-        let cs = await this.worker.findCodeSystem(inc.system, inc.version, this.params, ['complete', 'fragment'], null,true);
+        let cs = await this.worker.findCodeSystem(inc.system, inc.version, this.params, ['complete', 'fragment'], null,true, false, false, this.worker.requiredSupplements);
         if (cs !== null) {
-          await this.worker.checkSupplements(cs, null, this.requiredSupplements);
+          await this.worker.checkSupplements(cs, null, this.worker.requiredSupplements, this.worker.usedSupplements);
         }
       }
     }
@@ -1025,7 +1023,7 @@ class ValueSetChecker {
     let i = 0;
     let impliedSystem = { value: '' };
     for (let c of code.coding || []) {
-      const csd = await this.worker.findCodeSystem(c.system, null, this.params, ['complete', 'fragment'], false, true);
+      const csd = await this.worker.findCodeSystem(c.system, null, this.params, ['complete', 'fragment'], false, true, false, false, this.worker.requiredSupplements);
       this.worker.seeSourceProvider(csd, c.system);
 
       this.worker.deadCheck('check-b#1');
@@ -1114,7 +1112,7 @@ class ValueSetChecker {
           mt.push(m);
           op.addIssue(new Issue('error', 'invalid', p, 'Terminology_TX_System_Relative', m, 'invalid-data'));
         }
-        let prov = await this.worker.findCodeSystem(ws, c.version, this.params, ['complete', 'fragment'],  op,true, true, false);
+        let prov = await this.worker.findCodeSystem(ws, c.version, this.params, ['complete', 'fragment'],  op,true, true, false, this.worker.requiredSupplements);
         if (prov === null) {
           let vss = await this.worker.findValueSet(ws, '');
           if (vss !== null) {
@@ -1124,7 +1122,7 @@ class ValueSetChecker {
             op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'Terminology_TX_System_ValueSet2', m, 'invalid-data'));
             cause.value = 'invalid';
           } else {
-            let provS = await this.worker.findCodeSystem(ws, c.version, this.params, ['supplement'], op,true, true, false);
+            let provS = await this.worker.findCodeSystem(ws, c.version, this.params, ['supplement'], op,true, true, false, this.worker.requiredSupplements);
             if (provS !== null) {
               vss = null;
               let m = this.worker.i18n.translate('CODESYSTEM_CS_NO_SUPPLEMENT', this.params.HTTPLanguages, [provS.vurl()]);
@@ -1132,7 +1130,7 @@ class ValueSetChecker {
               op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'CODESYSTEM_CS_NO_SUPPLEMENT', m, 'invalid-data'));
               cause.value = 'invalid';
             } else {
-              let prov2 = await this.worker.findCodeSystem(ws, '', this.params, ['complete', 'fragment'], op,true, true, false);
+              let prov2 = await this.worker.findCodeSystem(ws, '', this.params, ['complete', 'fragment'], op,true, true, false, this.worker.requiredSupplements);
               let bAdd = true;
               let m, mid, vn;
               if (prov2 === null && !c.version) {
@@ -1867,6 +1865,8 @@ function toText(st, sep) {
 
 class ValidateWorker extends TerminologyWorker {
 
+  requiredSupplements = new Set();
+  usedSupplements = new Set();
   /**
    * @param {OperationContext} opContext - Operation context
    * @param {Logger} log - Logger instance
@@ -1931,6 +1931,7 @@ class ValidateWorker extends TerminologyWorker {
 
       let txp = new TxParameters(this.languages, this.i18n, true);
       txp.readParams(params);
+      for (const item of txp.supplements) this.requiredSupplements.add(item);
 
       // Extract coded value
       mode = {mode: null};
@@ -1994,6 +1995,7 @@ class ValidateWorker extends TerminologyWorker {
 
       let txp = new TxParameters(this.languages, this.i18n, true);
       txp.readParams(params);
+      for (const item of txp.supplements) this.requiredSupplements.add(item);
 
       // Get the CodeSystem by id
       const codeSystem = await this.provider.getCodeSystemById(this.opContext, id);
@@ -2055,6 +2057,7 @@ class ValidateWorker extends TerminologyWorker {
 
     let txp = new TxParameters(this.languages, this.i18n, true);
     txp.readParams(params);
+    for (const item of txp.supplements) this.requiredSupplements.add(item);
 
     // Get the ValueSet - from parameter or by url
     const valueSet = await this.resolveValueSet(params, txp);
@@ -2091,6 +2094,7 @@ class ValidateWorker extends TerminologyWorker {
 
       let txp = new TxParameters(this.languages, this.i18n, true);
       txp.readParams(params);
+      for (const item of txp.supplements) this.requiredSupplements.add(item);
 
       // Get the ValueSet by id
       const valueSet = await this.provider.getValueSetById(this.opContext, id);
@@ -2158,7 +2162,7 @@ class ValidateWorker extends TerminologyWorker {
     }
     version = this.determineVersionBase(url, version, txParams);
 
-    let supplements = this.loadSupplements(url, version);
+    let supplements = this.loadSupplements(url, version, this.requiredSupplements);
 
     // First check additional resources
     const fromAdditional = this.findInAdditionalResources(url, version, 'CodeSystem', false);
@@ -2348,12 +2352,17 @@ class ValidateWorker extends TerminologyWorker {
     const abstractOk = this._getBoolParam(params, 'abstract', true);
     const inferSystem = this._getBoolParam(params, 'inferSystem', false) || (mode === 'code' && !coded.coding[0].system)
 
+    for (let ext of Extensions.list(valueSet.jsonObj, 'http://hl7.org/fhir/StructureDefinition/valueset-supplement')) {
+      this.requiredSupplements.add(getValuePrimitive(ext));
+    }
+
     // Create and prepare checker
     const checker = new ValueSetChecker(this, valueSet, params);
     try {
       await checker.prepare();
     } catch (error) {
       this.log.error(error);
+      console.log(error);
       if (!(error instanceof Issue) || error.isHandleAsOO()) {
         throw error;
       } else {

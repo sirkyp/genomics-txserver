@@ -2,6 +2,7 @@ const { Language } = require("../../library/languages");
 const {CanonicalResource} = require("./canonical-resource");
 const {VersionUtilities} = require("../../library/version-utilities");
 const {codeSystemFromR5, codeSystemToR5} = require("../xversion/xv-codesystem");
+const {getValuePrimitive} = require("../../library/utilities");
 
 const CodeSystemContentMode = Object.freeze({
   Complete: 'complete',
@@ -606,6 +607,10 @@ class CodeSystem extends CanonicalResource {
 
   set id(value) {
     this.jsonObj.id = value;
+  }
+
+  isLangPack() {
+    return (this.jsonObj.extension || []).find(x => x.url == 'http://hl7.org/fhir/StructureDefinition/codesystem-supplement-type' && getValuePrimitive(x) == 'lang-pack');
   }
 }
 

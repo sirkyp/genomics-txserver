@@ -133,9 +133,10 @@ class TerminologyWorker {
    * @param {Array<string>} kinds - Allowed content modes
    * @param {OperationOutcome} op - Op for errors
    * * @param {boolean} nullOk - Whether null result is acceptable
+   * @param {Set<string>} statedSupplements - Supplements invoked in context
    * @returns {CodeSystemProvider|null} Code system provider or null
    */
-  async findCodeSystem(url, version = '', params, kinds = ['complete'], op, nullOk = false, checkVer = false, noVParams = false) {
+  async findCodeSystem(url, version = '', params, kinds = ['complete'], op, nullOk = false, checkVer = false, noVParams = false, statedSupplements = null) {
     if (!url) {
       return null;
     }
@@ -145,7 +146,7 @@ class TerminologyWorker {
     }
     let codeSystemResource = null;
     let provider = null;
-    const supplements = this.loadSupplements(url, version);
+    const supplements = this.loadSupplements(url, version, statedSupplements);
 
     // First check additional resources
     codeSystemResource = this.findInAdditionalResources(url, version, 'CodeSystem', !nullOk);
@@ -245,9 +246,10 @@ class TerminologyWorker {
    * Load supplements for a code system
    * @param {string} url - Code system URL
    * @param {string} version - Code system version
+   * @param {Set<string>} statedSupplements - Supplements invoked in context
    * @returns {Array<CodeSystem>} Supplement code systems
    */
-  loadSupplements(url, version = '') {
+  loadSupplements(url, version = '', statedSupplements) {
     const supplements = [];
 
     if (!this.additionalResources) {
@@ -265,6 +267,10 @@ class TerminologyWorker {
           continue;
         }
 
+        // we consider either language packs or specified supplements
+        if (!(cs.isLangPack() || statedSupplements.has(cs.url) || statedSupplements.has(cs.vurl))) {
+          continue;
+        }
         // Handle exact URL match (no version specified in supplements)
         if (supplementsUrl === url) {
           // If we're looking for a specific version, only include if no version in supplements URL
@@ -298,10 +304,10 @@ class TerminologyWorker {
    * @param {CodeSystemProvider} cs - Code system provider
    * @param {Object} src - Source element (for extensions)
    */
-  checkSupplements(cs, src, requiredSupplements) {
+  checkSupplements(cs, src, requiredSupplements, usedSupplements = null) {
     // Check for required supplements in extensions
-    if (src && src.getExtensions) {
-      const supplementExtensions = src.getExtensions('http://hl7.org/fhir/StructureDefinition/valueset-supplement');
+    if (src && src.extension) {
+      const supplementExtensions = src.extension.filter(x => x.url == 'http://hl7.org/fhir/StructureDefinition/valueset-supplement');
       for (const ext of supplementExtensions) {
         const supplementUrl = ext.valueString || ext.valueUri;
         if (supplementUrl && !cs.hasSupplement(this.opContext, supplementUrl)) {
@@ -310,10 +316,12 @@ class TerminologyWorker {
       }
     }
 
-    // Remove required supplements that are satisfied
-    for (let i = requiredSupplements.length - 1; i >= 0; i--) {
-      if (cs.hasSupplement(requiredSupplements[i])) {
-        requiredSupplements.splice(i, 1);
+    // Note required supplements that are satisfied
+    if (usedSupplements) {
+      for (const s of requiredSupplements) {
+        if (cs.hasSupplement(s)) {
+          usedSupplements.add(s);
+        }
       }
     }
   }

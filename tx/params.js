@@ -45,6 +45,7 @@ class TxParameters {
     this.FVersionRules = [];
     this.FProperties = [];
     this.FDesignations = [];
+    this.supplements = new Set;
     this.FGenerateNarrative = true;
 
     this.FHTTPLanguages = null;
@@ -217,6 +218,10 @@ class TxParameters {
         case 'limit' : {
           this.limit = Utilities.parseIntOrDefault(getValuePrimitive(p), -1);
           break;
+        }
+
+        case 'useSupplement' : {
+          this.supplements.add(getValuePrimitive(p));
         }
       }
     }

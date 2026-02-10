@@ -167,7 +167,7 @@ class SubsumesWorker extends TerminologyWorker {
     txp.readParams(params.jsonObj);
 
     // Load any supplements
-    const supplements = this.loadSupplements(codeSystem.url, codeSystem.version);
+    const supplements = this.loadSupplements(codeSystem.url, codeSystem.version, txp.supplements);
 
     // Create a FhirCodeSystemProvider for this CodeSystem
     const csProvider = new FhirCodeSystemProvider(this.opContext, codeSystem, supplements);
