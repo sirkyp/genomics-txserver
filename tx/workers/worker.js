@@ -837,31 +837,6 @@ class TerminologyWorker {
     return result;
   }
 
-  // Note: findParameter, getStringParam, getResourceParam, getCodingParam,
-  // and getCodeableConceptParam are inherited from TerminologyWorker base class
-
-  fixForVersion(resource) {
-    if (this.provider.fhirVersion >= 5) {
-      return resource;
-    }
-    let rt = resource.resourceType;
-    switch (rt) {
-      case "ValueSet": {
-        let vs = new ValueSet(resource);
-        if (this.provider.fhirVersion == 4) {
-          return vs.convertFromR5(resource, "R4");
-        } else if (this.provider.fhirVersion == 3) {
-          return vs.convertFromR5(resource, "R3");
-        } else {
-          return resource;
-        }
-      }
-      default:
-        return resource;
-    }
-  }
-
-
   seeSourceVS(vs, url) {
     let s = url;
     if (vs) {

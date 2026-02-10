@@ -1552,10 +1552,10 @@ class ExpandWorker extends TerminologyWorker {
       if (error instanceof Issue) {
         let oo = new OperationOutcome();
         oo.addIssue(error);
-        return res.status(error.statusCode || 500).json(this.fixForVersion(oo.jsonObj));
+        return res.status(error.statusCode || 500).json(oo.jsonObj);
       } else {
         const issueCode = error.issueCode || 'exception';
-        return res.status(statusCode).json(this.fixForVersion({
+        return res.status(statusCode).json({
           resourceType: 'OperationOutcome',
           issue: [{
             severity: 'error',
@@ -1565,7 +1565,7 @@ class ExpandWorker extends TerminologyWorker {
             },
             diagnostics: error.message
           }]
-        }));
+        });
       }
     }
   }
@@ -1584,7 +1584,7 @@ class ExpandWorker extends TerminologyWorker {
       this.log.error(error);
       const statusCode = error.statusCode || 500;
       const issueCode = error.issueCode || 'exception';
-      return res.status(statusCode).json(this.fixForVersion({
+      return res.status(statusCode).json({
         resourceType: 'OperationOutcome',
         issue: [{
           severity: 'error',
@@ -1594,7 +1594,7 @@ class ExpandWorker extends TerminologyWorker {
           },
           diagnostics: error.message
         }]
-      }));
+      });
     }
   }
 
@@ -1675,7 +1675,7 @@ class ExpandWorker extends TerminologyWorker {
     // Perform the expansion
     const result = await this.doExpand(valueSet, txp, logExtraOutput);
     req.logInfo = this.usedSources.join("|")+txp.logInfo();
-    return res.json(this.fixForVersion(result));
+    return res.json(result);
   }
   
   /**
@@ -1725,7 +1725,7 @@ class ExpandWorker extends TerminologyWorker {
     // Perform the expansion
     const result = await this.doExpand(valueSet, txp, logExtraOutput);
     req.logInfo = this.usedSources.join("|")+txp.logInfo();
-    return res.json(this.fixForVersion(result));
+    return res.json(result);
   }
 
   // Note: setupAdditionalResources, queryToParameters, formToParameters,
