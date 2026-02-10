@@ -53,6 +53,7 @@ const {terminologyCapabilitiesFromR5} = require("./xversion/xv-terminologyCapabi
 const {capabilityStatementFromR5} = require("./xversion/xv-capabiliityStatement");
 const {bundleFromR5} = require("./xversion/xv-bundle");
 const {convertResourceToR5} = require("./xversion/xv-resource");
+const ClosureWorker = require("./workers/closure");
 // const {writeFileSync} = require("fs");
 
 class TXModule {
@@ -608,7 +609,7 @@ class TXModule {
     router.get('/ConceptMap/\\$closure', async (req, res) => {
       const start = Date.now();
       try {
-        let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+        let worker = new ClosureWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
         await worker.handle(req, res, this.log);
       } finally {
         this.countRequest('$closure', Date.now() - start);
@@ -617,7 +618,7 @@ class TXModule {
     router.post('/ConceptMap/\\$closure', async (req, res) => {
       const start = Date.now();
       try {
-        let worker = new TranslateWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+        let worker = new ClosureWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
         await worker.handle(req, res, this.log);
       } finally {
         this.countRequest('$closure', Date.now() - start);
