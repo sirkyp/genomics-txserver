@@ -298,9 +298,12 @@ class LookupWorker extends TerminologyWorker {
 
     // display (required)
     const display = await csProvider.display(ctxt);
+    const designations = new Designations(this.languages);
+    await csProvider.designations(ctxt, designations);
+    const disp = designations.preferredDesignation(params.workingLanguages());
     responseParams.push({
       name: 'display',
-      valueString: display || code
+      valueString: disp || display || code
     });
 
     // definition (optional) - top-level parameter
