@@ -372,7 +372,7 @@ class LookupWorker extends TerminologyWorker {
     }
 
     // Let the provider add additional properties
-    await csProvider.extendLookup(ctxt, params.property || [], responseParams);
+    await csProvider.extendLookup(ctxt, params.properties || [], responseParams);
 
     return {
       resourceType: 'Parameters',

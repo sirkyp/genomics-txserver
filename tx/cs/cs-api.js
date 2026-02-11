@@ -678,6 +678,18 @@ class CodeSystemProvider {
   valueSet() {
     return null;
   }
+
+
+  // Helper to check if a property should be included
+  _hasProp = (props, name, defaultValue = true) => {
+    if (!props || props.length === 0) {
+      return defaultValue;
+    }
+    const lowerName = name.toLowerCase();
+    return props.some(p =>
+      p.toLowerCase() === lowerName || p === '*'
+    );
+  };
 }
 
 class CodeSystemFactoryProvider {

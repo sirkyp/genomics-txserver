@@ -417,7 +417,7 @@ class UcumCodeSystemProvider extends CodeSystemProvider {
     validateArrayParameter(params, 'params', Object);
 
 
-    if (props.includes('canonical')) {
+    if (this._hasProp(props, 'canonical', true)) {
       try {
         const canonical = this.ucumService.getCanonicalUnits(ctxt.code);
         // Add canonical property to params - implementation depends on your Parameters class
