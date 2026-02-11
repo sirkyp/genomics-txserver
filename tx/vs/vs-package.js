@@ -107,7 +107,7 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
     }
 
     // Finally try just the URL
-    if (this.valueSetMap.has(url)) {
+    if (!version && this.valueSetMap.has(url)) {
       return this.valueSetMap.get(url);
     }
 
