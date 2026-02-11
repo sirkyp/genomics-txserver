@@ -89,6 +89,7 @@ class SearchWorker extends TerminologyWorker {
       return res.json(bundle);
 
     } catch (error) {
+      console.log(error);
       req.logInfo = "error "+(error.msgId || error.className);
       this.log.error(error);
       return res.status(500).json({

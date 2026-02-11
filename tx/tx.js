@@ -437,6 +437,7 @@ class TXModule {
       next();
     });
 
+    app.use(express.urlencoded({ extended: true }));
 
     // Set up routes
     this.setupRoutes(router);
