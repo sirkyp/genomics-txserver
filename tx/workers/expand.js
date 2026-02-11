@@ -1289,7 +1289,7 @@ class ValueSetExpander {
     let list;
     if (notClosed.value) {
       if (!Extensions.has(exp, 'http://hl7.org/fhir/StructureDefinition/valueset-unclosed')) {
-        Extensions.addBoolean(exp, 'http://hl7.org/fhir/StructureDefinition/valueset-unclosed', true);
+      Extensions.addBoolean(exp, 'http://hl7.org/fhir/StructureDefinition/valueset-unclosed', true);
       }
       list = this.fullList;
       for (const c of this.fullList) {
@@ -1307,7 +1307,7 @@ class ValueSetExpander {
         exp.total = this.fullList.length;
       }
 
-      if (this.canBeHierarchy && (this.count <= 0 || this.count > this.fullList.length)) {
+      if (this.canBeHierarchy && (this.count < 0 || this.count > this.fullList.length)) {
         list = this.rootList;
       } else {
         list = this.fullList;
@@ -1328,7 +1328,7 @@ class ValueSetExpander {
         const c = list[i];
         if (this.map.has(this.keyC(c))) {
           o++;
-          if (o > this.offset && (this.count <= 0 || t < this.count)) {
+          if (o > this.offset && (this.count < 0 || t < this.count)) {
             t++;
             if (!exp.contains) {
               exp.contains = [];
