@@ -84,6 +84,12 @@ class TxParameters {
     if (!params.parameter) {
       return;
     }
+    if (!this.hasHTTPLanguages && this.hasParam(params, "__Content-Language")) {
+      this.HTTPLanguages = Languages.fromAcceptLanguage(this.paramstr(params, "__Content-Language"), this.languageDefinitions, !this.validating);
+    }
+    if (!this.hasHTTPLanguages && this.hasParam(params, "__Accept-Language")) {
+      this.HTTPLanguages = Languages.fromAcceptLanguage(this.paramstr(params, "__Accept-Language"), this.languageDefinitions, !this.validating);
+    }
 
     for (let p of params.parameter) {
       switch (p.name) {
@@ -236,15 +242,12 @@ class TxParameters {
           if (getValuePrimitive(p) == true) this.inferSystem = true;
           break;
         }
+        case "exclude-system": {
+          throw new Issue('error', 'not-supported', null, null, "The parameter 'exclude-system' is not supported by this system", null, 400);
+        }
       }
     }
 
-    if (!this.hasHTTPLanguages && this.hasParam(params, "__Content-Language")) {
-      this.HTTPLanguages = Languages.fromAcceptLanguage(this.paramstr(params, "__Content-Language"), this.languageDefinitions, !this.validating);
-    }
-    if (!this.hasHTTPLanguages && this.hasParam(params, "__Accept-Language")) {
-      this.HTTPLanguages = Languages.fromAcceptLanguage(this.paramstr(params, "__Accept-Language"), this.languageDefinitions, !this.validating);
-    }
   }
 
   paramstr(params, name) {
