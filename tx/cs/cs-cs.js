@@ -890,10 +890,6 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
       return;
     }
 
-    // Set abstract status
-    if (this._hasProp(props, "abstract", await this.isAbstract(ctxt))) {
-      params.push({ name: 'property', part: [ { name: 'code', valueCode: 'abstract' }, { name: 'value', valueBoolean: true } ]});
-    }
     // Add properties if requested (or by default)
     if (this._hasProp(props, 'property', true)) {
       const properties = await this.properties(ctxt);

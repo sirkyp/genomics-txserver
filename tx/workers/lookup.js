@@ -300,7 +300,8 @@ class LookupWorker extends TerminologyWorker {
     const display = await csProvider.display(ctxt);
     const designations = new Designations(this.languages);
     await csProvider.designations(ctxt, designations);
-    const disp = designations.preferredDesignation(params.workingLanguages());
+    const pd = designations.preferredDesignation(params.workingLanguages());
+    const disp = pd ? pd.value : undefined;
     responseParams.push({
       name: 'display',
       valueString: disp || display || code
