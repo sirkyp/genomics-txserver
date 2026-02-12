@@ -304,10 +304,10 @@ class LoincServices extends CodeSystemProvider {
 
     // Run all property queries in parallel — they're independent reads on the same key
     await Promise.all([
-      this.#addRelationshipProperties(ctxt, params),
-      this.#addConceptProperties(ctxt, params),
-      this.#addStatusProperty(ctxt, params),
-      this.#addRelatedNames(ctxt, params)
+      this.#addRelationshipProperties(ctxt, props, params),
+      this.#addConceptProperties(ctxt, props,params),
+      this.#addStatusProperty(ctxt, props,params),
+      this.#addRelatedNames(ctxt, props,params)
     ]);
   }
 
@@ -322,7 +322,7 @@ class LoincServices extends CodeSystemProvider {
     }
   }
 
-  async #addRelationshipProperties(ctxt, params) {
+  async #addRelationshipProperties(ctxt, props, params) {
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT RelationshipTypes.Description as Relationship, Codes.Code, Codes.Description as Value
@@ -337,7 +337,9 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            this.#addCodeProperty(params, 'property', row.Relationship, row.Code);
+            if (this._hasProp(props, row.Relationship, true)) {
+              this.#addCodeProperty(params, 'property', row.Relationship, row.Code);
+            }
           }
           resolve();
         }
@@ -345,7 +347,7 @@ class LoincServices extends CodeSystemProvider {
     });
   }
 
-  async #addConceptProperties(ctxt, params) {
+  async #addConceptProperties(ctxt, props, params) {
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT PropertyTypes.Description, PropertyValues.Value
@@ -360,11 +362,13 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            if (row.Description == 'CLASSTYPE') {
-              this.#addStringProperty(params, 'property', row.Description, classTypes[row.Value])
-                .part.push({ name: 'description', valueString: row.Value });
-            } else {
-              this.#addStringProperty(params, 'property', row.Description, row.Value);
+            if (this._hasProp(props, row.Description, true)) {
+              if (row.Description == 'CLASSTYPE') {
+                this.#addStringProperty(params, 'property', row.Description, classTypes[row.Value])
+                  .part.push({name: 'description', valueString: row.Value});
+              } else {
+                this.#addStringProperty(params, 'property', row.Description, row.Value);
+              }
             }
           }
           resolve();
@@ -373,7 +377,7 @@ class LoincServices extends CodeSystemProvider {
     });
   }
 
-  async #addStatusProperty(ctxt, params) {
+  async #addStatusProperty(ctxt, props, params) {
     return new Promise((resolve, reject) => {
       const sql = 'SELECT StatusKey FROM Codes WHERE CodeKey = ? AND StatusKey != 0';
 
@@ -383,7 +387,9 @@ class LoincServices extends CodeSystemProvider {
         } else if (row) {
           const statusDesc = this.statusCodes.get(row.StatusKey.toString());
           if (row.StatusKey && statusDesc) {
-            this.#addStringProperty(params, 'property', 'STATUS', statusDesc);
+            if (this._hasProp(props, 'STATUS', true)) {
+              this.#addStringProperty(params, 'property', 'STATUS', statusDesc);
+            }
           }
           resolve();
         } else {
@@ -393,14 +399,20 @@ class LoincServices extends CodeSystemProvider {
     });
   }
 
-  async #addRelatedNames(ctxt, params) {
+  async #addRelatedNames(ctxt, props, params) {
     const loaded = await this.#loadRelatedNames(ctxt);
     for (let d of loaded) {
-      this.#addProperty(params, 'property', 'RELATEDNAMES2', d.value, d.lang);
+      if (this._hasProp(props, 'RELATEDNAMES2', true)) {
+        this.#addProperty(params, 'property', 'RELATEDNAMES2', d.value, d.lang);
+      }
     }
   }
 
-  async #addAllDesignations(ctxt, params) {
+  async #addAllDesignations(ctxt, props, params) {
+    if (!this._hasProp(props, 'designation', true)) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT Languages.Code as Lang, DescriptionTypes.Description as DType, Descriptions.Value

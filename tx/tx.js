@@ -47,6 +47,7 @@ const {capabilityStatementFromR5} = require("./xversion/xv-capabiliityStatement"
 const {bundleFromR5} = require("./xversion/xv-bundle");
 const {convertResourceToR5} = require("./xversion/xv-resource");
 const ClosureWorker = require("./workers/closure");
+const {BundleXML} = require("./xml/bundle-xml");
 // const {writeFileSync} = require("fs");
 
 class TXModule {
@@ -437,6 +438,7 @@ class TXModule {
       next();
     });
 
+    app.use(express.urlencoded({ extended: true }));
 
     // Set up routes
     this.setupRoutes(router);
@@ -980,6 +982,7 @@ class TXModule {
     switch (res.resourceType) {
       case "CodeSystem" : return CodeSystemXML._jsonToXml(res);
       case "ValueSet" : return ValueSetXML.toXml(res);
+      case "Bundle" : return BundleXML.toXml(res, this.fhirVersion);
       case "CapabilityStatement" : return CapabilityStatementXML.toXml(res, "R5");
       case "TerminologyCapabilities" : return TerminologyCapabilitiesXML.toXml(res, "R5");
       case "Parameters": return ParametersXML.toXml(res, this.fhirVersion);
