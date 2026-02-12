@@ -29,6 +29,7 @@
     "tx-import": "node tx/importers/tx-import.js"
   },
   "dependencies": {
+    "@genomics/codesystem-providers": "file:../genomics-codesystem-providers",
     "axios": "^1.13.4",
     "base45": "^3.0.0",
     "bcrypt": "^6.0.0",
