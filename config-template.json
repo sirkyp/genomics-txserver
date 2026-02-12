@@ -67,8 +67,8 @@
     },
     "npmprojector": {
       "enabled": true,
-      "fhirVersion": "r4",  // Options: "r4", "r5", "stu3", "dstu2"
-      "basePath": "/fhir",   // Default: "/npmprojector"
+      "fhirVersion": "r4",  
+      "basePath": "/fhir",  
       "npmPath": "./data/fhir-package",
       "resourceTypes": null,
       "searchParametersPath": null,
@@ -122,6 +122,9 @@
       "cacheTimeout": 30,
       "expansionCacheSize": 1000,
       "expansionCacheMemoryThreshold": 0,
+      "externalPackages": [
+        "@genomics/codesystem-providers"
+      ],
       "endpoints": [
         {
           "path": "/tx/r5",
