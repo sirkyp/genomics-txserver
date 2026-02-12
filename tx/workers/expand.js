@@ -538,7 +538,10 @@ class ValueSetExpander {
     }
     let worker = new ExpandWorker(this.worker.opContext, this.worker.log, this.worker.provider, this.worker.languages, this.worker.i18n);
     worker.additionalResources = this.worker.additionalResources;
-    let expander = new ValueSetExpander(worker, this.params);
+    // we're going to let this one do more expansion for technical reasons
+    let paramsInner = this.params.clone();
+    paramsInner.limit = INTERNAL_LIMIT;
+    let expander = new ValueSetExpander(worker, paramsInner);
     let result = await expander.expand(vs, filter, false);
     if (result == null) {
       throw new Issue('error', 'not-found', null, 'VS_EXP_IMPORT_UNK', this.worker.i18n.translate('VS_EXP_IMPORT_UNK', this.params.httpLanguages, [uri]), 'unknown');
@@ -1184,13 +1187,14 @@ class ValueSetExpander {
     this.fullList = [];
     this.canBeHierarchy = !this.params.excludeNested;
 
-    this.limitCount = INTERNAL_LIMIT;
     if (this.params.limit <= 0) {
       if (!filter.isNull) {
         this.limitCount = UPPER_LIMIT_TEXT;
       } else {
         this.limitCount = UPPER_LIMIT_NO_TEXT;
       }
+    } else {
+      this.limitCount = Math.min(this.params.limit, INTERNAL_LIMIT);
     }
     this.offset = this.params.offset;
     this.count = this.params.count;
@@ -1462,22 +1466,25 @@ class ValueSetExpander {
     if (value === undefined || value == null) {
       return;
     }
-    if (!expansion.property) {
-      expansion.property = [];
-    }
-    let pd = expansion.property.find(t1 => t1.uri == url || t1.code == code);
-    if (!pd) {
-      pd = {};
-      expansion.property.push(pd);
-      pd.uri = url;
-      pd.code = code;
-    } else if (!pd.uri) {
-      pd.uri = url
-    }
-    if (pd.uri != url) {
-      throw new Error('URL mismatch on expansion: ' + pd.uri + ' vs ' + url + ' for code ' + code);
-    } else {
-      code = pd.code;
+    // we only define it if the code system has a definition
+    if (url) {
+      if (!expansion.property) {
+        expansion.property = [];
+      }
+      let pd = expansion.property.find(t1 => t1.uri == url || t1.code == code);
+      if (!pd) {
+        pd = {};
+        expansion.property.push(pd);
+        pd.uri = url;
+        pd.code = code;
+      } else if (!pd.uri) {
+        pd.uri = url
+      }
+      if (pd.uri != url) {
+        throw new Error('URL mismatch on expansion: ' + pd.uri + ' vs ' + url + ' for code ' + code);
+      } else {
+        code = pd.code;
+      }
     }
 
     if (!contains.property) {
