@@ -122,6 +122,9 @@
       "cacheTimeout": 30,
       "expansionCacheSize": 1000,
       "expansionCacheMemoryThreshold": 0,
+      "externalPackages": [
+        "@genomics/codesystem-providers"
+      ],
       "endpoints": [
         {
           "path": "/tx/r5",

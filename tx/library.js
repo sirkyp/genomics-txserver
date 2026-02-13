@@ -32,6 +32,9 @@ const {I18nSupport} = require("../library/i18nsupport");
 const folders = require('../library/folder-setup');
 const {VSACValueSetProvider} = require("./vs/vs-vsac");
 
+
+const { ExtensibleProviderLoader } = require('./loaders/extensible-provider-loader');
+
 /**
  * This class holds all the loaded content ready for processing
  *
@@ -176,6 +179,9 @@ class Library {
       await this.processSource(source, this.packageManager, "npm");
     }
 
+    // Load external provider packages (e.g., @genomics/codesystem-providers)
+    await this.#loadExternalProviders(config);
+
     const endMemory = process.memoryUsage();
     const totalTime = Date.now() - this.startTime;
 
@@ -190,6 +196,42 @@ class Library {
     this.log.info(`Memory Used: ${(memoryIncrease.rss / 1024 / 1024).toFixed(2)} MB`);
 
     this.assignIds();
+  }
+
+  async #loadExternalProviders(config) {
+    // Get external packages from config
+    const externalPackages = config.externalPackages || [];
+    
+    if (externalPackages.length === 0) {
+      return; // No external packages configured
+    }
+
+    this.log.info('Loading External Provider Packages');
+    
+    const loader = new ExtensibleProviderLoader(
+      { externalPackages },
+      this.i18n
+    );
+
+    try {
+      const providers = await loader.loadAll();
+      
+      // Register each provider factory from external packages
+      for (const factory of providers) {
+        await factory.load();
+        this.registerProvider('external', factory);
+      }
+
+      const stats = loader.getStatistics();
+      this.log.info(`Loaded ${stats.providersRegistered} providers from ${stats.packagesLoaded} external packages`);
+      
+      if (loader.hasErrors()) {
+        this.log.warn('Warnings during external package loading:');
+        loader.getErrors().forEach(err => this.log.warn(`  - ${err}`));
+      }
+    } catch (error) {
+      this.log.error(`Failed to load external provider packages: ${error.message}`);
+    }
   }
 
   async processSource(source, packageManager, mode) {
