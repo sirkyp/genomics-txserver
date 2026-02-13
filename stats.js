@@ -1,5 +1,4 @@
 const { monitorEventLoopDelay } = require('perf_hooks');
-const {cache} = require("express/lib/application");
 const {Utilities} = require("./library/utilities");
 
 class ServerStats {

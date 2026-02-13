@@ -53,7 +53,7 @@ class ResourceCache {
     this.stats = stats;
     this.cache = new Map();
     this.locks = new Map(); // For thread-safety with async operations
-    if (stats) {
+    if (this.stats) {
       this.stats.task("Client Cache", "Initialized");
     }
   }
@@ -139,7 +139,7 @@ class ResourceCache {
    * @param {number} maxAge - Maximum age in milliseconds
    */
   prune(maxAge = 3600000) { // Default 1 hour
-    if (stats) {
+    if (this.stats) {
       this.stats.task("Client Cache", `Pruning (${this.cache.size} entries)`);
     }
     let i = 0;
@@ -150,7 +150,7 @@ class ResourceCache {
         this.cache.delete(cacheId);
       }
     }
-    if (stats) {
+    if (this.stats) {
       this.stats.task("Client Cache", `Pruned ${i} of ${this.cache.size} entries`);
     }
   }
@@ -201,7 +201,7 @@ class ExpansionCache {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.memoryThresholdBytes = memoryThresholdMB * 1024 * 1024;
-    if (stats) {
+    if (this.stats) {
       this.stats.task('Expansion Cache', 'Initialized');
     }
   }
@@ -338,7 +338,7 @@ class ExpansionCache {
    * @returns {boolean} True if eviction was triggered
    */
   checkMemoryPressure() {
-    if (stats) {
+    if (this.stats) {
       this.stats.task('Expansion Cache', 'Checking Memory Pressure');
     }
     if (this.memoryThresholdBytes <= 0) return false;
@@ -346,12 +346,12 @@ class ExpansionCache {
     const heapUsed = process.memoryUsage().heapUsed;
     if (heapUsed > this.memoryThresholdBytes) {
       const i = this.evictOldestHalf();
-      if (stats) {
+      if (this.stats) {
         this.stats.task('Expansion Cache', `Checked Memory Pressure: evicted half (${i} entries)`);
       }
       return true;
     }
-    if (stats) {
+    if (this.stats) {
       this.stats.task('Expansion Cache', `Checked Memory Pressure - OK (${this.cache.size} entries)`);
     }
     return false;
