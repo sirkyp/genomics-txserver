@@ -25,6 +25,7 @@ class RegistryModule {
     this.currentData = null;
     this.dataLock = false;
     this.stats = stats;
+    this.stats.task('TxRegistry', 'Initialized');
   }
 
   /**
@@ -43,7 +44,7 @@ class RegistryModule {
         apiKeys: config.apiKeys || {}
       };
 
-      this.crawler = new RegistryCrawler(crawlerConfig);
+      this.crawler = new RegistryCrawler(crawlerConfig, this.stats);
       this.crawler.useLog(regLog);
       
       // Initialize API with crawler
@@ -134,6 +135,7 @@ class RegistryModule {
       this.logger.info('Crawl already in progress, skipping...');
       return;
     }
+    this.stats.task('TxRegistry', 'Crawling');
 
     this.crawlInProgress = true;
     this.logger.info('Starting registry crawl...');
@@ -160,9 +162,10 @@ class RegistryModule {
                       `Found ${newData.registries.length} registries, ` +
                       `${metadata.errors.length} errors, ` +
                       `downloaded ${this.crawler.formatBytes(metadata.totalBytes)}`);
-      
+      this.stats.task('TxRegistry', 'Crawling Finished');
     } catch (error) {
       this.logger.error('Crawl failed:', error);
+      this.stats.task('TxRegistry', 'Crawling Error: '+error.message);
     } finally {
       this.crawlInProgress = false;
     }

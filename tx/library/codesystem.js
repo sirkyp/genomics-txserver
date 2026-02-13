@@ -348,11 +348,11 @@ class CodeSystem extends CanonicalResource {
     }
 
     concept.property.forEach(property => {
-      if (property.code === 'parent' && property.valueCode) {
+      if ((property.code === 'parent' || this.isPropUri(property.code, 'http://hl7.org/fhir/concept-properties#parent')) && property.valueCode) {
         // This concept has a parent
         this._addToChildToParentsMap(concept.code, property.valueCode);
         this._addToParentToChildrenMap(property.valueCode, concept.code);
-      } else if (property.code === 'child' && property.valueCode) {
+      } else if ((property.code === 'child' || this.isPropUri(property.code, 'http://hl7.org/fhir/concept-properties#child')) && property.valueCode) {
         // This concept has a child
         this._addToParentToChildrenMap(concept.code, property.valueCode);
         this._addToChildToParentsMap(property.valueCode, concept.code);
@@ -610,6 +610,10 @@ class CodeSystem extends CanonicalResource {
 
   isLangPack() {
     return (this.jsonObj.extension || []).find(x => x.url == 'http://hl7.org/fhir/StructureDefinition/codesystem-supplement-type' && getValuePrimitive(x) == 'lang-pack');
+  }
+
+  isPropUri(code, uri) {
+    return (this.jsonObj.property || []).find(x => x.code == code && x.uri == uri);
   }
 }
 

@@ -890,12 +890,8 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
       return;
     }
 
-    // Set abstract status
-    if (!params.find(p => p.name == "abstract") && await this.isAbstract(ctxt)) {
-      params.push({ name: 'property', part: [ { name: 'code', valueCode: 'abstract' }, { name: 'value', valueBoolean: true } ]});
-    }
     // Add properties if requested (or by default)
-    if (!props || props.length === 0 || props.includes('*') || props.includes('property')) {
+    if (this._hasProp(props, 'property', true)) {
       const properties = await this.properties(ctxt);
       if (properties) {
         for (const property of properties) {
@@ -924,7 +920,7 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
     }
 
     // Add parent if requested and exists
-    if (!props || props.length === 0 || props.includes('*') || props.includes('parent')) {
+    if (this._hasProp(props, 'parent', true)) {
       const parentCode = await this.parent(ctxt);
       if (parentCode) {
         let parts = [];
@@ -936,7 +932,7 @@ class FhirCodeSystemProvider extends CodeSystemProvider {
     }
 
     // Add children if requested
-    if (!props || props.length === 0 || props.includes('*') || props.includes('child')) {
+    if (this._hasProp(props, 'child', true)) {
       const children = this.codeSystem.getChildren(ctxt.code);
       if (children.length > 0) {
         for (const childCode of children) {

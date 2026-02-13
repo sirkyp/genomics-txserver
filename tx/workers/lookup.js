@@ -298,9 +298,13 @@ class LookupWorker extends TerminologyWorker {
 
     // display (required)
     const display = await csProvider.display(ctxt);
+    const designations = new Designations(this.languages);
+    await csProvider.designations(ctxt, designations);
+    const pd = designations.preferredDesignation(params.workingLanguages());
+    const disp = pd ? pd.value : undefined;
     responseParams.push({
       name: 'display',
-      valueString: display || code
+      valueString: disp || display || code
     });
 
     // definition (optional) - top-level parameter
@@ -372,7 +376,7 @@ class LookupWorker extends TerminologyWorker {
     }
 
     // Let the provider add additional properties
-    await csProvider.extendLookup(ctxt, params.property || [], responseParams);
+    await csProvider.extendLookup(ctxt, params.properties || [], responseParams);
 
     return {
       resourceType: 'Parameters',
