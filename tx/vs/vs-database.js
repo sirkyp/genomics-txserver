@@ -433,27 +433,7 @@ class ValueSetDatabase {
             valueSet.sourcePackage = source;
 
             // Store by URL and id alone
-            valueSetMap.set(row.url, valueSet);
-            valueSetMap.set(row.id, valueSet);
-
-            if (row.version) {
-              // Store by url|version
-              const versionKey = `${row.url}|${row.version}`;
-              valueSetMap.set(versionKey, valueSet);
-
-              // If version is semver, also store by url|major.minor
-              try {
-                if (VersionUtilities.isSemVer(row.version)) {
-                  const majorMinor = VersionUtilities.getMajMin(row.version);
-                  if (majorMinor) {
-                    const majorMinorKey = `${row.url}|${majorMinor}`;
-                    valueSetMap.set(majorMinorKey, valueSet);
-                  }
-                }
-              } catch (error) {
-                // Ignore version parsing errors, just don't add major.minor key
-              }
-            }
+            this.addToMap(valueSetMap, row.id, row.url, row.version, valueSet);
           }
 
           resolve(valueSetMap);
@@ -462,6 +442,30 @@ class ValueSetDatabase {
         }
       });
     });
+  }
+
+  addToMap(valueSetMap, id, url, version, valueSet) {
+    valueSetMap.set(url, valueSet);
+    valueSetMap.set(id, valueSet);
+
+    if (version) {
+      // Store by url|version
+      const versionKey = `${url}|${version}`;
+      valueSetMap.set(versionKey, valueSet);
+
+      // If version is semver, also store by url|major.minor
+      try {
+        if (VersionUtilities.isSemVer(version)) {
+          const majorMinor = VersionUtilities.getMajMin(version);
+          if (majorMinor) {
+            const majorMinorKey = `${url}|${majorMinor}`;
+            valueSetMap.set(majorMinorKey, valueSet);
+          }
+        }
+      } catch (error) {
+        // Ignore version parsing errors, just don't add major.minor key
+      }
+    }
   }
 
   /**

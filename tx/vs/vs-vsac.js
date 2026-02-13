@@ -18,8 +18,9 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
    * @param {number} [config.refreshIntervalHours=24] - Hours between refresh scans
    * @param {string} [config.baseUrl='http://cts.nlm.nih.gov/fhir'] - Base URL for VSAC FHIR server
    */
-  constructor(config) {
+  constructor(config, stats) {
     super();
+    this.stats = stats;
 
     if (!config.apiKey) {
       throw new Error('VSAC API key is required');
@@ -59,6 +60,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     if (this.initialized) {
       return;
     }
+    this.stats.task('VSAC Sync', 'Not run yet');
 
     // Create database if it doesn't exist
     if (!(await this.database.exists())) {
@@ -108,6 +110,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
    * @returns {Promise<void>}
    */
   async refreshValueSets() {
+    this.stats.task('VSAC Sync', 'running');
     if (this.isRefreshing) {
       console.log('Refresh already in progress, skipping');
       return;
@@ -120,10 +123,12 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
       console.log('Starting VSAC ValueSet refresh...');
 
       let totalFetched = 0;
+      let totalNew = 0;
       let url = '/ValueSet?_offset=0&_count=100';
 
       while (url) {
         console.log(`Fetching page: ${url}`);
+        this.stats.task('VSAC Sync', `running (${totalFetched} fetched, ${totalNew} new)`)
         const bundle = await this._fetchBundle(url);
 
         if (bundle.entry && bundle.entry.length > 0) {
@@ -135,9 +140,9 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
           // now, filter out all the value sets we've already seen
 
           if (valueSets.length > 0) {
-            await this.batchUpsertValueSets(valueSets);
+            totalNew = totalNew + await this.batchUpsertValueSets(valueSets);
             totalFetched += valueSets.length;
-            console.log(`Processed ${valueSets.length} ValueSets (total: ${totalFetched})`);
+            console.log(`Processed ${valueSets.length} ValueSets (total: ${totalFetched}, ${totalNew} new)`);
           }
         }
 
@@ -162,9 +167,11 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
 
       this.lastRefresh = new Date();
       console.log(`VSAC refresh completed. Total: ${totalFetched} ValueSets, Deleted: ${deletedCount}`);
+      this.stats.task('VSAC Sync', `Done (${totalFetched} fetched, ${totalNew} new, ${deletedCount} deleted)`);
 
     } catch (error) {
       console.log(error, 'Error during VSAC refresh:');
+      this.stats.task('VSAC Sync', `Error (${error.message})`);
       throw error;
     } finally {
       this.isRefreshing = false;
@@ -181,6 +188,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
       return;
     }
 
+    let count = 0;
     // Process sequentially to avoid database locking
     for (const valueSet of valueSets) {
       if (valueSet.version && this.valueSetMap.has(valueSet.url+"|"+valueSet.version)) {
@@ -189,8 +197,10 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
         await this.database.seeValueSet(valueSet);
       } else {
         await this.database.upsertValueSet(valueSet);
+        count++;
       }
     }
+    return count;
   }
 
   /**
@@ -428,6 +438,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     }
     let vsNew = await this._fetchValueSet(vs.id);
     await this.database.upsertValueSet(vsNew);
+    this.database.addToMap(this.valueSetMap, vsNew.id, vsNew.url, vsNew.version, vsNew);
     return new ValueSet(vsNew);
   }
 }

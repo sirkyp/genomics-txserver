@@ -572,7 +572,7 @@ class PackagesModule {
     await this.ensureMirrorDirectory();
 
     // Initialize the crawler
-    this.crawler = new PackageCrawler(this.config, this.db);
+    this.crawler = new PackageCrawler(this.config, this.db, this.stats);
 
     // Start the hourly web crawler if enabled
     if (config.crawler.enabled) {

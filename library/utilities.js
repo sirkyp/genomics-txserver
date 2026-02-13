@@ -25,11 +25,58 @@ const Utilities = {
     return isNaN(num) ? defaultValue : num;
   },
   parseFloatOrDefault(value, defaultValue) {
-  const num = parseFloat(value);
-  return isNaN(num) ? defaultValue : num;
+    const num = parseFloat(value);
+    return isNaN(num) ? defaultValue : num;
 
 
-}
+  },
+
+  /**
+   * Format the difference between two Date.now() timestamps for human reading
+   * @param {number} start - earlier timestamp (from Date.now())
+   * @param {number} end - later timestamp (from Date.now())
+   * @returns {string} formatted duration
+   */
+  formatDuration(start, end) {
+    let ms = Math.abs(end - start);
+
+    if (ms < 1000) return `${ms}ms`;
+
+    const days = Math.floor(ms / 86400000);
+    ms %= 86400000;
+    const hours = Math.floor(ms / 3600000);
+    ms %= 3600000;
+    const minutes = Math.floor(ms / 60000);
+    ms %= 60000;
+    const seconds = Math.floor(ms / 1000);
+    ms %= 1000;
+
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (minutes) parts.push(`${minutes}m`);
+    if (seconds || ms) {
+      parts.push(ms ? `${seconds}.${String(ms).padStart(3, '0')}s` : `${seconds}s`);
+    }
+
+    return parts.join(' ');
+  },
+
+  escapeHtml(text) {
+    if (typeof text !== 'string') {
+      return String(text);
+    }
+
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+  }
 
 };
 
