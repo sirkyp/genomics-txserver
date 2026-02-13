@@ -72,7 +72,7 @@
       "npmPath": "./data/fhir-package",
       "resourceTypes": null,
       "searchParametersPath": null,
-      "debounceMs": 500 
+      "debounceMs": 500
     },
     "token": {
       "enabled": true,
