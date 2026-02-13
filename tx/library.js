@@ -84,10 +84,12 @@ class Library {
     }
   }
 
-  constructor(configFile, vsacCfg, log) {
+  constructor(configFile, vsacCfg, log, stats) {
     this.configFile = configFile;
     this.vsacCfg = vsacCfg;
     this.log = log;
+    this.stats = stats;
+
     // Only synchronous initialization here
     this.codeSystemFactories = new Map();
     this.codeSystemProviders = [];
@@ -312,7 +314,7 @@ class Library {
         if (!this.vsacCfg || !this.vsacCfg.apiKey) {
           throw new Error("Unable to load VSAC provider unless vsacCfg is provided in the configuration");
         }
-        let vsac = new VSACValueSetProvider(this.vsacCfg);
+        let vsac = new VSACValueSetProvider(this.vsacCfg, this.stats);
         vsac.initialize();
         this.valueSetProviders.push(vsac);
         //const mem = process.memoryUsage();

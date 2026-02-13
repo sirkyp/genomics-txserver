@@ -355,6 +355,7 @@ async function buildRootPageContent() {
     historyJson: JSON.stringify(stats.history),
     startTime: stats.startTime
   });
+  content += stats.taskDetails();
 
   content += '</div>';
   return content;

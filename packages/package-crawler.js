@@ -13,9 +13,11 @@ const path = require('path');
 class PackageCrawler {
   log;
   
-  constructor(config, db) {
+  constructor(config, db, stats) {
     this.config = config;
     this.db = db;
+    this.stats = stats;
+    this.stats.task('Package Crawler', 'Initialised');
     this.totalBytes = 0;
     this.crawlerLog = {};
     this.errors = '';
@@ -36,6 +38,7 @@ class PackageCrawler {
     };
 
     this.log.info('Running web crawler for packages using master URL: '+ this.config.masterUrl);
+    this.stats.task('Package Crawler', 'Running');
 
     try {
       // Fetch the master JSON file
@@ -54,6 +57,7 @@ class PackageCrawler {
           this.log.info('Skipping feed with no URL: '+ feedConfig);
           continue;
         }
+        this.stats.task('Package Crawler', 'Running for '+feedConfig.url);
 
         try {
           await this.updateTheFeed(
@@ -76,6 +80,7 @@ class PackageCrawler {
       this.log.info(`Web crawler completed successfully in ${runTime}ms`);
       this.log.info(`Total bytes processed: ${this.totalBytes}`);
 
+      this.stats.task('Package Crawler', 'Complete');
       return this.crawlerLog;
 
     } catch (error) {
@@ -83,6 +88,7 @@ class PackageCrawler {
       this.crawlerLog.runTime = `${runTime}ms`;
       this.crawlerLog.fatalException = error.message;
       this.crawlerLog.endTime = new Date().toISOString();
+      this.stats.task('Package Crawler', 'Error: '+error.message);
 
       this.log.error('Web crawler failed: '+ error);
       throw error;

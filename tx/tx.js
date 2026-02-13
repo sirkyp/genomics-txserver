@@ -183,7 +183,7 @@ class TXModule {
 
     // Load the library from YAML
     this.log.info(`Loading library from: ${config.librarySource}`);
-    this.library = new Library(config.librarySource, config.vsacCfg, this.log);
+    this.library = new Library(config.librarySource, config.vsacCfg, this.log, this.stats);
     this.log.info(`Load...`);
     await this.library.load();
     this.log.info('Library loaded successfully');
@@ -232,8 +232,8 @@ class TXModule {
       path: endpointPath,
       fhirVersion,
       context: context || null,
-      resourceCache: new ResourceCache(),
-      expansionCache: new ExpansionCache(expansionCacheSize, expansionCacheMemoryThreshold)
+      resourceCache: new ResourceCache(this.stats),
+      expansionCache: new ExpansionCache(this.stats, expansionCacheSize, expansionCacheMemoryThreshold)
     };
     // Create the provider once for this endpoint
     endpointInfo.provider = await this.library.cloneWithFhirVersion(fhirVersion, context, endpointPath);
