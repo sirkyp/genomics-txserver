@@ -35,6 +35,6 @@ sources:
   - npm:ihe.formatcode.fhir
   - npm:fhir.dicom
   - npm:hl7.fhir.us.core
-  - npm:us.nlm.vsac
   - npm:us.cdc.phinvads
   - npm:hl7.fhir.uv.sdc
+  - internal:vsac

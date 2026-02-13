@@ -30,6 +30,7 @@ const {ListCodeSystemProvider} = require("./cs/cs-provider-list");
 const { Provider } = require("./provider");
 const {I18nSupport} = require("../library/i18nsupport");
 const folders = require('../library/folder-setup');
+const {VSACValueSetProvider} = require("./vs/vs-vsac");
 
 /**
  * This class holds all the loaded content ready for processing
@@ -68,6 +69,7 @@ class Library {
   startMemory = process.memoryUsage();
   lastTime = null;
   totalDownloaded = 0;
+  vsacCfg = undefined;
 
   registerProvider(source, factory, isDefault = false) {
     this.#logSystem(factory.system(), factory.version(), source);
@@ -82,8 +84,9 @@ class Library {
     }
   }
 
-  constructor(configFile, log) {
+  constructor(configFile, vsacCfg, log) {
     this.configFile = configFile;
+    this.vsacCfg = vsacCfg;
     this.log = log;
     // Only synchronous initialization here
     this.codeSystemFactories = new Map();
@@ -243,7 +246,11 @@ class Library {
         break;
 
       case 'npm':
-        await this.loadNpm(packageManager, details, isDefault, mode);
+        await this.loadNpm(packageManager, details, isDefault, mode, false);
+        break;
+
+      case 'npm/cs':
+        await this.loadNpm(packageManager, details, isDefault, mode, true);
         break;
 
       default:
@@ -299,6 +306,21 @@ class Library {
         const hgvs = new HGVSServicesFactory(this.i18n);
         await hgvs.load();
         this.registerProvider('internal', hgvs);
+        break;
+      }
+      case "vsac" : {
+        if (!this.vsacCfg || !this.vsacCfg.apiKey) {
+          throw new Error("Unable to load VSAC provider unless vsacCfg is provided in the configuration");
+        }
+        let vsac = new VSACValueSetProvider(this.vsacCfg);
+        vsac.initialize();
+        this.valueSetProviders.push(vsac);
+        //const mem = process.memoryUsage();
+        let time = Math.floor(Date.now() - this.lastTime).toString().padStart(5)+" ";
+        let system = "vsac".padEnd(50);
+        let version = "n/a".padEnd(62);
+        this.log.info(`${time}${system}${version}${vsac.baseUrl}`);
+        this.lastTime = Date.now();
         break;
       }
       default:
@@ -392,7 +414,7 @@ class Library {
     this.registerProvider(omopFN, omop, isDefault);
   }
 
-  async loadNpm(packageManager, details, isDefault, mode) {
+  async loadNpm(packageManager, details, isDefault, mode, csOnly) {
     // Parse packageId and version from details (e.g., "hl7.terminology.r4#6.0.2")
     let packageId = details;
     let version = null;
@@ -422,14 +444,17 @@ class Library {
       csc++;
     }
     this.codeSystemProviders.push(cp);
-    const vs = new PackageValueSetProvider(contentLoader);
-    await vs.initialize();
-    this.valueSetProviders.push(vs);
-    const cm = new PackageConceptMapProvider(contentLoader);
-    await cm.initialize();
-    this.conceptMapProviders.push(cm);
+    let vs = null;
+    if (!csOnly) {
+      vs = new PackageValueSetProvider(contentLoader);
+      await vs.initialize();
+      this.valueSetProviders.push(vs);
+      const cm = new PackageConceptMapProvider(contentLoader);
+      await cm.initialize();
+      this.conceptMapProviders.push(cm);
+    }
 
-    this.#logPackage(contentLoader.id(), contentLoader.version(), csc, vs.valueSetMap.size);
+    this.#logPackage(contentLoader.id(), contentLoader.version(), csc, vs ? vs.valueSetMap.size : 0);
   }
 
   /**
@@ -592,7 +617,7 @@ class Library {
 
     // Load FHIR packages - these will be added to valueSetProviders first
     for (const packageId of fhirPackages) {
-      await provider.loadNpm(this.packageManager, this.cacheFolder, packageId, false, "npm");
+      await provider.loadNpm(this.packageManager, this.cacheFolder, packageId, false, "npm", false);
     }
 
 
