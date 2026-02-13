@@ -3,6 +3,8 @@ const axios = require('axios');
 const { AbstractValueSetProvider } = require('./vs-api');
 const { ValueSetDatabase } = require('./vs-database');
 const { VersionUtilities } = require('../../library/version-utilities');
+const folders = require('../../library/folder-setup');
+const ValueSet = require("../library/valueset");
 
 /**
  * VSAC (Value Set Authority Center) ValueSet provider
@@ -20,18 +22,15 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     super();
 
     if (!config.apiKey) {
-      throw new Error('API key is required');
-    }
-    if (!config.cacheFolder) {
-      throw new Error('Cache folder is required');
+      throw new Error('VSAC API key is required');
     }
 
     this.apiKey = config.apiKey;
-    this.cacheFolder = config.cacheFolder;
+    this.cacheFolder = folders.ensureFilePath("terminology-cache/vsac");
     this.baseUrl = config.baseUrl || 'http://cts.nlm.nih.gov/fhir';
     this.refreshIntervalHours = config.refreshIntervalHours || 24;
 
-    this.dbPath = path.join(config.cacheFolder, 'vsac-valuesets.db');
+    this.dbPath = path.join(this.cacheFolder, 'vsac-valuesets.db');
     this.database = new ValueSetDatabase(this.dbPath);
     this.valueSetMap = new Map();
     this.initialized = false;
@@ -64,12 +63,11 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     // Create database if it doesn't exist
     if (!(await this.database.exists())) {
       await this.database.create();
-      // Force initial refresh for new database
-      await this.refreshValueSets();
     } else {
       // Load existing data
       await this._reloadMap();
     }
+    await this.refreshValueSets();
 
     // Start periodic refresh
     this._startRefreshTimer();
@@ -134,8 +132,10 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
             .filter(entry => entry.resource && entry.resource.resourceType === 'ValueSet')
             .map(entry => entry.resource);
 
+          // now, filter out all the value sets we've already seen
+
           if (valueSets.length > 0) {
-            await this.database.batchUpsertValueSets(valueSets);
+            await this.batchUpsertValueSets(valueSets);
             totalFetched += valueSets.length;
             console.log(`Processed ${valueSets.length} ValueSets (total: ${totalFetched})`);
           }
@@ -172,6 +172,28 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
   }
 
   /**
+   * Insert multiple ValueSets in a batch operation
+   * @param {Array<Object>} valueSets - Array of ValueSet resources
+   * @returns {Promise<void>}
+   */
+  async batchUpsertValueSets(valueSets) {
+    if (valueSets.length === 0) {
+      return;
+    }
+
+    // Process sequentially to avoid database locking
+    for (const valueSet of valueSets) {
+      if (valueSet.version && this.valueSetMap.has(valueSet.url+"|"+valueSet.version)) {
+        // we've seen this before, and maybe fetched it's compose, so just update
+        // the timestamp
+        await this.database.seeValueSet(valueSet);
+      } else {
+        await this.database.upsertValueSet(valueSet);
+      }
+    }
+  }
+
+  /**
    * Fetch a FHIR Bundle from the server
    * @param {string} url - Relative URL to fetch
    * @returns {Promise<Object>} FHIR Bundle
@@ -184,7 +206,34 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
       if (response.data && response.data.resourceType === 'Bundle') {
         return response.data;
       } else {
-        throw new Error('Response is not a FHIR Bundle');
+        throw new Error('VSAC Response is not a FHIR Bundle');
+      }
+    } catch (error) {
+      if (error.response) {
+        throw new Error(`HTTP ${error.response.status}: ${error.response.statusText}`);
+      } else if (error.request) {
+        throw new Error('Network error: No response received');
+      } else {
+        throw new Error(`Request error: ${error.message}`);
+      }
+    }
+  }
+
+
+  /**
+   * Fetch a FHIR Bundle from the server
+   * @param {string} url - Relative URL to fetch
+   * @returns {Promise<Object>} FHIR Bundle
+   * @private
+   */
+  async _fetchValueSet(id) {
+    try {
+      const response = await this.httpClient.get("/ValueSet/"+id);
+
+      if (response.data && response.data.resourceType === 'ValueSet') {
+        return response.data;
+      } else {
+        throw new Error('VSAC Response is not a FHIR ValueSet');
       }
     } catch (error) {
       if (error.response) {
@@ -244,7 +293,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     // Try exact match first: url|version
     let key = `${url}|${version}`;
     if (this.valueSetMap.has(key)) {
-      return this.valueSetMap.get(key);
+      return await this.checkFullVS(this.valueSetMap.get(key));
     }
 
     // If version is semver, try url|major.minor
@@ -254,7 +303,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
         if (majorMinor) {
           key = `${url}|${majorMinor}`;
           if (this.valueSetMap.has(key)) {
-            return this.valueSetMap.get(key);
+            return await this.checkFullVS(this.valueSetMap.get(key));
           }
         }
       }
@@ -264,12 +313,15 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
 
     // Finally try just the URL
     if (this.valueSetMap.has(url)) {
-      return this.valueSetMap.get(url);
+      return await this.checkFullVS(this.valueSetMap.get(url));
     }
 
-    throw new Error(`Value set not found: ${url} version ${version}`);
+    return null;
   }
 
+  async fetchValueSetById(id) {
+    return await this.checkFullVS(this.valueSetMap.get(id));
+  }
   /**
    * Searches for value sets based on criteria
    * @param {Array<{name: string, value: string}>} searchParams - Search criteria
@@ -358,6 +410,26 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     await this.database.close();
   }
 
+  // eslint-disable-next-line no-unused-vars
+  assignIds(ids) {
+    // nothing?
+  }
+
+  // when we get a valueset from vsac via search, the compose is not
+  // populated. We don't load all the composes. Instead, when value sets
+  // are fetched, we check to see if we've got the compose, and if we
+  // haven't, then we fetch it and store it
+  async checkFullVS(vs) {
+    if (!vs) {
+      return null;
+    }
+    if (vs.compose) {
+      return new ValueSet(vs);
+    }
+    let vsNew = await this._fetchValueSet(vs.id);
+    await this.database.upsertValueSet(vsNew);
+    return new ValueSet(vsNew);
+  }
 }
 
 // Usage examples:

@@ -2,7 +2,6 @@ const fs = require('fs').promises;
 const sqlite3 = require('sqlite3').verbose();
 const { VersionUtilities } = require('../../library/version-utilities');
 const ValueSet = require("../library/valueset");
-const row = require("../library/valueset");
 
 // Columns that can be returned directly without parsing JSON
 const INDEXED_COLUMNS = ['id', 'url', 'version', 'date', 'description', 'name', 'publisher', 'status', 'title'];
@@ -280,6 +279,37 @@ class ValueSetDatabase {
   }
 
   /**
+   * Just update the timestamp on the valueset
+   * @param {Object} valueSet - The ValueSet resource
+   * @returns {Promise<void>}
+   */
+  async seeValueSet(valueSet) {
+    if (!valueSet.url) {
+      throw new Error('ValueSet must have a url property');
+    }
+
+    const db = await this._getWriteConnection();
+
+    return new Promise((resolve, reject) => {
+      db.run(`
+          update valuesets
+          set last_seen = strftime('%s', 'now')
+          where url = ?
+            and version = ?
+      `, [
+        valueSet.url,
+        valueSet.version
+      ], (err) => {
+        if (err) {
+          reject(new Error(`Failed to update value Set: ${err.message}`));
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
    * Insert related records for a ValueSet
    * @param {sqlite3.Database} db - Database connection
    * @param {Object} valueSet - ValueSet resource
@@ -377,22 +407,6 @@ class ValueSetDatabase {
     // If no pending operations, resolve immediately
     if (pendingOperations === 0) {
       resolve();
-    }
-  }
-
-  /**
-   * Insert multiple ValueSets in a batch operation
-   * @param {Array<Object>} valueSets - Array of ValueSet resources
-   * @returns {Promise<void>}
-   */
-  async batchUpsertValueSets(valueSets) {
-    if (valueSets.length === 0) {
-      return;
-    }
-
-    // Process sequentially to avoid database locking
-    for (const valueSet of valueSets) {
-      await this.upsertValueSet(valueSet);
     }
   }
 
