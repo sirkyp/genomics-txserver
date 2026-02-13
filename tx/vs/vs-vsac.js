@@ -410,6 +410,7 @@ class VSACValueSetProvider extends AbstractValueSetProvider {
     await this.database.close();
   }
 
+  // eslint-disable-next-line no-unused-vars
   assignIds(ids) {
     // nothing?
   }

@@ -2,7 +2,6 @@ const fs = require('fs').promises;
 const sqlite3 = require('sqlite3').verbose();
 const { VersionUtilities } = require('../../library/version-utilities');
 const ValueSet = require("../library/valueset");
-const row = require("../library/valueset");
 
 // Columns that can be returned directly without parsing JSON
 const INDEXED_COLUMNS = ['id', 'url', 'version', 'date', 'description', 'name', 'publisher', 'status', 'title'];
