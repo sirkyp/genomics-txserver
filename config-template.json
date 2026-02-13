@@ -67,9 +67,8 @@
     },
     "npmprojector": {
       "enabled": true,
-      "fhirVersion": "r4",  
-      "basePath": "/fhir",  
-      "npmPath": "./data/fhir-package",
+      "fhirVersion": "r4",  // Options: "r4", "r5", "stu3", "dstu2"
+      "basePath": "/fhir",   // Default: "/npmprojector"      "npmPath": "./data/fhir-package",
       "resourceTypes": null,
       "searchParametersPath": null,
       "debounceMs": 500
