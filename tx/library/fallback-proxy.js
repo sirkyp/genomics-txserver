@@ -10,83 +10,40 @@ class FallbackProxy {
   constructor(config) {
     this.enabled = config?.fallback?.enabled || false;
     this.server = config?.fallback?.server || 'https://tx.fhir.org';
-    // Keep config list as fallback for compatibility
-    this.configGeomicsSystems = new Set(config?.fallback?.genomicsSystems || []);
-    // Dynamic systems will be populated from library
-    this.genomicsSystems = new Set(this.configGeomicsSystems);
-    this.library = null;
+    this.supportedSystems = new Set();
     
     if (this.enabled) {
       log.info(`Fallback proxy enabled: ${this.server}`);
-      if (this.genomicsSystems.size > 0) {
-        log.info(`Initial genomics systems from config: ${Array.from(this.genomicsSystems).join(', ')}`);
-      }
     }
   }
 
   /**
-   * Set the library for dynamic code system discovery
-   * @param {Library} library - The library instance with loaded code systems and factories
+   * Register a locally-supported CodeSystem URL (called by Library after loading)
+   * @param {string} url - CodeSystem URL
    */
-  setLibrary(library) {
-    this.library = library;
-    this.updateGenomicsSystemsFromLibrary();
-  }
-
-  /**
-   * Dynamically populate genomics systems from the library's loaded code systems and factories
-   */
-  updateGenomicsSystemsFromLibrary() {
-    if (!this.library) {
-      return;
-    }
-
-    // Start with config systems as base
-    const discovered = new Set(this.configGeomicsSystems);
-
-    try {
-      // Get code system factories (e.g., HGNC, RefSeq, dbSNP, MONDO, HPO, SO, PharmVar, GLString, IMGT/HLA)
-      const factories = this.library.codeSystemFactories || new Map();
-      
-      for (const factory of factories.values()) {
-        if (factory.system && typeof factory.system === 'function') {
-          const system = factory.system();
-          if (system && !discovered.has(system)) {
-            discovered.add(system);
-          }
-        } else if (factory.system && typeof factory.system === 'string') {
-          if (!discovered.has(factory.system)) {
-            discovered.add(factory.system);
-          }
-        }
-      }
-
-      // Update genomic systems
-      const oldSize = this.genomicsSystems.size;
-      this.genomicsSystems = discovered;
-
-      if (discovered.size > oldSize) {
-        log.info(`Discovered ${discovered.size - oldSize} new code system(s) from library.`);
-        log.info(`Total genomics systems: ${discovered.size}`);
-        if (discovered.size <= 20) {
-          log.debug(`Genomics systems: ${Array.from(discovered).sort().join(', ')}`);
-        }
-      }
-    } catch (err) {
-      log.warn(`Error updating genomics systems from library: ${err.message}`);
-      // Keep existing genomics systems on error
+  addSupportedSystem(url) {
+    if (url && !this.supportedSystems.has(url)) {
+      this.supportedSystems.add(url);
     }
   }
 
   /**
-   * Check if a code system is genomics (handled locally)
+   * Get count of registered locally-supported systems
+   * @returns {number}
    */
-  isGenomicsSystem(systemUrl) {
+  getSupportedSystemCount() {
+    return this.supportedSystems.size;
+  }
+
+  /**
+   * Check if a code system is supported locally (not requiring fallback)
+   */
+  isSupportedSystem(systemUrl) {
     if (!systemUrl) return false;
     
     // Check exact match or prefix match
-    for (const genomicsSystem of this.genomicsSystems) {
-      if (systemUrl === genomicsSystem || systemUrl.startsWith(genomicsSystem)) {
+    for (const supportedSystem of this.supportedSystems) {
+      if (systemUrl === supportedSystem || systemUrl.startsWith(supportedSystem)) {
         return true;
       }
     }

@@ -188,15 +188,15 @@ class TXModule {
 
     // Load the library from YAML
     this.log.info(`Loading library from: ${config.librarySource}`);
-    this.library = new Library(config.librarySource, config.vsacCfg, this.log, this.stats);
+    this.library = new Library(config.librarySource, config.vsacCfg, this.log, this.stats, this.fallbackProxy);
     this.log.info(`Load...`);
     await this.library.load();
     this.log.info('Library loaded successfully');
 
-    // Update fallback proxy with dynamically discovered code systems from loaded packages
-    if (this.fallbackProxy && this.library) {
-      this.fallbackProxy.setLibrary(this.library);
-      this.log.info(`Fallback proxy initialized with ${this.fallbackProxy.genomicsSystems.size} discovered code systems`);
+    // Log locally-supported systems registered with fallback proxy
+    if (this.fallbackProxy) {
+      const count = this.fallbackProxy.getSupportedSystemCount();
+      this.log.info(`Fallback proxy initialized with ${count} locally-supported code system(s)`);
     }
 
     // Set up each endpoint

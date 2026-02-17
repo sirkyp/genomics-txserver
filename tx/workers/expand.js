@@ -1572,7 +1572,7 @@ class ExpandWorker extends TerminologyWorker {
       return false;
     }
 
-    return systems.some(system => !this.opContext.fallbackProxy.isGenomicsSystem(system));
+    return systems.some(system => !this.opContext.fallbackProxy.isSupportedSystem(system));
   }
 
   /**
@@ -1745,10 +1745,10 @@ class ExpandWorker extends TerminologyWorker {
       }
     }
 
-    // Proxy expansion to fallback server when ValueSet uses non-genomics systems
+    // Proxy expansion to fallback server when ValueSet uses external systems
     if (this.shouldProxyValueSet(valueSet)) {
       const systems = this.extractValueSetSystems(valueSet).join(', ');
-      this.log.info(`ValueSet expansion includes non-genomics systems (${systems}), proxying to fallback`);
+      this.log.info(`ValueSet expansion includes external systems (${systems}), proxying to fallback`);
       return this.opContext.fallbackProxy.proxyRequest(req, res);
     }
 
@@ -1802,10 +1802,10 @@ class ExpandWorker extends TerminologyWorker {
     let txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n, false);
     txp.readParams(params);
 
-    // Proxy expansion to fallback server when ValueSet uses non-genomics systems
+    // Proxy expansion to fallback server when ValueSet uses external systems
     if (this.shouldProxyValueSet(valueSet)) {
       const systems = this.extractValueSetSystems(valueSet).join(', ');
-      this.log.info(`ValueSet expansion includes non-genomics systems (${systems}), proxying to fallback`);
+      this.log.info(`ValueSet expansion includes external systems (${systems}), proxying to fallback`);
       return this.opContext.fallbackProxy.proxyRequest(req, res);
     }
 

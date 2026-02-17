@@ -1913,7 +1913,7 @@ class ValidateWorker extends TerminologyWorker {
       return false; // No system specified, try local
     }
 
-    return !this.opContext.fallbackProxy.isGenomicsSystem(system);
+    return !this.opContext.fallbackProxy.isSupportedSystem(system);
   }
 
   // ========== Entry Points ==========
@@ -1929,7 +1929,7 @@ class ValidateWorker extends TerminologyWorker {
       // Check if we should proxy to fallback server
       if (this.shouldProxy(params)) {
         const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not genomics, proxying to fallback`);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
         return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
       
@@ -2030,7 +2030,7 @@ class ValidateWorker extends TerminologyWorker {
       // Check if we should proxy to fallback server
       if (this.shouldProxy(params)) {
         const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not genomics, proxying to fallback`);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
         return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
       
@@ -2082,18 +2082,18 @@ class ValidateWorker extends TerminologyWorker {
       // Check if we should proxy based on system parameter
       if (this.shouldProxy(params)) {
         const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not genomics, proxying to fallback`);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
         return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
 
-      // Check if inline ValueSet contains non-genomics systems
+      // Check if inline ValueSet contains external systems
       const valueSetParam = this.getResourceParam(params, 'valueSet');
       if (valueSetParam) {
         this.log.debug('Found inline ValueSet parameter:', JSON.stringify(valueSetParam).substring(0, 200));
         const valueSet = new ValueSet(valueSetParam);
         if (this.shouldProxyValueSet(valueSet)) {
           const systems = this.extractValueSetSystems(valueSet).join(', ');
-          this.log.info(`Inline ValueSet contains non-genomics systems (${systems}), proxying to fallback`);
+          this.log.info(`Inline ValueSet contains external systems (${systems}), proxying to fallback`);
           return this.opContext.fallbackProxy.proxyRequest(req, res);
         } else {
           this.log.debug('Inline ValueSet does not require proxying');
@@ -2161,7 +2161,7 @@ class ValidateWorker extends TerminologyWorker {
       // Check if we should proxy based on system parameter
       if (this.shouldProxy(params)) {
         const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not genomics, proxying to fallback`);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
         return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
       
@@ -2182,10 +2182,10 @@ class ValidateWorker extends TerminologyWorker {
           `ValueSet/${id} not found`));
       }
 
-      // Check if the resolved ValueSet contains non-genomics systems
+      // Check if the resolved ValueSet contains external systems
       if (this.shouldProxyValueSet(valueSet)) {
         const systems = this.extractValueSetSystems(valueSet).join(', ');
-        this.log.info(`ValueSet/${id} contains non-genomics systems (${systems}), proxying to fallback`);
+        this.log.info(`ValueSet/${id} contains external systems (${systems}), proxying to fallback`);
         return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
 
@@ -2651,8 +2651,8 @@ class ValidateWorker extends TerminologyWorker {
       return false;
     }
 
-    // Check if any system is non-genomics
-    return systems.some(system => !this.opContext.fallbackProxy.isGenomicsSystem(system));
+    // Check if any system is not supported locally (requires fallback)
+    return systems.some(system => !this.opContext.fallbackProxy.isSupportedSystem(system));
   }
 
 }

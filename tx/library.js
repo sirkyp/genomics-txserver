@@ -86,11 +86,12 @@ class Library {
     }
   }
 
-  constructor(configFile, vsacCfg, log, stats) {
+  constructor(configFile, vsacCfg, log, stats, fallbackProxy = null) {
     this.configFile = configFile;
     this.vsacCfg = vsacCfg;
     this.log = log;
     this.stats = stats;
+    this.fallbackProxy = fallbackProxy;
 
     // Only synchronous initialization here
     this.codeSystemFactories = new Map();
@@ -447,6 +448,12 @@ class Library {
       cs.sourcePackage = contentLoader.pid();
       cp.codeSystems.set(cs.url, cs);
       cp.codeSystems.set(cs.vurl, cs);
+      
+      // Register this CodeSystem URL as locally supported
+      if (this.fallbackProxy && cs.url) {
+        this.fallbackProxy.addSupportedSystem(cs.url);
+      }
+      
       await this.loadProviderFromCodeSystem(cs, contentLoader, providerBasePath);
       csc++;
     }
@@ -527,6 +534,14 @@ class Library {
       this.log.info(
         `Loaded provider ${providerModulePath} for ${codeSystem.url} from ${contentLoader.id()}#${contentLoader.version()}`
       );
+      
+      // Register factory's system as locally supported (has API provider)
+      if (this.fallbackProxy && factory.system) {
+        const systemUrl = typeof factory.system === 'function' ? factory.system() : factory.system;
+        if (systemUrl) {
+          this.fallbackProxy.addSupportedSystem(systemUrl);
+        }
+      }
     } catch (error) {
       this.log.warn(
         `Failed to load provider '${providerModulePath}' from ${contentLoader.id()}#${contentLoader.version()}: ${error.message}`
