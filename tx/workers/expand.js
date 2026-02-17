@@ -1554,6 +1554,62 @@ class ExpandWorker extends TerminologyWorker {
   }
 
   /**
+   * Check if a ValueSet expansion should be proxied to fallback server
+   * @param {Object} valueSet - ValueSet resource
+   * @returns {boolean}
+   */
+  shouldProxyValueSet(valueSet) {
+    if (!this.opContext.fallbackProxy?.enabled || !valueSet) {
+      return false;
+    }
+
+    if (valueSet.url && valueSet.url.startsWith('http://hl7.org/fhir/ValueSet/')) {
+      return true;
+    }
+
+    const systems = this.extractValueSetSystems(valueSet);
+    if (systems.length === 0) {
+      return false;
+    }
+
+    return systems.some(system => !this.opContext.fallbackProxy.isGenomicsSystem(system));
+  }
+
+  /**
+   * Extract code system URLs from a ValueSet
+   * @param {Object} valueSet - ValueSet resource
+   * @returns {string[]}
+   */
+  extractValueSetSystems(valueSet) {
+    const systems = new Set();
+
+    if (valueSet.compose?.include?.length) {
+      for (const include of valueSet.compose.include) {
+        if (include.system) {
+          systems.add(include.system);
+        }
+      }
+    }
+
+    const collectFromContains = (contains) => {
+      for (const entry of contains || []) {
+        if (entry.system) {
+          systems.add(entry.system);
+        }
+        if (entry.contains?.length) {
+          collectFromContains(entry.contains);
+        }
+      }
+    };
+
+    if (valueSet.expansion?.contains?.length) {
+      collectFromContains(valueSet.expansion.contains);
+    }
+
+    return Array.from(systems);
+  }
+
+  /**
    * Handle a type-level $expand request
    * GET/POST /ValueSet/$expand
    * @param {express.Request} req - Express request
@@ -1689,6 +1745,13 @@ class ExpandWorker extends TerminologyWorker {
       }
     }
 
+    // Proxy expansion to fallback server when ValueSet uses non-genomics systems
+    if (this.shouldProxyValueSet(valueSet)) {
+      const systems = this.extractValueSetSystems(valueSet).join(', ');
+      this.log.info(`ValueSet expansion includes non-genomics systems (${systems}), proxying to fallback`);
+      return this.opContext.fallbackProxy.proxyRequest(req, res);
+    }
+
     // Perform the expansion
     const result = await this.doExpand(valueSet, txp, logExtraOutput);
     req.logInfo = this.usedSources.join("|")+txp.logInfo();
@@ -1738,6 +1801,13 @@ class ExpandWorker extends TerminologyWorker {
 
     let txp = new TxParameters(this.opContext.i18n.languageDefinitions, this.opContext.i18n, false);
     txp.readParams(params);
+
+    // Proxy expansion to fallback server when ValueSet uses non-genomics systems
+    if (this.shouldProxyValueSet(valueSet)) {
+      const systems = this.extractValueSetSystems(valueSet).join(', ');
+      this.log.info(`ValueSet expansion includes non-genomics systems (${systems}), proxying to fallback`);
+      return this.opContext.fallbackProxy.proxyRequest(req, res);
+    }
 
     // Perform the expansion
     const result = await this.doExpand(valueSet, txp, logExtraOutput);

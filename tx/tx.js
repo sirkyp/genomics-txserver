@@ -48,6 +48,7 @@ const {bundleFromR5} = require("./xversion/xv-bundle");
 const {convertResourceToR5} = require("./xversion/xv-resource");
 const ClosureWorker = require("./workers/closure");
 const {BundleXML} = require("./xml/bundle-xml");
+const { FallbackProxy } = require('./library/fallback-proxy');
 // const {writeFileSync} = require("fs");
 
 class TXModule {
@@ -133,6 +134,10 @@ class TXModule {
    */
   async initialize(config, app) {
     this.config = config;
+    
+    // Initialize fallback proxy
+    this.fallbackProxy = new FallbackProxy(config);
+    
     // Initialize logger with config settings
     this.log = Logger.getInstance().child({
       module: 'tx',
@@ -187,6 +192,12 @@ class TXModule {
     this.log.info(`Load...`);
     await this.library.load();
     this.log.info('Library loaded successfully');
+
+    // Update fallback proxy with dynamically discovered code systems from loaded packages
+    if (this.fallbackProxy && this.library) {
+      this.fallbackProxy.setLibrary(this.library);
+      this.log.info(`Fallback proxy initialized with ${this.fallbackProxy.genomicsSystems.size} discovered code systems`);
+    }
 
     // Set up each endpoint
     for (const endpoint of config.endpoints) {
@@ -275,6 +286,9 @@ class TXModule {
         acceptLanguage, this.i18n, requestId, 30,
         endpointInfo.resourceCache, endpointInfo.expansionCache
       );
+
+      // Add fallback proxy reference to opContext
+      opContext.fallbackProxy = this.fallbackProxy;
 
       // Attach everything to request
       req.txProvider = endpointInfo.provider;
