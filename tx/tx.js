@@ -183,7 +183,8 @@ class TXModule {
       contactUrl: config.contactUrl,
       contact: config.contact,
       releaseDate: config.releaseDate,
-      host: config.host ? config.host : "localhost"
+      host: config.host ? config.host : "localhost",
+      fallbackProxy: this.fallbackProxy
     });
 
     // Load the library from YAML

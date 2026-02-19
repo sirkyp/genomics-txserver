@@ -11,6 +11,8 @@ class FallbackProxy {
     this.enabled = config?.fallback?.enabled || false;
     this.server = config?.fallback?.server || 'https://tx.fhir.org';
     this.supportedSystems = new Set();
+    this.termCapsCache = new Map();
+    this.termCapsCacheTtlMs = (config?.fallback?.metadataCacheMinutes || 30) * 60 * 1000;
     
     if (this.enabled) {
       log.info(`Fallback proxy enabled: ${this.server}`);
@@ -33,6 +35,74 @@ class FallbackProxy {
    */
   getSupportedSystemCount() {
     return this.supportedSystems.size;
+  }
+
+  getFallbackTermCapsPath(fhirVersion) {
+    const version = String(fhirVersion || '5.0');
+    const major = version.split('.')[0];
+    return major === '4' ? 'r4' : 'r5';
+  }
+
+  normalizeServerUrl() {
+    return (this.server || '').replace(/\/+$/, '');
+  }
+
+  async getFallbackCodeSystemEntries(fhirVersion) {
+    if (!this.enabled) {
+      return [];
+    }
+
+    const fhirPath = this.getFallbackTermCapsPath(fhirVersion);
+    const cacheKey = fhirPath;
+    const now = Date.now();
+    const cached = this.termCapsCache.get(cacheKey);
+    if (cached && (now - cached.timestamp) < this.termCapsCacheTtlMs) {
+      return cached.entries;
+    }
+
+    const url = `${this.normalizeServerUrl()}/${fhirPath}/metadata?mode=terminology`;
+
+    try {
+      const response = await axios.get(url, {
+        timeout: 30000,
+        headers: {
+          Accept: 'application/fhir+json'
+        },
+        validateStatus: () => true
+      });
+
+      if (response.status !== 200 || !response.data || response.data.resourceType !== 'TerminologyCapabilities') {
+        log.warn(`Fallback terminology capabilities not available from ${url} (status ${response.status})`);
+        this.termCapsCache.set(cacheKey, { timestamp: now, entries: [] });
+        return [];
+      }
+
+      const entries = [];
+      for (const cs of response.data.codeSystem || []) {
+        if (!cs || !cs.uri) {
+          continue;
+        }
+        const entry = { uri: cs.uri };
+        if (Array.isArray(cs.version) && cs.version.length > 0) {
+          const versions = cs.version
+            .map(v => v && v.code)
+            .filter(Boolean)
+            .map(code => ({ code }));
+          if (versions.length > 0) {
+            entry.version = versions;
+          }
+        }
+        entries.push(entry);
+      }
+
+      this.termCapsCache.set(cacheKey, { timestamp: now, entries });
+      log.info(`Loaded ${entries.length} fallback code systems from ${url}`);
+      return entries;
+    } catch (error) {
+      log.warn(`Failed to load fallback terminology capabilities from ${url}: ${error.message}`);
+      this.termCapsCache.set(cacheKey, { timestamp: now, entries: [] });
+      return [];
+    }
   }
 
   /**
@@ -59,11 +129,21 @@ class FallbackProxy {
       return params.system;
     }
 
+    // CodeSystem/$validate-code commonly uses 'url' for the target code system
+    if (params.url) {
+      return params.url;
+    }
+
     // Check FHIR Parameters resource (from POST body)
     if (params.parameter && Array.isArray(params.parameter)) {
       const systemParam = params.parameter.find(p => p.name === 'system');
       if (systemParam) {
         return systemParam.valueUri || systemParam.valueString;
+      }
+
+      const urlParam = params.parameter.find(p => p.name === 'url');
+      if (urlParam) {
+        return urlParam.valueUri || urlParam.valueCanonical || urlParam.valueString;
       }
 
       const codingParam = params.parameter.find(p => p.name === 'coding');

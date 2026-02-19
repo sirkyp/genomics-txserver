@@ -22,6 +22,7 @@ class MetadataHandler {
   constructor(config = {}) {
     this.config = config;
     this.host = config.host;
+    this.fallbackProxy = config.fallbackProxy;
   }
 
   /**
@@ -303,7 +304,7 @@ class MetadataHandler {
       ],
       description: this.config.description || 'Terminology Capability Statement for FHIR Terminology Server',
       kind: 'instance',
-      codeSystem: await this.buildCodeSystemEntries(provider),
+      codeSystem: await this.buildCodeSystemEntries(provider, endpoint),
       expansion: this.buildExpansionCapabilities(),
       validateCode: this.buildValidateCodeCapabilities(),
       translation: this.buildTranslationCapabilities()
@@ -317,7 +318,7 @@ class MetadataHandler {
    * @param {Object} provider - Provider with codeSystems and codeSystemFactories
    * @returns {Object[]} Array of codeSystem entries
    */
-  async buildCodeSystemEntries(provider) {
+  async buildCodeSystemEntries(provider, endpoint) {
     const seenSystems = new Map(); // url -> entry for deduplication
 
     // Process provider.codeSystems (direct CodeSystem resources)
@@ -340,6 +341,23 @@ class MetadataHandler {
 
         if (url) {
           this.addCodeSystemEntry(seenSystems, url, version);
+        }
+      }
+    }
+
+    if (this.fallbackProxy && this.fallbackProxy.enabled) {
+      const fallbackEntries = await this.fallbackProxy.getFallbackCodeSystemEntries(endpoint?.fhirVersion);
+      for (const entry of fallbackEntries) {
+        const url = entry.uri;
+        if (!url) {
+          continue;
+        }
+        if (Array.isArray(entry.version) && entry.version.length > 0) {
+          for (const ver of entry.version) {
+            this.addCodeSystemEntry(seenSystems, url, ver?.code || null);
+          }
+        } else {
+          this.addCodeSystemEntry(seenSystems, url, null);
         }
       }
     }
