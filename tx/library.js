@@ -449,8 +449,9 @@ class Library {
       cp.codeSystems.set(cs.url, cs);
       cp.codeSystems.set(cs.vurl, cs);
       
-      // Register this CodeSystem URL as locally supported
-      if (this.fallbackProxy && cs.url) {
+      // Register this CodeSystem URL as locally supported only when content is actually present
+      // (CodeSystems with content="not-present" must be served by a provider class or fallback)
+      if (this.fallbackProxy && cs.url && cs.content !== 'not-present') {
         this.fallbackProxy.addSupportedSystem(cs.url);
       }
       

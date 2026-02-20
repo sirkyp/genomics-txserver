@@ -1563,11 +1563,13 @@ class ExpandWorker extends TerminologyWorker {
       return false;
     }
 
-    if (valueSet.url && valueSet.url.startsWith('http://hl7.org/fhir/ValueSet/')) {
+    const rawValueSet = valueSet.jsonObj || valueSet;
+
+    if (rawValueSet.url && rawValueSet.url.startsWith('http://hl7.org/fhir/ValueSet/')) {
       return true;
     }
 
-    const systems = this.extractValueSetSystems(valueSet);
+    const systems = this.extractValueSetSystems(rawValueSet);
     if (systems.length === 0) {
       return false;
     }
@@ -1581,10 +1583,11 @@ class ExpandWorker extends TerminologyWorker {
    * @returns {string[]}
    */
   extractValueSetSystems(valueSet) {
+    const rawValueSet = valueSet?.jsonObj || valueSet;
     const systems = new Set();
 
-    if (valueSet.compose?.include?.length) {
-      for (const include of valueSet.compose.include) {
+    if (rawValueSet?.compose?.include?.length) {
+      for (const include of rawValueSet.compose.include) {
         if (include.system) {
           systems.add(include.system);
         }
@@ -1602,8 +1605,8 @@ class ExpandWorker extends TerminologyWorker {
       }
     };
 
-    if (valueSet.expansion?.contains?.length) {
-      collectFromContains(valueSet.expansion.contains);
+    if (rawValueSet?.expansion?.contains?.length) {
+      collectFromContains(rawValueSet.expansion.contains);
     }
 
     return Array.from(systems);
