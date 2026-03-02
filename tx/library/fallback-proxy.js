@@ -20,12 +20,51 @@ class FallbackProxy {
   }
 
   /**
+   * Normalize a CodeSystem URL for consistent matching.
+   * - trims whitespace
+   * - drops version suffix after '|'
+   * - removes trailing slash
+   * - lowercases scheme/host when parseable
+   * @param {string} url
+   * @returns {string|null}
+   */
+  normalizeSystemUrl(url) {
+    if (url === null || url === undefined) {
+      return null;
+    }
+
+    let normalized = String(url).trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const versionSeparator = normalized.indexOf('|');
+    if (versionSeparator >= 0) {
+      normalized = normalized.substring(0, versionSeparator);
+    }
+
+    normalized = normalized.replace(/\/+$/, '');
+
+    try {
+      const parsed = new URL(normalized);
+      parsed.protocol = parsed.protocol.toLowerCase();
+      parsed.hostname = parsed.hostname.toLowerCase();
+      normalized = parsed.toString().replace(/\/+$/, '');
+    } catch {
+      // Keep original normalized string for non-URL canonicals
+    }
+
+    return normalized;
+  }
+
+  /**
    * Register a locally-supported CodeSystem URL (called by Library after loading)
    * @param {string} url - CodeSystem URL
    */
   addSupportedSystem(url) {
-    if (url && !this.supportedSystems.has(url)) {
-      this.supportedSystems.add(url);
+    const normalized = this.normalizeSystemUrl(url);
+    if (normalized && !this.supportedSystems.has(normalized)) {
+      this.supportedSystems.add(normalized);
     }
   }
 
@@ -109,15 +148,19 @@ class FallbackProxy {
    * Check if a code system is supported locally (not requiring fallback)
    */
   isSupportedSystem(systemUrl) {
-    if (!systemUrl) return false;
-    
-    // Check exact match or prefix match
-    for (const supportedSystem of this.supportedSystems) {
-      if (systemUrl === supportedSystem || systemUrl.startsWith(supportedSystem)) {
-        return true;
-      }
+    const originalInput = systemUrl === null || systemUrl === undefined
+      ? null
+      : String(systemUrl).trim();
+    const normalizedInput = this.normalizeSystemUrl(systemUrl);
+    if (!normalizedInput) {
+      return false;
     }
-    return false;
+
+    if (originalInput && originalInput !== normalizedInput) {
+      log.warn(`Normalized incoming system URL from '${originalInput}' to '${normalizedInput}'`);
+    }
+
+    return this.supportedSystems.has(normalizedInput);
   }
 
   /**
