@@ -70,9 +70,16 @@ describe('Tx Tests', () => {
                     }
 
                     const escapedName = test.name.replace(/'/g, "\\'");
-                    output += `  it('${escapedName}', async () => {\n`;
-                    output += `    await runTest(${JSON.stringify(testDetails)});\n`;
-                    output += `  });\n\n`;
+                    if (!test.version || test.version.startsWith("5.0")) {
+                        output += `  it('${escapedName}R5', async () => {\n`;
+                        output += `    await runTest(${JSON.stringify(testDetails)}, "5.0");\n`;
+                        output += `  });\n\n`;
+                    }
+                    if (!test.version || test.version.startsWith("4.0")) {
+                        output += `  it('${escapedName}R4', async () => {\n`;
+                        output += `    await runTest(${JSON.stringify(testDetails)}, "4.0");\n`;
+                        output += `  });\n\n`;
+                    }
                 }
             }
             output += `});\n\n`;

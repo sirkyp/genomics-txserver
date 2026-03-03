@@ -44,9 +44,9 @@ class LookupWorker extends TerminologyWorker {
     try {
       await this.handleTypeLevelLookup(req, res);
     } catch (error) {
-      console.log(error);
-      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       this.log.error(error);
+      this.debugLog(error);
+      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       const statusCode = error.statusCode || 500;
       const issueCode = error.issueCode || 'exception';
       return res.status(statusCode).json({
@@ -71,8 +71,9 @@ class LookupWorker extends TerminologyWorker {
     try {
       await this.handleInstanceLevelLookup(req, res);
     } catch (error) {
-      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       this.log.error(error);
+      this.debugLog(error);
+      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       const issueCode = error.issueCode || 'exception';
       return res.status(400).json({
         resourceType: 'OperationOutcome',
@@ -157,8 +158,9 @@ class LookupWorker extends TerminologyWorker {
       const result = await this.doLookup(csProvider, code, txp);
       return res.status(200).json(result);
     } catch (error) {
-      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       this.log.error(error);
+      this.debugLog(error);
+      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       if (error instanceof Issue) {
         let oo = new OperationOutcome();
         oo.addIssue(error);
@@ -220,8 +222,9 @@ class LookupWorker extends TerminologyWorker {
       const result = await this.doLookup(csProvider, code, txp);
       return res.status(200).json(result);
     } catch (error) {
-      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       this.log.error(error);
+      this.debugLog(error);
+      req.logInfo = this.usedSources.join("|")+" - error"+(error.msgId  ? " "+error.msgId : "");
       if (error instanceof Issue) {
         let oo = new OperationOutcome();
         oo.addIssue(error);
@@ -298,9 +301,13 @@ class LookupWorker extends TerminologyWorker {
 
     // display (required)
     const display = await csProvider.display(ctxt);
+    const designations = new Designations(this.languages);
+    await csProvider.designations(ctxt, designations);
+    const pd = designations.preferredDesignation(params.workingLanguages());
+    const disp = pd ? pd.value : undefined;
     responseParams.push({
       name: 'display',
-      valueString: display || code
+      valueString: disp || display || code
     });
 
     // definition (optional) - top-level parameter
@@ -372,7 +379,7 @@ class LookupWorker extends TerminologyWorker {
     }
 
     // Let the provider add additional properties
-    await csProvider.extendLookup(ctxt, params.property || [], responseParams);
+    await csProvider.extendLookup(ctxt, params.properties || [], responseParams);
 
     return {
       resourceType: 'Parameters',

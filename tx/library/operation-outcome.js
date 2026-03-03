@@ -83,6 +83,10 @@ class OperationOutcome {
     this.jsonObj = jsonObj ? jsonObj : { "resourceType": "OperationOutcome" };
   }
 
+  addIssueIfNew(newIssue) {
+    return this.addIssue(newIssue, true);
+  }
+
   addIssue(newIssue, ifNotDuplicate = false) {
     validateParameter(newIssue, "newIssue", Object);
     if (ifNotDuplicate) {

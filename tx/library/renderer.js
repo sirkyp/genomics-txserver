@@ -2,6 +2,7 @@ const {CodeSystemProvider} = require("../cs/cs-api");
 const {Extensions} = require("./extensions");
 const {div} = require("../../library/html");
 const {getValuePrimitive} = require("../../library/utilities");
+const {getValueName} = require("../../library/utilities");
 
 /**
  * @typedef {Object} TerminologyLinkResolver
@@ -21,18 +22,17 @@ class Renderer {
   displayCoded(...args) {
     if (args.length === 1) {
       const arg = args[0];
-      if (arg.systemUri !== undefined && arg.version !== undefined && arg.code !== undefined && arg.display !== undefined) {
+      if (arg instanceof CodeSystemProvider) {
+        return arg.system() + "|" + arg.version();
+      } else  if (arg.system !== undefined && arg.version !== undefined && arg.code !== undefined && arg.display !== undefined) {
         // It's a Coding
         return this.displayCodedCoding(arg);
       } else if (arg.coding !== undefined || arg.text) {
         // It's a CodeableConcept
         return this.displayCodedCodeableConcept(arg);
-      } else if (arg.systemUri !== undefined && arg.version !== undefined) {
+      } else if (arg.system !== undefined && arg.version !== undefined) {
         // It's a CodeSystemProvider
         return this.displayCodedProvider(arg);
-      } else if (arg instanceof CodeSystemProvider) {
-        let cs = arg;
-        return cs.system() + "|" + cs.version();
       }
     } else if (args.length === 2) {
       return this.displayCodedSystemVersion(args[0], args[1]);
@@ -45,7 +45,7 @@ class Renderer {
   }
 
   displayCodedProvider(system) {
-    let result = system.systemUri + '|' + system.version;
+    let result = system.system + '|' + system.version;
     if (system.sourcePackage) {
       result = result + ' (from ' + system.sourcePackage + ')';
     }
@@ -69,7 +69,7 @@ class Renderer {
   }
 
   displayCodedCoding(code) {
-    return this.displayCodedSystemVersionCodeDisplay(code.systemUri, code.version, code.code, code.display);
+    return this.displayCodedSystemVersionCodeDisplay(code.system, code.version, code.code, code.display);
   }
 
   displayCodedCodeableConcept(code) {
@@ -89,12 +89,12 @@ class Renderer {
 
   displayValueSetInclude(inc) {
     let result;
-    if (inc.systemUri) {
-      result = '(' + inc.systemUri + ')';
-      if (inc.hasConcepts) {
+    if (inc.system) {
+      result = '(' + inc.system + ')';
+      if (inc.concept) {
         result = result + '(';
         let first = true;
-        for (const cc of inc.concepts) {
+        for (const cc of inc.concept) {
           if (first) {
             first = false;
           } else {
@@ -104,23 +104,23 @@ class Renderer {
         }
         result = result + ')';
       }
-      if (inc.hasFilters) {
+      if (inc.filter) {
         result = result + '(';
         let first = true;
-        for (const ci of inc.filters) {
+        for (const ci of inc.filter) {
           if (first) {
             first = false;
           } else {
             result = result + ',';
           }
-          result = result + ci.prop + ci.op + ci.value;
+          result = result + ci.property + ci.op + ci.value;
         }
         result = result + ')';
       }
     } else {
       result = '(';
       let first = true;
-      for (const s of inc.valueSets || []) {
+      for (const s of inc.valueSet || []) {
         if (first) {
           first = false;
         } else {
@@ -147,6 +147,7 @@ class Renderer {
     this.renderProperty(tbl, 'GENERAL_TITLE', res.title);
     this.renderProperty(tbl, 'GENERAL_STATUS', res.status);
     this.renderPropertyMD(tbl, 'GENERAL_DEFINITION', res.description);
+    this.renderPropertyMD(tbl, 'Purpose', res.purpose);
     this.renderProperty(tbl, 'CANON_REND_PUBLISHER', res.publisher);
     this.renderProperty(tbl, 'CANON_REND_COMMITTEE', Extensions.readString(res, 'http://hl7.org/fhir/StructureDefinition/structuredefinition-wg'));
     this.renderProperty(tbl, 'GENERAL_COPYRIGHT', res.copyright);
@@ -419,7 +420,7 @@ class Renderer {
         li.tx(this.translate('VALUE_SET_ALL_CODES_DEF')+" ");
         await this.renderLink(li,inc.system+(inc.version ? "|"+inc.version : ""));
       } else if (inc.concept) {
-        li.tx(this.translate('VALUE_SET_THESE_CODES_DEF'));
+        li.tx(this.translate('VALUE_SET_THESE_CODES_DEF')+" ");
         await this.renderLink(li,inc.system+(inc.version ? "|"+inc.version : ""));
         li.tx(":");
         const ul = li.ul();
@@ -898,13 +899,30 @@ class Renderer {
     return count;
   }
 
+  async renderVSExpansion(vs, showProps) {
+    let div_ = div();
+    let tbl;
+    if (showProps) {
+      div_.h2().tx("Expansion Properties");
+      tbl = div_.table("grid");
+    } else {
+      tbl = div(); // dummy
+    }
+    await this.renderExpansion(div_.table("grid"), vs, tbl);
+    return div_.toString();
+  }
+
   async renderExpansion(x, vs, tbl) {
     this.renderProperty(tbl, 'Expansion Identifier', vs.expansion.identifier);
     this.renderProperty(tbl, 'Expansion Timestamp', vs.expansion.timestamp);
     this.renderProperty(tbl, 'Expansion Total', vs.expansion.total);
     this.renderProperty(tbl, 'Expansion Offset', vs.expansion.offset);
     for (let p of vs.expansion.parameter || []) {
-      await this.renderPropertyLink(tbl, "Parameter: " + p.name, getValuePrimitive(p));
+      if( getValueName(p) === 'valueUri' || getValueName(p) === 'valueCanonical') {
+        await this.renderPropertyLink(tbl, "Parameter: " + p.name, getValuePrimitive(p));
+      } else {
+        this.renderProperty(tbl, "Parameter: " + p.name, getValuePrimitive(p));
+      }
     }
 
     if (!vs.expansion.contains || vs.expansion.contains.length === 0) {
@@ -1551,6 +1569,10 @@ class Renderer {
           } else {
             // No versions specified
             await this.renderLink(li, cs.uri);
+          }
+          let content = cs.content || Extensions.readString(cs, "http://hl7.org/fhir/4.0/StructureDefinition/extension-TerminologyCapabilities.codeSystem.content");
+          if (content && content != "complete") {
+            li.tx(" (" + content + ")");
           }
         }
       }

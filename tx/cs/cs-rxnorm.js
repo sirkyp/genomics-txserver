@@ -140,6 +140,28 @@ class RxNormServices extends CodeSystemProvider {
     return false; // RxNorm codes are not abstract
   }
 
+  async getStatus(context) {
+
+    const ctxt = await this.#ensureContext(context);
+
+    if (ctxt && ctxt.archived) {
+      return 'archived';
+    }
+
+    // Check suppress flag
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT suppress FROM rxnconso WHERE ${this.getCodeField()} = ? AND SAB = ? AND TTY <> 'SY'`;
+
+      this.db.get(sql, [ctxt.code, this.getSAB()], (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row ? row.suppress === '1' ? 'suppressed' : null : null);
+        }
+      });
+    });
+  }
+
   async isInactive(context) {
     
     const ctxt = await this.#ensureContext(context);
@@ -725,6 +747,9 @@ class RxNormTypeServicesFactory extends CodeSystemFactoryProvider {
             let d = dbDetails.substring(0, dbDetails.indexOf('.db'));
             if (d.includes('_')) {
               d = d.substring(d.lastIndexOf('_') + 1);
+            }
+            if (d.includes('-')) {
+              d = d.substring(0, d.lastIndexOf('-'));
             }
             if (/^\d+$/.test(d)) {
               version = d;

@@ -20,7 +20,7 @@ const packageJson = require("../package.json");
 // Import workers
 const ReadWorker = require('./workers/read');
 const SearchWorker = require('./workers/search');
-const { ExpandWorker } = require('./workers/expand');
+const { ExpandWorker, INTERNAL_DEFAULT_LIMIT, EXTERNAL_DEFAULT_LIMIT} = require('./workers/expand');
 const { ValidateWorker } = require('./workers/validate');
 const TranslateWorker = require('./workers/translate');
 const LookupWorker = require('./workers/lookup');
@@ -47,6 +47,9 @@ const {capabilityStatementFromR5} = require("./xversion/xv-capabiliityStatement"
 const {bundleFromR5} = require("./xversion/xv-bundle");
 const {convertResourceToR5} = require("./xversion/xv-resource");
 const ClosureWorker = require("./workers/closure");
+const {BundleXML} = require("./xml/bundle-xml");
+const ConceptUsageTracker = require("./usage-tracker");
+const ProblemFinder = require("./problems");
 // const {writeFileSync} = require("fs");
 
 class TXModule {
@@ -81,11 +84,10 @@ class TXModule {
   }
 
   acceptsXml(req) {
-    let _fmt = req.query._format;
+    let _fmt = req.query._format || req.query.format || req.body?._format;
     if (_fmt && typeof _fmt !== 'string') {
-      _fmt = null
+      _fmt = null;
     }
-
     if (_fmt && _fmt == 'xml') {
       return 'application/fhir+xml';
     }
@@ -104,9 +106,9 @@ class TXModule {
   }
 
   acceptsJson(req) {
-    let _fmt = req.query._format;
+    let _fmt = req.query._format || req.query.format || req.body?._format;
     if (_fmt && typeof _fmt !== 'string') {
-      _fmt = null
+      _fmt = null;
     }
     if (_fmt && _fmt == 'json') {
       return 'application/fhir+json';
@@ -138,6 +140,7 @@ class TXModule {
       consoleErrors: config.consoleErrors,
       telnetErrors: config.telnetErrors
     });
+    this.usageTracker = new ConceptUsageTracker();
 
     this.log.info('Initializing TX module');
 
@@ -182,7 +185,7 @@ class TXModule {
 
     // Load the library from YAML
     this.log.info(`Loading library from: ${config.librarySource}`);
-    this.library = new Library(config.librarySource, this.log);
+    this.library = new Library(config.librarySource, config.vsacCfg, this.log, this.stats);
     this.log.info(`Load...`);
     await this.library.load();
     this.log.info('Library loaded successfully');
@@ -231,8 +234,8 @@ class TXModule {
       path: endpointPath,
       fhirVersion,
       context: context || null,
-      resourceCache: new ResourceCache(),
-      expansionCache: new ExpansionCache(expansionCacheSize, expansionCacheMemoryThreshold)
+      resourceCache: new ResourceCache(this.stats),
+      expansionCache: new ExpansionCache(this.stats, expansionCacheSize, expansionCacheMemoryThreshold)
     };
     // Create the provider once for this endpoint
     endpointInfo.provider = await this.library.cloneWithFhirVersion(fhirVersion, context, endpointPath);
@@ -241,6 +244,9 @@ class TXModule {
     // cacheTimeout is in minutes, default to 30 minutes
     const cacheTimeoutMs = cacheTimeoutMinutes * 60 * 1000;
     const pruneIntervalMs = 5 * 60 * 1000; // Run every 5 minutes
+    if (this.stats) {
+      this.stats.addTask("Client Cache", "5 min");
+    }
     this.timers.push(setInterval(() => {
       endpointInfo.resourceCache.prune(cacheTimeoutMs);
     }, pruneIntervalMs));
@@ -248,6 +254,9 @@ class TXModule {
 
     // Set up periodic memory pressure check for expansion cache (if threshold configured)
     if (expansionCacheMemoryThreshold > 0) {
+      if (this.stats) {
+        this.stats.addTask("Expansion Cache", "5 min");
+      }
       this.timers.push(setInterval(() => {
         if (endpointInfo.expansionCache.checkMemoryPressure()) {
           this.log.info(`Expansion cache memory pressure detected for ${endpointPath}, evicted oldest half`);
@@ -274,6 +283,7 @@ class TXModule {
         acceptLanguage, this.i18n, requestId, 30,
         endpointInfo.resourceCache, endpointInfo.expansionCache
       );
+      opContext.usageTracker = this.usageTracker;
 
       // Attach everything to request
       req.txProvider = endpointInfo.provider;
@@ -290,7 +300,7 @@ class TXModule {
       // Wrap res.json to intercept and convert to HTML if browser requests it, and log the request
       const originalJson = res.json.bind(res);
 
-      let txhtml = new TxHtmlRenderer(new Renderer(opContext, endpointInfo.provider), this.liquid);
+      let txhtml = new TxHtmlRenderer(new Renderer(opContext, endpointInfo.provider), this.liquid, this.languages, this.i18n, endpointInfo.path);
       res.json = async (data) => {
         try {
           const duration = Date.now() - req.txStartTime;
@@ -437,9 +447,18 @@ class TXModule {
       next();
     });
 
+    app.use(express.urlencoded({ extended: true }));
 
     // Set up routes
     this.setupRoutes(router);
+
+    // Redirect /r5 → /r5/
+    app.use((req, res, next) => {
+      if (req.path === endpointPath) {
+        return res.redirect(301, endpointPath + '/');
+      }
+      next();
+    });
 
     // Register the router with the app
     app.use(endpointPath, router);
@@ -602,7 +621,7 @@ class TXModule {
     router.get('/ValueSet/\\$expand', async (req, res) => {
       const start = Date.now();
       try {
-        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n, this.internalLimit(req), this.externalLimit(req));
         await worker.handle(req, res, this.log);
       } finally {
         this.countRequest('$expand', Date.now() - start);
@@ -611,7 +630,7 @@ class TXModule {
     router.post('/ValueSet/\\$expand', async (req, res) => {
       const start = Date.now();
       try {
-        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n, this.internalLimit(req), this.externalLimit(req));
         await worker.handle(req, res, this.log);
       } finally {
         this.countRequest('$expand', Date.now() - start);
@@ -766,7 +785,7 @@ class TXModule {
     router.get('/ValueSet/:id/\\$expand', async (req, res) => {
       const start = Date.now();
       try {
-        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n, this.internalLimit(req), this.externalLimit(req));
         await worker.handleInstance(req, res, this.log);
       } finally {
         this.countRequest('$expand', Date.now() - start);
@@ -775,7 +794,7 @@ class TXModule {
     router.post('/ValueSet/:id/\\$expand', async (req, res) => {
       const start = Date.now();
       try {
-        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n);
+        let worker = new ExpandWorker(req.txOpContext, this.log, req.txProvider, this.languages, this.i18n, this.internalLimit(req), this.externalLimit(req));
         await worker.handleInstance(req, res, this.log);
       } finally {
         this.countRequest('$expand', Date.now() - start);
@@ -872,6 +891,20 @@ class TXModule {
         await worker.handle(req, res);
       } finally {
         this.countRequest('$op', Date.now() - start);
+      }
+    });
+
+    router.get('/problems.html', async (req, res) => {
+      const start = Date.now();
+      try {
+        let txhtml = new TxHtmlRenderer(new Renderer(req.txOpContext, req.txProvider), this.liquid, this.languages, this.i18n, req.txEndpoint.path);
+        const problemFinder = new ProblemFinder();
+        const content = await problemFinder.scanValueSets(req.txProvider);
+        const html = await txhtml.renderPage('Problems', '<h3>ValueSet dependencies on unknown CodeSystem/Versions</h3>'+content, req.txEndpoint, req.txStartTime);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } finally {
+        this.countRequest('problems', Date.now() - start);
       }
     });
 
@@ -980,6 +1013,7 @@ class TXModule {
     switch (res.resourceType) {
       case "CodeSystem" : return CodeSystemXML._jsonToXml(res);
       case "ValueSet" : return ValueSetXML.toXml(res);
+      case "Bundle" : return BundleXML.toXml(res, this.fhirVersion);
       case "CapabilityStatement" : return CapabilityStatementXML.toXml(res, "R5");
       case "TerminologyCapabilities" : return TerminologyCapabilitiesXML.toXml(res, "R5");
       case "Parameters": return ParametersXML.toXml(res, this.fhirVersion);
@@ -1062,6 +1096,16 @@ class TXModule {
       case "Bundle": return bundleFromR5(data, fhirVersion);
       default: return data;
     }
+  }
+
+  internalLimit(req) {
+    let isTest = req.header("User-Agent") == 'Tools/Java';
+    if (this.config.internalLimit && !isTest) return this.config.internalLimit; else return INTERNAL_DEFAULT_LIMIT;
+  }
+
+  externalLimit(req) {
+    let isTest = req.header("User-Agent") == 'Tools/Java';
+    if (this.config.internalLimit && !isTest) return this.config.externalLimit; else return EXTERNAL_DEFAULT_LIMIT;
   }
 
 }

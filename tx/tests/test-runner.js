@@ -8,6 +8,7 @@ const ServerStats = require("../../stats");
 const Logger = require("../../library/logger");
 const {txTestVersion} = require("./test-cases-version");
 const folders = require('../../library/folder-setup');
+const {VersionUtilities} = require("../../library/version-utilities");
 
 let count = 0;
 let error = 0;
@@ -35,18 +36,17 @@ function txTestSummary() {
     if (error == 0) {
       return `FHIRsmith passed all ${count} HL7 terminology service tests (modes ${set}, tests v${txTestVersion()}, runner v${validator.jarVersion()})`;
     } else {
-      return `FHIRsmith failed all ${error} of ${count} HL7 terminology service tests (modes ${set}, tests v${txTestVersion()}, runner v${validator.jarVersion()})`;
+      return `FHIRsmith failed ${error} of ${count} HL7 terminology service tests (modes ${set}, tests v${txTestVersion()}, runner v${validator.jarVersion()})`;
     }
 }
 
-async function runTest(test, version, useJson) {
+async function runTest(test, version = true) {
     version = version || "5.0";
     const params = {
-        server: 'http://localhost:'+TEST_PORT+"/r5",
+        server: 'http://localhost:'+TEST_PORT+(VersionUtilities.isR5Plus(version) ? "/r5" : "/r4"),
         suiteName: test.suite,
         testName: test.test,
-        version: version,
-        json : useJson
+        version: version
     };
     count++;
     const result = await validator.runTxTest(params);
@@ -134,6 +134,7 @@ async function loadValidator() {
         timeout: 60000
     }
     await validator.start(validatorConfig);
+    await validator.loadIG("hl7.fhir.uv.tx-ecosystem", "current");
 }
 
 

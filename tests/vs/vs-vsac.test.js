@@ -1,4 +1,4 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 const ini = require('ini');
 const { describe, beforeAll, afterAll, test, expect } = require('@jest/globals');
@@ -33,17 +33,16 @@ describe('VSACValueSetProvider', () => {
       }
 
       // Read API key from passwords.ini
-      const passwordsPath = folders.ensureFilePath('passwords.ini');
-      const passwordsContent = await fs.readFile(passwordsPath, 'utf8');
-      const passwords = ini.parse(passwordsContent);
+      const configPath = folders.ensureFilePath('config.json');
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-      if (!passwords.passwords?.vsac) {
-        console.log('VSAC API key not found in passwords.ini - skipping tests');
+      if (!config.modules?.tx?.vsackey) {
+        console.log('VSAC API key not found in config.json - skipping tests');
         shouldSkipTests = true;
         return;
       }
 
-      apiKey = passwords.passwords.vsac;
+      apiKey = config.modules?.tx?.vsackey;
       console.log('VSAC API key loaded successfully');
 
       // Create provider with limited refresh for testing

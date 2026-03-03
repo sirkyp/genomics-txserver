@@ -23,6 +23,11 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
     this.valueSetMap = new Map();
     this.initialized = false;
     this.count = 0;
+    this.sourcePackageCode = packageLoader.id();
+  }
+
+  sourcePackage() {
+    return this.sourcePackageCode;
   }
 
   /**
@@ -42,7 +47,7 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
       await this._populateDatabase();
     }
 
-    this.valueSetMap = await this.database.loadAllValueSets(this.packageLoader.pid());
+    this.valueSetMap = await this.database.loadAllValueSets(this.sourcePackage());
     this.initialized = true;
   }
 
@@ -71,9 +76,27 @@ class PackageValueSetProvider extends AbstractValueSetProvider {
     }
 
     if (valueSets.length > 0) {
-      await this.database.batchUpsertValueSets(valueSets);
+      await this.batchUpsertValueSets(valueSets);
     }
   }
+
+
+  /**
+   * Insert multiple ValueSets in a batch operation
+   * @param {Array<Object>} valueSets - Array of ValueSet resources
+   * @returns {Promise<void>}
+   */
+  async batchUpsertValueSets(valueSets) {
+    if (valueSets.length === 0) {
+      return;
+    }
+
+    // Process sequentially to avoid database locking
+    for (const valueSet of valueSets) {
+      await this.database.upsertValueSet(valueSet);
+    }
+  }
+
 
   /**
    * Fetches a value set by URL and version

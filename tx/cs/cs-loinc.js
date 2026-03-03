@@ -2,8 +2,9 @@ const sqlite3 = require('sqlite3').verbose();
 const assert = require('assert');
 const { CodeSystem } = require('../library/codesystem');
 const { Language, Languages} = require('../../library/languages');
-const { CodeSystemProvider, CodeSystemFactoryProvider} = require('./cs-api');
+const { CodeSystemFactoryProvider} = require('./cs-api');
 const { validateOptionalParameter, validateArrayParameter} = require("../../library/utilities");
+const {BaseCSServices} = require("./cs-base");
 
 // Context kinds matching Pascal enum
 const LoincProviderContextKind = {
@@ -107,7 +108,7 @@ class LoincPrep {
   }
 }
 
-class LoincServices extends CodeSystemProvider {
+class LoincServices extends BaseCSServices {
   constructor(opContext, supplements, db, sharedData) {
     super(opContext, supplements);
     this.db = db;
@@ -304,10 +305,10 @@ class LoincServices extends CodeSystemProvider {
 
     // Run all property queries in parallel — they're independent reads on the same key
     await Promise.all([
-      this.#addRelationshipProperties(ctxt, params),
-      this.#addConceptProperties(ctxt, params),
-      this.#addStatusProperty(ctxt, params),
-      this.#addRelatedNames(ctxt, params)
+      this.#addRelationshipProperties(ctxt, props, params),
+      this.#addConceptProperties(ctxt, props,params),
+      this.#addStatusProperty(ctxt, props,params),
+      this.#addRelatedNames(ctxt, props,params)
     ]);
   }
 
@@ -322,7 +323,7 @@ class LoincServices extends CodeSystemProvider {
     }
   }
 
-  async #addRelationshipProperties(ctxt, params) {
+  async #addRelationshipProperties(ctxt, props, params) {
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT RelationshipTypes.Description as Relationship, Codes.Code, Codes.Description as Value
@@ -337,7 +338,9 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            this.#addCodeProperty(params, 'property', row.Relationship, row.Code);
+            if (this._hasProp(props, row.Relationship, true)) {
+              this._addCodeProperty(params, 'property', row.Relationship, row.Code);
+            }
           }
           resolve();
         }
@@ -345,7 +348,7 @@ class LoincServices extends CodeSystemProvider {
     });
   }
 
-  async #addConceptProperties(ctxt, params) {
+  async #addConceptProperties(ctxt, props, params) {
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT PropertyTypes.Description, PropertyValues.Value
@@ -360,11 +363,13 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            if (row.Description == 'CLASSTYPE') {
-              this.#addStringProperty(params, 'property', row.Description, classTypes[row.Value])
-                .part.push({ name: 'description', valueString: row.Value });
-            } else {
-              this.#addStringProperty(params, 'property', row.Description, row.Value);
+            if (this._hasProp(props, row.Description, true)) {
+              if (row.Description == 'CLASSTYPE') {
+                this._addStringProperty(params, 'property', row.Description, classTypes[row.Value])
+                  .part.push({name: 'description', valueString: row.Value});
+              } else {
+                this._addStringProperty(params, 'property', row.Description, row.Value);
+              }
             }
           }
           resolve();
@@ -373,7 +378,7 @@ class LoincServices extends CodeSystemProvider {
     });
   }
 
-  async #addStatusProperty(ctxt, params) {
+  async #addStatusProperty(ctxt, props, params) {
     return new Promise((resolve, reject) => {
       const sql = 'SELECT StatusKey FROM Codes WHERE CodeKey = ? AND StatusKey != 0';
 
@@ -383,7 +388,9 @@ class LoincServices extends CodeSystemProvider {
         } else if (row) {
           const statusDesc = this.statusCodes.get(row.StatusKey.toString());
           if (row.StatusKey && statusDesc) {
-            this.#addStringProperty(params, 'property', 'STATUS', statusDesc);
+            if (this._hasProp(props, 'STATUS', true)) {
+              this._addStringProperty(params, 'property', 'STATUS', statusDesc);
+            }
           }
           resolve();
         } else {
@@ -393,14 +400,20 @@ class LoincServices extends CodeSystemProvider {
     });
   }
 
-  async #addRelatedNames(ctxt, params) {
+  async #addRelatedNames(ctxt, props, params) {
     const loaded = await this.#loadRelatedNames(ctxt);
     for (let d of loaded) {
-      this.#addProperty(params, 'property', 'RELATEDNAMES2', d.value, d.lang);
+      if (this._hasProp(props, 'RELATEDNAMES2', true)) {
+        this._addProperty(params, 'property', 'RELATEDNAMES2', d.value, d.lang);
+      }
     }
   }
 
-  async #addAllDesignations(ctxt, params) {
+  async #addAllDesignations(ctxt, props, params) {
+    if (!this._hasProp(props, 'designation', true)) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const sql = `
           SELECT Languages.Code as Lang, DescriptionTypes.Description as DType, Descriptions.Value
@@ -416,64 +429,12 @@ class LoincServices extends CodeSystemProvider {
           reject(err);
         } else {
           for (const row of rows) {
-            this.#addProperty(params, 'designation', row.dtype, row.value, row.lang);
+            this._addProperty(params, 'designation', row.dtype, row.value, row.lang);
           }
           resolve();
         }
       });
     });
-  }
-
-  #addProperty(params, type, name, value, language = null) {
-
-    const property = {
-      name: type,
-      part: [
-        { name: 'code', valueCode: name },
-        { name: 'value', valueString: value }
-      ]
-    };
-
-    if (language) {
-      property.part.push({ name: 'language', valueCode: language });
-    }
-
-    params.push(property);
-  }
-
-  #addCodeProperty(params, type, name, value, language = null) {
-
-    const property = {
-      name: type,
-      part: [
-        { name: 'code', valueCode: name },
-        { name: 'value', valueCode: value }
-      ]
-    };
-
-    if (language) {
-      property.part.push({ name: 'language', valueCode: language });
-    }
-
-    params.push(property);
-  }
-
-  #addStringProperty(params, type, name, value, language = null) {
-
-    const property = {
-      name: type,
-      part: [
-        { name: 'code', valueCode: name },
-        { name: 'value', valueString: value }
-      ]
-    };
-
-    if (language) {
-      property.part.push({ name: 'language', valueCode: language });
-    }
-
-    params.push(property);
-    return property;
   }
 
   async #getDisplaysForContext(ctxt, langs) {
@@ -709,7 +670,7 @@ class LoincServices extends CodeSystemProvider {
       sql = `SELECT DISTINCT TargetKey as Key FROM Relationships
              WHERE RelationshipTypeKey = ${this.relationships.get('Answer')}
                AND SourceKey IN (SELECT CodeKey FROM Codes WHERE Code = '${this.#sqlWrapString(value)}')
-             ORDER BY SourceKey ASC`;
+             ORDER BY TargetKey ASC`;
       lsql = `SELECT COUNT(DISTINCT TargetKey) FROM Relationships
               WHERE RelationshipTypeKey = ${this.relationships.get('Answer')}
                 AND SourceKey IN (SELECT CodeKey FROM Codes WHERE Code = '${this.#sqlWrapString(value)}')
@@ -1057,13 +1018,6 @@ class LoincServices extends CodeSystemProvider {
     }
 
     return set.hasKey(concept.key);
-  }
-
-  // Search filter - placeholder for text search
-  // eslint-disable-next-line no-unused-vars
-  async searchFilter(filterContext, filter, sort) {
-
-    throw new Error('Text search not implemented yet');
   }
 
   // Subsumption testing
