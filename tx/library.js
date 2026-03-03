@@ -34,6 +34,9 @@ const {VSACValueSetProvider} = require("./vs/vs-vsac");
 const { Extensions } = require("./library/extensions");
 const { CodeSystemProvider, CodeSystemFactoryProvider } = require("./cs/cs-api");
 
+
+const { ExtensibleProviderLoader } = require('./loaders/extensible-provider-loader');
+
 /**
  * This class holds all the loaded content ready for processing
  *
@@ -161,7 +164,12 @@ class Library {
     this.log.info('Fetching Data from '+this.baseUrl);
 
     for (const source of config.sources) {
-      await this.processSource(source, this.packageManager, "fetch");
+      try {
+        await this.processSource(source, this.packageManager, "fetch");
+      } catch (error) {
+        console.error(`Failed to fetch source '${source}': ${error.message}`);
+        throw error;
+      }
     }
 
     this.log.info("Downloaded "+((this.totalDownloaded + this.packageManager.totalDownloaded)/ 1024)+" kB");
@@ -170,13 +178,23 @@ class Library {
     this.#logSystemHeader();
 
     for (const source of config.sources) {
-      await this.processSource(source, this.packageManager, "cs");
+      try {
+        await this.processSource(source, this.packageManager, "cs");
+      } catch (error) {
+        console.error(`Failed to load code systems from '${source}': ${error.message}`);
+        throw error;
+      }
     }
     this.log.info('Loading Packages');
     this.#logPackagesHeader();
 
     for (const source of config.sources) {
-      await this.processSource(source, this.packageManager, "npm");
+      try {
+        await this.processSource(source, this.packageManager, "npm");
+      } catch (error) {
+        console.error(`Failed to load package '${source}': ${error.message}`);
+        throw error;
+      }
     }
 
     const endMemory = process.memoryUsage();
@@ -258,6 +276,14 @@ class Library {
         await this.loadNpm(packageManager, details, isDefault, mode, true);
         break;
 
+      case 'url':
+        await this.loadUrl(packageManager, details, isDefault, mode, false);
+        break;
+
+      case 'url/cs':
+        await this.loadUrl(packageManager, details, isDefault, mode, true);
+        break;
+        
       default:
         throw new Error(`Unknown source type: ${type}`);
     }
@@ -443,6 +469,46 @@ class Library {
     let csc = 0;
     // PackageContentLoader uses fullPackagePath/package internally, so we need to add it for provider loading
     const providerBasePath = path.join(fullPackagePath, 'package');
+    for (const resource of resources) {
+      const cs = new CodeSystem(await contentLoader.loadFile(resource, contentLoader.fhirVersion()));
+      cs.sourcePackage = contentLoader.pid();
+      const existing = cp.codeSystems.get(cs.url);
+      if (!existing || cs.isMoreRecent(existing)) {
+        cp.codeSystems.set(cs.url, cs);
+      }
+      if (cs.version) {
+        cp.codeSystems.set(cs.vurl, cs);
+      }
+      csc++;
+    }
+    this.codeSystemProviders.push(cp);
+    let vs = null;
+    if (!csOnly) {
+      vs = new PackageValueSetProvider(contentLoader);
+      await vs.initialize();
+      this.valueSetProviders.push(vs);
+      const cm = new PackageConceptMapProvider(contentLoader);
+      await cm.initialize();
+      this.conceptMapProviders.push(cm);
+    }
+
+    this.#logPackage(contentLoader.id(), contentLoader.version(), csc, vs ? vs.valueSetMap.size : 0);
+  }
+
+  async loadUrl(packageManager, url, isDefault, mode, csOnly) {
+    const packagePath = await packageManager.fetchUrl(url);
+    if (mode === "fetch" || mode === "cs") {
+      return;
+    }
+    const fullPackagePath = path.join(this.cacheFolder, packagePath);
+    const contentLoader = new PackageContentLoader(fullPackagePath);
+    await contentLoader.initialize();
+
+    this.contentSources.push(contentLoader.id()+"#"+contentLoader.version());
+
+    let cp = new ListCodeSystemProvider();
+    const resources = await contentLoader.getResourcesByType("CodeSystem");
+    let csc = 0;
     for (const resource of resources) {
       const cs = new CodeSystem(await contentLoader.loadFile(resource, contentLoader.fhirVersion()));
       cs.sourcePackage = contentLoader.pid();
@@ -806,6 +872,7 @@ class Library {
       cmp.close();
     }
   }
+
 }
 
 module.exports = { Library };

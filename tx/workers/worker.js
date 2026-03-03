@@ -1,4 +1,4 @@
-const { TerminologyError } = require('../operation-context');
+const { TerminologyError, isDebugging} = require('../operation-context');
 const { CodeSystem } = require('../library/codesystem');
 const ValueSet = require('../library/valueset');
 const {VersionUtilities} = require("../../library/version-utilities");
@@ -252,6 +252,8 @@ class TerminologyWorker {
   loadSupplements(url, version = '', statedSupplements) {
     const supplements = [];
 
+    // todo: look in provider for supplements
+
     if (!this.additionalResources) {
       return supplements;
     }
@@ -269,6 +271,9 @@ class TerminologyWorker {
 
         // we consider either language packs or specified supplements
         if (!(cs.isLangPack() || (statedSupplements && (statedSupplements.has(cs.url) || statedSupplements.has(cs.vurl))))) {
+          continue;
+        }
+        if (this.hasSupplement(cs, supplements)) {
           continue;
         }
         // Handle exact URL match (no version specified in supplements)
@@ -311,7 +316,7 @@ class TerminologyWorker {
       for (const ext of supplementExtensions) {
         const supplementUrl = ext.valueString || ext.valueUri;
         if (supplementUrl && !cs.hasSupplement(this.opContext, supplementUrl)) {
-          throw new TerminologyError(`ValueSet depends on supplement '${supplementUrl}' on ${cs.systemUri} that is not known`);
+          throw new TerminologyError(`ValueSet depends on supplement '${supplementUrl}' on ${cs.system} that is not known`);
         }
       }
     }
@@ -895,6 +900,20 @@ class TerminologyWorker {
     return true;
   }
 
+  debugLog(error) {
+    if (isDebugging()) {
+      console.log(error);
+    }
+  }
+
+  hasSupplement(cs, supplements) {
+    for (let t of supplements) {
+      if (t.vurl == cs.vurl) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 module.exports = {

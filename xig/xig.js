@@ -15,8 +15,10 @@ const { EventEmitter } = require('events');
 const zlib = require('zlib');
 const htmlServer = require('../library/html-server');
 const folders = require('../library/folder-setup');
+const escape = require('escape-html');
 
 const Logger = require('../library/logger');
+const {describeCron} = require("../library/cron-utilities");
 const xigLog = Logger.getInstance().child({ module: 'xig' });
 
 const router = express.Router();
@@ -67,26 +69,6 @@ function getLastUpdateAttempt() {
 
 function getUpdateHistory() {
   return updateHistory;
-}
-
-// Enhanced HTML escaping
-function escapeHtml(text) {
-  if (typeof text !== 'string') {
-    return String(text);
-  }
-
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#x27;',
-    '/': '&#x2F;',
-    '`': '&#x60;',
-    '=': '&#x3D;'
-  };
-
-  return text.replace(/[&<>"'`=/]/g, function(m) { return map[m]; });
 }
 
 // URL validation for external requests
@@ -421,13 +403,13 @@ function buildContentHtml(contentData) {
   let html = '';
 
   if (contentData.message) {
-    html += `<p>${escapeHtml(contentData.message)}</p>`;
+    html += `<p>${escape(contentData.message)}</p>`;
   }
 
   if (contentData.data && Array.isArray(contentData.data)) {
     html += '<ul>';
     contentData.data.forEach(item => {
-      html += `<li>${escapeHtml(item)}</li>`;
+      html += `<li>${escape(item)}</li>`;
     });
     html += '</ul>';
   }
@@ -437,7 +419,7 @@ function buildContentHtml(contentData) {
     if (contentData.table.headers) {
       html += '<thead><tr>';
       contentData.table.headers.forEach(header => {
-        html += `<th>${escapeHtml(header)}</th>`;
+        html += `<th>${escape(header)}</th>`;
       });
       html += '</tr></thead>';
     }
@@ -446,7 +428,7 @@ function buildContentHtml(contentData) {
       contentData.table.rows.forEach(row => {
         html += '<tr>';
         row.forEach(cell => {
-          html += `<td>${escapeHtml(cell)}</td>`;
+          html += `<td>${escape(cell)}</td>`;
         });
         html += '</tr>';
       });
@@ -712,9 +694,9 @@ function renderExtension(details) {
     const modifier = parts[1] || '';
     const type = parts[2] || '';
 
-    return `<td>${escapeHtml(context)}</td><td>${escapeHtml(modifier)}</td><td>${escapeHtml(type)}</td>`;
+    return `<td>${escape(context)}</td><td>${escape(modifier)}</td><td>${escape(type)}</td>`;
   } catch (error) {
-    return `<td colspan="3">${escapeHtml(details)}</td>`;
+    return `<td colspan="3">${escape(details)}</td>`;
   }
 }
 
@@ -841,16 +823,16 @@ async function buildResourceTable(queryParams, resourceCount, offset = 0) {
       // Package column
       const packageObj = getPackage(row.PackageKey);
       if (packageObj && packageObj.Web) {
-        parts.push(`<td><a href="${escapeHtml(packageObj.Web)}" target="_blank">${escapeHtml(packageObj.Id)}</a></td>`);
+        parts.push(`<td><a href="${escape(packageObj.Web)}" target="_blank">${escape(packageObj.Id)}</a></td>`);
       } else if (packageObj) {
-        parts.push(`<td>${escapeHtml(packageObj.Id)}</td>`);
+        parts.push(`<td>${escape(packageObj.Id)}</td>`);
       } else {
-        parts.push(`<td>Package ${escapeHtml(String(row.PackageKey))}</td>`);
+        parts.push(`<td>Package ${escape(String(row.PackageKey))}</td>`);
       }
 
       // Version column (if not filtered)
       if (!ver || ver === '') {
-        parts.push(`<td>${escapeHtml(showVersion(row))}</td>`);
+        parts.push(`<td>${escape(showVersion(row))}</td>`);
       }
 
       // Identity column with complex link logic
@@ -864,53 +846,53 @@ async function buildResourceTable(queryParams, resourceCount, offset = 0) {
       }
 
       const identityText = (row.ResourceType + '/').replace(resourceTypePrefix, '') + row.Id;
-      parts.push(`<td><a href="${identityLink}">${escapeHtml(identityText)}</a></td>`);
+      parts.push(`<td><a href="${identityLink}">${escape(identityText)}</a></td>`);
 
       // Name/Title column
       const displayName = row.Title || row.Name || '';
-      parts.push(`<td>${escapeHtml(displayName)}</td>`);
+      parts.push(`<td>${escape(displayName)}</td>`);
 
       // Status column
       if (row.StandardsStatus) {
-        parts.push(`<td>${escapeHtml(row.StandardsStatus || '')}</td>`);
+        parts.push(`<td>${escape(row.StandardsStatus || '')}</td>`);
       } else {
-        parts.push(`<td>${escapeHtml(row.Status || '')}</td>`);
+        parts.push(`<td>${escape(row.Status || '')}</td>`);
       }
 
       // FMM/WG Columns
-      parts.push(`<td>${escapeHtml(row.FMM || '')}</td>`);
-      parts.push(`<td>${escapeHtml(row.WG || '')}</td>`);
+      parts.push(`<td>${escape(row.FMM || '')}</td>`);
+      parts.push(`<td>${escape(row.WG || '')}</td>`);
 
       // Date column
       parts.push(`<td>${formatDate(row.Date)}</td>`);
 
       // Realm column (if not filtered)
       if (!realm || realm === '') {
-        parts.push(`<td>${escapeHtml(row.Realm || '')}</td>`);
+        parts.push(`<td>${escape(row.Realm || '')}</td>`);
       }
 
       // Authority column (if not filtered)
       if (!auth || auth === '') {
-        parts.push(`<td>${escapeHtml(row.Authority || '')}</td>`);
+        parts.push(`<td>${escape(row.Authority || '')}</td>`);
       }
 
       // Type-specific columns
       switch (type) {
         case 'cs': // CodeSystem
           if (row.Supplements && row.Supplements !== '') {
-            parts.push(`<td>Suppl: ${escapeHtml(row.Supplements)}</td>`);
+            parts.push(`<td>Suppl: ${escape(row.Supplements)}</td>`);
           } else {
-            parts.push(`<td>${escapeHtml(row.Content || '')}</td>`);
+            parts.push(`<td>${escape(row.Content || '')}</td>`);
           }
           break;
         case 'rp': // Resource Profiles
           if (!rt || rt === '') {
-            parts.push(`<td>${escapeHtml(row.Type || '')}</td>`);
+            parts.push(`<td>${escape(row.Type || '')}</td>`);
           }
           break;
         case 'dp': // Datatype Profiles
           if (!rt || rt === '') {
-            parts.push(`<td>${escapeHtml(row.Type || '')}</td>`);
+            parts.push(`<td>${escape(row.Type || '')}</td>`);
           }
           break;
         case 'ext': // Extensions
@@ -919,13 +901,13 @@ async function buildResourceTable(queryParams, resourceCount, offset = 0) {
         case 'vs': // ValueSets
         case 'cm': { // ConceptMaps
           const details = (row.Details || '').replace(/,/g, ' ');
-          parts.push(`<td>${escapeHtml(details)}</td>`);
+          parts.push(`<td>${escape(details)}</td>`);
           break;
         }
         case 'lm': { // Logical Models
           const packageCanonical = packageObj ? packageObj.Canonical : '';
           const typeText = (row.Type || '').replace(packageCanonical + 'StructureDefinition/', '');
-          parts.push(`<td>${escapeHtml(typeText)}</td>`);
+          parts.push(`<td>${escape(typeText)}</td>`);
           break;
         }
       }
@@ -940,7 +922,7 @@ async function buildResourceTable(queryParams, resourceCount, offset = 0) {
 
   } catch (error) {
     xigLog.error(`Error building resource table: ${error.message}`);
-    return `<p class="text-danger">Error loading resource list: ${escapeHtml(error.message)}</p>`;
+    return `<p class="text-danger">Error loading resource list: ${escape(error.message)}</p>`;
   }
 }
 
@@ -980,9 +962,9 @@ async function buildSummaryStats(queryParams, baseUrl) {
           });
 
           const linkUrl = buildVersionLinkUrl(baseUrl, queryParams, version);
-          html += `<li><a href="${linkUrl}">${escapeHtml(version)}</a>: ${count.toLocaleString()}</li>`;
+          html += `<li><a href="${linkUrl}">${escape(version)}</a>: ${count.toLocaleString()}</li>`;
         } catch (error) {
-          html += `<li>${escapeHtml(version)}: Error</li>`;
+          html += `<li>${escape(version)}: Error</li>`;
         }
       }
       html += '</ul>';
@@ -1015,7 +997,7 @@ async function buildSummaryStats(queryParams, baseUrl) {
           html += `<li>none: ${count.toLocaleString()}</li>`;
         } else {
           const linkUrl = buildAuthorityLinkUrl(baseUrl, queryParams, authority);
-          html += `<li><a href="${linkUrl}">${escapeHtml(authority)}</a>: ${count.toLocaleString()}</li>`;
+          html += `<li><a href="${linkUrl}">${escape(authority)}</a>: ${count.toLocaleString()}</li>`;
         }
       });
       html += '</ul>';
@@ -1051,7 +1033,7 @@ async function buildSummaryStats(queryParams, baseUrl) {
           c++;
         } else {
           const linkUrl = buildRealmLinkUrl(baseUrl, queryParams, realmCode);
-          html += `<li><a href="${linkUrl}">${escapeHtml(realmCode)}</a>: ${count.toLocaleString()}</li>`;
+          html += `<li><a href="${linkUrl}">${escape(realmCode)}</a>: ${count.toLocaleString()}</li>`;
         }
       });
       if (c > 0) {
@@ -1064,7 +1046,7 @@ async function buildSummaryStats(queryParams, baseUrl) {
   } catch (error) {
     console.error(error);
     xigLog.error(`Error building summary stats: ${error.message}`);
-    html += `<p class="text-warning">Error loading summary statistics: ${escapeHtml(error.message)}</p>`;
+    html += `<p class="text-warning">Error loading summary statistics: ${escape(error.message)}</p>`;
   }
 
   return html;
@@ -1123,9 +1105,9 @@ function makeSelect(selectedValue, optionsList, name = 'rt') {
     }
 
     if (selectedValue === code) {
-      html += `<option value="${escapeHtml(code)}" selected="true">${escapeHtml(display)}</option>`;
+      html += `<option value="${escape(code)}" selected="true">${escape(display)}</option>`;
     } else {
-      html += `<option value="${escapeHtml(code)}">${escapeHtml(display)}</option>`;
+      html += `<option value="${escape(code)}">${escape(display)}</option>`;
     }
   });
 
@@ -1140,13 +1122,13 @@ function buildAdditionalForm(queryParams) {
 
   // Add hidden inputs to preserve current filter state
   if (ver && ver !== '') {
-    html += `<input type="hidden" name="ver" value="${escapeHtml(ver)}"/>`;
+    html += `<input type="hidden" name="ver" value="${escape(ver)}"/>`;
   }
   if (realm && realm !== '') {
-    html += `<input type="hidden" name="realm" value="${escapeHtml(realm)}"/>`;
+    html += `<input type="hidden" name="realm" value="${escape(realm)}"/>`;
   }
   if (auth && auth !== '') {
-    html += `<input type="hidden" name="auth" value="${escapeHtml(auth)}"/>`;
+    html += `<input type="hidden" name="auth" value="${escape(auth)}"/>`;
   }
 
   // Add type-specific fields
@@ -1214,7 +1196,7 @@ function buildAdditionalForm(queryParams) {
   }
 
   // Add text search field
-  html += `Text: <input type="text" name="text" value="${escapeHtml(text || '')}" class="" style="width: 200px;"/> `;
+  html += `Text: <input type="text" name="text" value="${escape(text || '')}" class="" style="width: 200px;"/> `;
 
   // Add submit button
   html += '<input type="submit" value="Search" style="color:rgb(89, 137, 241)"/>';
@@ -1275,7 +1257,7 @@ function buildPageHeading(queryParams) {
     default:
       // No type selected or unknown type
       if (rt && rt !== '') {
-        heading += `Resources - ${escapeHtml(rt)}`;
+        heading += `Resources - ${escape(rt)}`;
       } else {
         heading += 'Resources - All Kinds';
       }
@@ -1284,15 +1266,15 @@ function buildPageHeading(queryParams) {
 
   // Add additional qualifiers
   if (realm && realm !== '') {
-    heading += `, Realm ${escapeHtml(realm.toUpperCase())}`;
+    heading += `, Realm ${escape(realm.toUpperCase())}`;
   }
 
   if (auth && auth !== '') {
-    heading += `, Authority ${escapeHtml(capitalizeFirst(auth))}`;
+    heading += `, Authority ${escape(capitalizeFirst(auth))}`;
   }
 
   if (ver && ver !== '') {
-    heading += `, Version ${escapeHtml(ver)}`;
+    heading += `, Version ${escape(ver)}`;
   }
 
   heading += '</h2>';
@@ -1329,10 +1311,10 @@ function buildVersionBar(baseUrl, currentParams) {
   const versions = getCachedSet('versions');
   versions.forEach(version => {
     if (version === ver) {
-      html += ` | <b>${escapeHtml(version)}</b>`;
+      html += ` | <b>${escape(version)}</b>`;
     } else {
       const separator = baseUrlWithoutVer.includes('?') ? '&' : '?';
-      html += ` | <a href="${baseUrlWithoutVer}${separator}ver=${encodeURIComponent(version)}">${escapeHtml(version)}</a>`;
+      html += ` | <a href="${baseUrlWithoutVer}${separator}ver=${encodeURIComponent(version)}">${escape(version)}</a>`;
     }
   });
 
@@ -1356,10 +1338,10 @@ function buildAuthorityBar(baseUrl, currentParams) {
   const authorities = getCachedSet('authorities');
   authorities.forEach(authority => {
     if (authority === auth) {
-      html += ` | <b>${escapeHtml(authority)}</b>`;
+      html += ` | <b>${escape(authority)}</b>`;
     } else {
       const separator = baseUrlWithoutAuth.includes('?') ? '&' : '?';
-      html += ` | <a href="${baseUrlWithoutAuth}${separator}auth=${encodeURIComponent(authority)}">${escapeHtml(authority)}</a>`;
+      html += ` | <a href="${baseUrlWithoutAuth}${separator}auth=${encodeURIComponent(authority)}">${escape(authority)}</a>`;
     }
   });
 
@@ -1383,10 +1365,10 @@ function buildRealmBar(baseUrl, currentParams) {
   const realms = getCachedSet('realms');
   realms.forEach(realmCode => {
     if (realmCode === realm) {
-      html += ` | <b>${escapeHtml(realmCode)}</b>`;
+      html += ` | <b>${escape(realmCode)}</b>`;
     } else {
       const separator = baseUrlWithoutRealm.includes('?') ? '&' : '?';
-      html += ` | <a href="${baseUrlWithoutRealm}${separator}realm=${encodeURIComponent(realmCode)}">${escapeHtml(realmCode)}</a>`;
+      html += ` | <a href="${baseUrlWithoutRealm}${separator}realm=${encodeURIComponent(realmCode)}">${escape(realmCode)}</a>`;
     }
   });
 
@@ -1411,10 +1393,10 @@ function buildTypeBar(baseUrl, currentParams) {
   if (typesMap instanceof Map) {
     typesMap.forEach((display, code) => {
       if (code === type) {
-        html += ` | <b>${escapeHtml(display)}</b>`;
+        html += ` | <b>${escape(display)}</b>`;
       } else {
         const separator = baseUrlWithoutType.includes('?') ? '&' : '?';
-        html += ` | <a href="${baseUrlWithoutType}${separator}type=${encodeURIComponent(code)}">${escapeHtml(display)}</a>`;
+        html += ` | <a href="${baseUrlWithoutType}${separator}type=${encodeURIComponent(code)}">${escape(display)}</a>`;
       }
     });
   }
@@ -1519,6 +1501,9 @@ function getMetadata(key) {
 function downloadFile(url, destination, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     xigLog.info(`Starting download from ${url}`);
+    if (globalStats) {
+      globalStats.task('XIG Download', `Downloading from ${url}`)
+    }
     const downloadMeta = {
       url: url,
       finalUrl: url,
@@ -1564,6 +1549,9 @@ function downloadFile(url, destination, maxRedirects = 5) {
           }
 
           if (response.statusCode !== 200) {
+            if (globalStats) {
+              globalStats.task('XIG Download', `Download failed:  ${response.statusCode}`)
+            }
             reject(Object.assign(
               new Error(`Download failed with HTTP ${response.statusCode}`),
               { downloadMeta }
@@ -1574,6 +1562,9 @@ function downloadFile(url, destination, maxRedirects = 5) {
           // Check content length
           const maxSize = 10 * 1024 * 1024 * 1024; // 10GB limit
           if (downloadMeta.contentLength && downloadMeta.contentLength > maxSize) {
+            if (globalStats) {
+              globalStats.task('XIG Download', `Download failed: too large`)
+            }
             reject(Object.assign(new Error('File too large'), { downloadMeta }));
             return;
           }
@@ -1584,6 +1575,9 @@ function downloadFile(url, destination, maxRedirects = 5) {
             downloadMeta.downloadedBytes += chunk.length;
             if (downloadMeta.downloadedBytes > maxSize) {
               request.destroy();
+              if (globalStats) {
+                globalStats.task('XIG Download', `Download failed: file too large`);
+              }
               fs.unlink(destination, () => {}); // Clean up
               reject(Object.assign(new Error('File too large'), { downloadMeta }));
               return;
@@ -1596,21 +1590,33 @@ function downloadFile(url, destination, maxRedirects = 5) {
             fileStream.close();
             downloadMeta.durationMs = Date.now() - downloadMeta.startTime;
             xigLog.info(`Download completed successfully. Downloaded ${downloadMeta.downloadedBytes} bytes to ${destination}`);
+            if (globalStats) {
+              globalStats.task('XIG Download', `Downloaded ${downloadMeta.downloadedBytes} bytes to ${destination}`);
+            }
             resolve(downloadMeta);
           });
 
           fileStream.on('error', (err) => {
+            if (globalStats) {
+              globalStats.task('XIG Download', `Download failed`);
+            }
             fs.unlink(destination, () => {}); // Delete partial file
             reject(Object.assign(err, { downloadMeta }));
           });
         });
 
         request.on('error', (err) => {
+          if (globalStats) {
+            globalStats.task('XIG Download', `Download Error`);
+          }
           reject(Object.assign(err, { downloadMeta }));
         });
 
         request.setTimeout(300000, () => { // 5 minutes timeout
           request.destroy();
+          if (globalStats) {
+            globalStats.task('XIG Download', `Download Timeout`);
+          }
           reject(Object.assign(new Error('Download timeout after 5 minutes'), { downloadMeta }));
         });
 
@@ -2037,7 +2043,7 @@ function buildStatsTable(statsData) {
     Object.keys(statsData.cache.tables).forEach(tableName => {
       const tableInfo = statsData.cache.tables[tableName];
       html += `<tr>`;
-      html += `<td>Cache: ${escapeHtml(tableName)}</td>`;
+      html += `<td>Cache: ${escape(tableName)}</td>`;
       html += `<td>${tableInfo.size.toLocaleString()}</td>`;
       html += `<td>${tableInfo.type}</td>`;
       html += `</tr>`;
@@ -2058,12 +2064,12 @@ function buildStatsTable(statsData) {
   html += `<tr>`;
   html += `<td>Database File</td>`;
   html += `<td>${(statsData.database.fileSize / 1024 / 1024).toFixed(2)} MB</td>`;
-  html += `<td>${escapeHtml(XIG_DB_PATH)}</td>`;
+  html += `<td>${escape(XIG_DB_PATH)}</td>`;
   html += `</tr>`;
 
   html += `<tr>`;
   html += `<td>Download Source</td>`;
-  html += `<td colspan="2"><code>${escapeHtml(XIG_DB_URL)}</code></td>`;
+  html += `<td colspan="2"><code>${escape(XIG_DB_URL)}</code></td>`;
   html += `</tr>`;
 
   html += `<tr>`;
@@ -2114,13 +2120,13 @@ function buildStatsTable(statsData) {
           detail += ` (HTTP ${entry.downloadMeta.httpStatus})`;
         }
       } else if (entry.status === 'failed') {
-        detail = escapeHtml(entry.error || 'Unknown error');
+        detail = escape(entry.error || 'Unknown error');
         if (entry.downloadMeta) {
           if (entry.downloadMeta.httpStatus) {
             detail += ` (HTTP ${entry.downloadMeta.httpStatus})`;
           }
           if (entry.downloadMeta.finalUrl !== entry.sourceUrl) {
-            detail += `<br>Redirected to: <code>${escapeHtml(entry.downloadMeta.finalUrl)}</code>`;
+            detail += `<br>Redirected to: <code>${escape(entry.downloadMeta.finalUrl)}</code>`;
           }
           if (entry.downloadMeta.downloadedBytes > 0) {
             detail += `<br>Partial download: ${(entry.downloadMeta.downloadedBytes / 1024 / 1024).toFixed(1)} MB`;
@@ -2207,24 +2213,24 @@ router.get('/:packagePid/:resourceType/:resourceId', async (req, res) => {
   const start = Date.now();
   try {
 
-  const { packagePid, resourceType, resourceId } = req.params;
+    const { packagePid, resourceType, resourceId } = req.params;
 
-  // Check if this looks like a package/resource pattern
-  // Package PIDs typically contain dots and pipes: hl7.fhir.uv.extensions|current
-  // Resource types are FHIR resource names: StructureDefinition, ValueSet, etc.
+    // Check if this looks like a package/resource pattern
+    // Package PIDs typically contain dots and pipes: hl7.fhir.uv.extensions|current
+    // Resource types are FHIR resource names: StructureDefinition, ValueSet, etc.
 
-  const isPackagePidFormat = packagePid.includes('.') || packagePid.includes('|');
-  const isFhirResourceType = /^[A-Z][a-zA-Z]+$/.test(resourceType);
+    const isPackagePidFormat = packagePid.includes('.') || packagePid.includes('|');
+    const isFhirResourceType = /^[A-Z][a-zA-Z]+$/.test(resourceType);
 
-  if (isPackagePidFormat && isFhirResourceType) {
-    // This looks like a legacy resource URL, redirect to the proper format
-    res.redirect(301, `/xig/resource/${packagePid}/${resourceType}/${resourceId}`);
-  } else {
-    // Not a resource URL pattern, return 404
-    res.status(404).send('Not Found');
-  }
+    if (isPackagePidFormat && isFhirResourceType) {
+      // This looks like a legacy resource URL, redirect to the proper format
+      res.redirect(301, `/xig/resource/${packagePid}/${resourceType}/${resourceId}`);
+    } else {
+      // Not a resource URL pattern, return 404
+      res.status(404).send('Not Found');
+    }
   } finally {
-    this.stats.countRequest(':id', Date.now() - start);
+    globalStats.countRequest(':id', Date.now() - start);
   }
 });
 
@@ -2283,7 +2289,7 @@ router.get('/', async (req, res) => {
       // Build resource count paragraph
       let countParagraph = '<p>';
       if (countError) {
-        countParagraph += `<span class="text-warning">Unable to get resource count: ${escapeHtml(countError)}</span>`;
+        countParagraph += `<span class="text-warning">Unable to get resource count: ${escape(countError)}</span>`;
       } else {
         countParagraph += `${resourceCount.toLocaleString()} resources`;
       }
@@ -2327,74 +2333,74 @@ router.get('/stats', async (req, res) => {
   const start = Date.now();
   try {
 
-  const startTime = Date.now(); // Add this at the very beginning
+    const startTime = Date.now(); // Add this at the very beginning
 
-  try {
+    try {
 
-    const [dbInfo, tableCounts] = await Promise.all([
-      getDatabaseInfo(),
-      getDatabaseTableCounts()
-    ]);
+      const [dbInfo, tableCounts] = await Promise.all([
+        getDatabaseInfo(),
+        getDatabaseTableCounts()
+      ]);
 
-    const statsData = {
-      cache: getCacheStats(),
-      database: dbInfo,
-      databaseAge: getDatabaseAgeInfo(),
-      tableCounts: tableCounts,
-      requests: getRequestStats()
-    };
+      const statsData = {
+        cache: getCacheStats(),
+        database: dbInfo,
+        databaseAge: getDatabaseAgeInfo(),
+        tableCounts: tableCounts,
+        requests: getRequestStats()
+      };
 
-    const content = buildStatsTable(statsData);
+      const content = buildStatsTable(statsData);
 
-    let introContent = '';
-    const lastAttempt = getLastUpdateAttempt();
+      let introContent = '';
+      const lastAttempt = getLastUpdateAttempt();
 
-    if (statsData.databaseAge.daysOld !== null && statsData.databaseAge.daysOld > 1) {
-      introContent += `<div class="alert alert-warning">`;
-      introContent += `<strong>⚠ Database is ${statsData.databaseAge.daysOld} days old.</strong> `;
-      introContent += `Automatic updates are scheduled daily at 2 AM. `;
-      if (lastAttempt) {
-        if (lastAttempt.status === 'failed') {
-          introContent += `<br><strong>Last update attempt failed</strong> at ${new Date(lastAttempt.timestamp).toLocaleString()}: `;
-          introContent += `${escapeHtml(lastAttempt.error || 'Unknown error')}`;
-          if (lastAttempt.downloadMeta && lastAttempt.downloadMeta.httpStatus) {
-            introContent += ` (HTTP ${lastAttempt.downloadMeta.httpStatus})`;
+      if (statsData.databaseAge.daysOld !== null && statsData.databaseAge.daysOld > 1) {
+        introContent += `<div class="alert alert-warning">`;
+        introContent += `<strong>⚠ Database is ${statsData.databaseAge.daysOld} days old.</strong> `;
+        introContent += `Automatic updates are scheduled daily at 2 AM. `;
+        if (lastAttempt) {
+          if (lastAttempt.status === 'failed') {
+            introContent += `<br><strong>Last update attempt failed</strong> at ${new Date(lastAttempt.timestamp).toLocaleString()}: `;
+            introContent += `${escape(lastAttempt.error || 'Unknown error')}`;
+            if (lastAttempt.downloadMeta && lastAttempt.downloadMeta.httpStatus) {
+              introContent += ` (HTTP ${lastAttempt.downloadMeta.httpStatus})`;
+            }
+          } else if (lastAttempt.status === 'success') {
+            introContent += `<br>Last successful update: ${new Date(lastAttempt.timestamp).toLocaleString()} `;
+            introContent += `(file age based on filesystem mtime)`;
           }
-        } else if (lastAttempt.status === 'success') {
-          introContent += `<br>Last successful update: ${new Date(lastAttempt.timestamp).toLocaleString()} `;
-          introContent += `(file age based on filesystem mtime)`;
+        } else {
+          introContent += `<br>No update attempts recorded since server started.`;
         }
-      } else {
-        introContent += `<br>No update attempts recorded since server started.`;
+        introContent += `</div>`;
+      } else if (lastAttempt && lastAttempt.status === 'failed') {
+        // DB is fresh but last attempt failed — still worth showing
+        introContent += `<div class="alert alert-warning">`;
+        introContent += `<strong>Last update attempt failed</strong> at ${new Date(lastAttempt.timestamp).toLocaleString()}: `;
+        introContent += `${escape(lastAttempt.error || 'Unknown error')}`;
+        introContent += `</div>`;
       }
-      introContent += `</div>`;
-    } else if (lastAttempt && lastAttempt.status === 'failed') {
-      // DB is fresh but last attempt failed — still worth showing
-      introContent += `<div class="alert alert-warning">`;
-      introContent += `<strong>Last update attempt failed</strong> at ${new Date(lastAttempt.timestamp).toLocaleString()}: `;
-      introContent += `${escapeHtml(lastAttempt.error || 'Unknown error')}`;
-      introContent += `</div>`;
+
+      if (!statsData.cache.loaded) {
+        introContent += `<div class="alert alert-info">`;
+        introContent += `<strong>Info:</strong> Cache is still loading. Some statistics may be incomplete.`;
+        introContent += `</div>`;
+      }
+
+      const fullContent = introContent + content;
+
+      const stats = await gatherPageStatistics();
+      stats.processingTime = Date.now() - startTime;
+
+      const html = renderPage('FHIR IG Statistics Status', fullContent, stats);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+
+    } catch (error) {
+      xigLog.error(`Error generating stats page: ${error.message}`);
+      htmlServer.sendErrorResponse(res, 'xig', error);
     }
-
-    if (!statsData.cache.loaded) {
-      introContent += `<div class="alert alert-info">`;
-      introContent += `<strong>Info:</strong> Cache is still loading. Some statistics may be incomplete.`;
-      introContent += `</div>`;
-    }
-
-    const fullContent = introContent + content;
-
-    const stats = await gatherPageStatistics();
-    stats.processingTime = Date.now() - startTime;
-
-    const html = renderPage('FHIR IG Statistics Status', fullContent, stats);
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-
-  } catch (error) {
-    xigLog.error(`Error generating stats page: ${error.message}`);
-    htmlServer.sendErrorResponse(res, 'xig', error);
-  }
   } finally {
     globalStats.countRequest('stats', Date.now() - start);
   }
@@ -2404,56 +2410,56 @@ router.get('/stats', async (req, res) => {
 router.get('/resource/:packagePid/:resourceType/:resourceId', async (req, res) => {
   const start = Date.now();
   try {
-  const startTime = Date.now(); // Add this at the very beginning
-  try {
-    const { packagePid, resourceType, resourceId } = req.params;
+    const startTime = Date.now(); // Add this at the very beginning
+    try {
+      const { packagePid, resourceType, resourceId } = req.params;
 
-    // Convert URL-safe package PID back to database format (| to #)
-    const dbPackagePid = packagePid.replace(/\|/g, '#');
+      // Convert URL-safe package PID back to database format (| to #)
+      const dbPackagePid = packagePid.replace(/\|/g, '#');
 
-    if (!xigDb) {
-      throw new Error('Database not available');
-    }
+      if (!xigDb) {
+        throw new Error('Database not available');
+      }
 
-    // Get package information first
-    const packageObj = getPackageByPid(dbPackagePid);
-    if (!packageObj) {
-      return res.status(404).send(renderPage('Resource Not Found',
-        `<div class="alert alert-danger">Unknown Package: ${escapeHtml(packagePid)}</div>`));
-    }
+      // Get package information first
+      const packageObj = getPackageByPid(dbPackagePid);
+      if (!packageObj) {
+        return res.status(404).send(renderPage('Resource Not Found',
+          `<div class="alert alert-danger">Unknown Package: ${escape(packagePid)}</div>`));
+      }
 
-    // Get resource details
-    const resourceQuery = `
-        SELECT * FROM Resources
-        WHERE PackageKey = ? AND ResourceType = ? AND Id = ?
-    `;
+      // Get resource details
+      const resourceQuery = `
+          SELECT * FROM Resources
+          WHERE PackageKey = ? AND ResourceType = ? AND Id = ?
+      `;
 
-    const resourceData = await new Promise((resolve, reject) => {
-      xigDb.get(resourceQuery, [packageObj.PackageKey, resourceType, resourceId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+      const resourceData = await new Promise((resolve, reject) => {
+        xigDb.get(resourceQuery, [packageObj.PackageKey, resourceType, resourceId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
       });
-    });
 
-    if (!resourceData) {
-      return res.status(404).send(renderPage('Resource Not Found',
-        `<div class="alert alert-danger">Unknown Resource: ${escapeHtml(resourceType)}/${escapeHtml(resourceId)} in package ${escapeHtml(packagePid)}</div>`));
+      if (!resourceData) {
+        return res.status(404).send(renderPage('Resource Not Found',
+          `<div class="alert alert-danger">Unknown Resource: ${escape(resourceType)}/${escape(resourceId)} in package ${escape(packagePid)}</div>`));
+      }
+
+      // Build the resource detail page
+      const content = await buildResourceDetailPage(packageObj, resourceData, req.secure);
+      const title = `${resourceType}/${resourceId}`;
+      const stats = await gatherPageStatistics();
+      stats.processingTime = Date.now() - startTime;
+
+      const html = renderPage(title, content, stats);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+
+    } catch (error) {
+      xigLog.error(`Error rendering resource detail page: ${error.message}`);
+      htmlServer.sendErrorResponse(res, 'xig', error);
     }
-
-    // Build the resource detail page
-    const content = await buildResourceDetailPage(packageObj, resourceData, req.secure);
-    const title = `${resourceType}/${resourceId}`;
-    const stats = await gatherPageStatistics();
-    stats.processingTime = Date.now() - startTime;
-
-    const html = renderPage(title, content, stats);
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-
-  } catch (error) {
-    xigLog.error(`Error rendering resource detail page: ${error.message}`);
-    htmlServer.sendErrorResponse(res, 'xig', error);
-  }
   } finally {
     globalStats.countRequest(':pid', Date.now() - start);
   }
@@ -2491,7 +2497,7 @@ async function buildResourceDetailPage(packageObj, resourceData, secure = false)
 
   } catch (error) {
     xigLog.error(`Error building resource detail content: ${error.message}`);
-    html += `<div class="alert alert-warning">Error loading some content: ${escapeHtml(error.message)}</div>`;
+    html += `<div class="alert alert-warning">Error loading some content: ${escape(error.message)}</div>`;
   }
 
   return html;
@@ -2503,28 +2509,28 @@ async function buildResourceMetadataTable(packageObj, resourceData) {
 
   // Package
   if (packageObj && packageObj.Web) {
-    html += `<tr><td><strong>Package</strong></td><td><a href="${escapeHtml(packageObj.Web)}" target="_blank">${escapeHtml(packageObj.Id)}</a></td></tr>`;
+    html += `<tr><td><strong>Package</strong></td><td><a href="${escape(packageObj.Web)}" target="_blank">${escape(packageObj.Id)}</a></td></tr>`;
   } else if (packageObj) {
-    html += `<tr><td><strong>Package</strong></td><td>${escapeHtml(packageObj.Id)}</td></tr>`;
+    html += `<tr><td><strong>Package</strong></td><td>${escape(packageObj.Id)}</td></tr>`;
   }
 
   // Type
-  html += `<tr><td><strong>Resource Type</strong></td><td>${escapeHtml(resourceData.ResourceType)}</td></tr>`;
+  html += `<tr><td><strong>Resource Type</strong></td><td>${escape(resourceData.ResourceType)}</td></tr>`;
 
   // Id
-  html += `<tr><td><strong>Id</strong></td><td>${escapeHtml(resourceData.Id)}</td></tr>`;
+  html += `<tr><td><strong>Id</strong></td><td>${escape(resourceData.Id)}</td></tr>`;
 
   // FHIR Versions
   const versions = showVersion(resourceData);
   if (versions.includes(',')) {
-    html += `<tr><td><strong>FHIR Versions</strong></td><td>${escapeHtml(versions)}</td></tr>`;
+    html += `<tr><td><strong>FHIR Versions</strong></td><td>${escape(versions)}</td></tr>`;
   } else {
-    html += `<tr><td><strong>FHIR Version</strong></td><td>${escapeHtml(versions)}</td></tr>`;
+    html += `<tr><td><strong>FHIR Version</strong></td><td>${escape(versions)}</td></tr>`;
   }
 
   // Source
   if (resourceData.Web) {
-    html += `<tr><td><strong>Source</strong></td><td><a href="${escapeHtml(resourceData.Web)}" target="_blank">${escapeHtml(resourceData.Web)}</a></td></tr>`;
+    html += `<tr><td><strong>Source</strong></td><td><a href="${escape(resourceData.Web)}" target="_blank">${escape(resourceData.Web)}</a></td></tr>`;
   }
 
   // Add all other non-empty fields
@@ -2555,7 +2561,7 @@ async function buildResourceMetadataTable(packageObj, resourceData) {
         const expValue = value === '1' ? 'True' : 'False';
         html += `<tr><td><strong>${field.label}</strong></td><td>${expValue}</td></tr>`;
       } else {
-        html += `<tr><td><strong>${field.label}</strong></td><td>${escapeHtml(value)}</td></tr>`;
+        html += `<tr><td><strong>${field.label}</strong></td><td>${escape(value)}</td></tr>`;
       }
     }
   });
@@ -2619,7 +2625,7 @@ async function buildResourceDependencies(resourceData, secure = false) {
       html += await buildExtensionExamplesSection(resourceData.Url);
     }
   } catch (error) {
-    html += `<div class="alert alert-warning">Error loading dependencies: ${escapeHtml(error.message)}</div>`;
+    html += `<div class="alert alert-warning">Error loading dependencies: ${escape(error.message)}</div>`;
   }
 
   return html;
@@ -2662,8 +2668,8 @@ async function buildExtensionExamplesSection(resourceUrl) {
         const versionName = example.Version ? (versionMap[example.Version] || example.Version.toString()) : '';
 
         html += '<tr>';
-        html += `<td><a href="${escapeHtml(example.Url || '')}">${escapeHtml(example.Name || '')}</a></td>`;
-        html += `<td>${escapeHtml(versionName)}</td>`;
+        html += `<td><a href="${escape(example.Url || '')}">${escape(example.Name || '')}</a></td>`;
+        html += `<td>${escape(versionName)}</td>`;
         html += '</tr>';
       });
 
@@ -2673,7 +2679,7 @@ async function buildExtensionExamplesSection(resourceUrl) {
 
   } catch (error) {
     xigLog.error(`Error loading extension examples: ${error.message}`);
-    html += `<div class="alert alert-warning">Error loading extension examples: ${escapeHtml(error.message)}</div>`;
+    html += `<div class="alert alert-warning">Error loading extension examples: ${escape(error.message)}</div>`;
   }
 
   return html;
@@ -2690,7 +2696,7 @@ function buildDependencyTable(dependencies) {
       }
       currentType = dep.ResourceType;
       html += '<table class="table table-bordered">';
-      html += `<tr style="background-color: #eeeeee"><td colspan="2"><strong>${escapeHtml(currentType)}</strong></td></tr>`;
+      html += `<tr style="background-color: #eeeeee"><td colspan="2"><strong>${escape(currentType)}</strong></td></tr>`;
     }
 
     html += '<tr>';
@@ -2708,15 +2714,15 @@ function buildDependencyTable(dependencies) {
         const parts = displayUrl.split('/');
         displayUrl = parts[parts.length - 1];
       }
-      html += `<td><a href="${resourceUrl}">${escapeHtml(displayUrl)}</a></td>`;
+      html += `<td><a href="${resourceUrl}">${escape(displayUrl)}</a></td>`;
     } else {
       const displayId = dep.ResourceType + '/' + dep.Id;
-      html += `<td><a href="${resourceUrl}">${escapeHtml(displayId)}</a></td>`;
+      html += `<td><a href="${resourceUrl}">${escape(displayId)}</a></td>`;
     }
 
     // Title or Name
     const displayName = dep.Title || dep.Name || '';
-    html += `<td>${escapeHtml(displayName)}</td>`;
+    html += `<td>${escape(displayName)}</td>`;
 
     html += '</tr>';
   });
@@ -2784,7 +2790,7 @@ async function buildResourceNarrative(resourceKey, packageObj) {
 
   } catch (error) {
     xigLog.error(`Error loading narrative: ${error.message}`);
-    html += `<div class="alert alert-warning">Error loading narrative: ${escapeHtml(error.message)}</div>`;
+    html += `<div class="alert alert-warning">Error loading narrative: ${escape(error.message)}</div>`;
   }
 
   return html;
@@ -2833,12 +2839,12 @@ async function buildResourceSource(resourceKey) {
     const formattedJson = JSON.stringify(jsonData, null, 2);
 
     html += '<pre>';
-    html += escapeHtml(formattedJson);
+    html += escape(formattedJson);
     html += '</pre>';
 
   } catch (error) {
     xigLog.error(`Error loading source: ${error.message}`);
-    html += `<div class="alert alert-warning">Error loading source: ${escapeHtml(error.message)}</div>`;
+    html += `<div class="alert alert-warning">Error loading source: ${escape(error.message)}</div>`;
   }
 
   return html;
@@ -2868,27 +2874,27 @@ router.get('/status', async (req, res) => {
   const start = Date.now();
   try {
 
-  try {
-    const dbInfo = await getDatabaseInfo();
-    await res.json({
-      status: 'OK',
-      database: dbInfo,
-      databaseAge: getDatabaseAgeInfo(),
-      downloadUrl: XIG_DB_URL,
-      localPath: XIG_DB_PATH,
-      cache: getCacheStats(),
-      updateInProgress: updateInProgress,
-      lastUpdateAttempt: getLastUpdateAttempt(),
-      updateHistory: getUpdateHistory()
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'ERROR',
-      error: error.message,
-      cache: getCacheStats(),
-      updateHistory: getUpdateHistory()
-    });
-  }
+    try {
+      const dbInfo = await getDatabaseInfo();
+      await res.json({
+        status: 'OK',
+        database: dbInfo,
+        databaseAge: getDatabaseAgeInfo(),
+        downloadUrl: XIG_DB_URL,
+        localPath: XIG_DB_PATH,
+        cache: getCacheStats(),
+        updateInProgress: updateInProgress,
+        lastUpdateAttempt: getLastUpdateAttempt(),
+        updateHistory: getUpdateHistory()
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'ERROR',
+        error: error.message,
+        cache: getCacheStats(),
+        updateHistory: getUpdateHistory()
+      });
+    }
   } finally {
     globalStats.countRequest('stats', Date.now() - start);
   }
@@ -2923,7 +2929,7 @@ router.post('/update', async (req, res) => {
 
 let globalStats;
 // Initialize the XIG module
-async function initializeXigModule(stats) {
+async function initializeXigModule(stats, xigConfig) {
   try {
     globalStats = stats;
     loadTemplate();
@@ -2937,11 +2943,16 @@ async function initializeXigModule(stats) {
       }, 5000);
     }
 
+    if (globalStats) {
+      globalStats.addTask('XIG Download', describeCron('0 2 * * *'));
+    }
     // Check if auto-update is enabled
     // Note: This assumes we're called only when XIG is enabled
-    cron.schedule('0 2 * * *', () => {
-      updateXigDatabase();
-    });
+    if (xigConfig?.autoUpdate !== false) {
+      cron.schedule('0 2 * * *', () => {
+        updateXigDatabase();
+      });
+    }
 
   } catch (error) {
     xigLog.error(`XIG module initialization failed: ${error.message}`);
@@ -2988,7 +2999,7 @@ module.exports = {
   // Template functions
   renderPage,
   buildContentHtml,
-  escapeHtml,
+  escape,
   loadTemplate,
 
   // Control panel functions

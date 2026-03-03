@@ -326,9 +326,10 @@ class MetadataHandler {
       for (const cs of provider.codeSystems.values()) {
         const url = cs.url || (cs.jsonObj && cs.jsonObj.url);
         const version = cs.version || (cs.jsonObj && cs.jsonObj.version);
+        const content = cs.content || cs.jsonObj.content;
 
         if (url) {
-          this.addCodeSystemEntry(seenSystems, url, version);
+          this.addCodeSystemEntry(seenSystems, url, version, content);
         }
       }
     }
@@ -340,7 +341,7 @@ class MetadataHandler {
         const version = factory.version();
 
         if (url) {
-          this.addCodeSystemEntry(seenSystems, url, version);
+          this.addCodeSystemEntry(seenSystems, url, version, factory.content());
         }
       }
     }
@@ -375,12 +376,15 @@ class MetadataHandler {
    * @param {string} url - Code system URL
    * @param {string} version - Code system version (may be null)
    */
-  addCodeSystemEntry(seenSystems, url, version) {
+  addCodeSystemEntry(seenSystems, url, version, content) {
     if (!seenSystems.has(url)) {
       // Create new entry
       const entry = { uri: url };
       if (version) {
         entry.version = [{ code: version }];
+      }
+      if (content) {
+        entry.content = content;
       }
       seenSystems.set(url, entry);
     } else if (version) {
@@ -388,6 +392,9 @@ class MetadataHandler {
       const entry = seenSystems.get(url);
       if (!entry.version) {
         entry.version = [];
+      }
+      if (content) {
+        entry.content = content;
       }
       // Check if version already exists
       if (!entry.version.some(v => v.code === version)) {

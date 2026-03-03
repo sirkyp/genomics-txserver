@@ -1,5 +1,6 @@
 const { monitorEventLoopDelay } = require('perf_hooks');
 const {Utilities} = require("./library/utilities");
+const escape = require('escape-html');
 
 class ServerStats {
   started = false;
@@ -32,10 +33,12 @@ class ServerStats {
         ? this.intervalMs / 60000
         : (now - this.startTime) / 60000;
       const requestsPerMin = minutesSinceStart > 0 ? requestsDelta / minutesSinceStart : 0;
-      const elapsedMs = (now - this.lastTime);
-      const usage = process.cpuUsage(this.lastUsage);
-      const cpuMs = (usage.user + usage.system) / 1000; // microseconds → milliseconds
-      const percent = elapsedMs > 0 ? 100 * cpuMs / elapsedMs : 0;
+
+      const currentCpu = this.readSystemCpu();
+      const idleDelta = currentCpu.idle - this.lastUsage.idle;
+      const totalDelta = currentCpu.total - this.lastUsage.total;
+      const percent = totalDelta > 0 ? 100 * (1 - idleDelta / totalDelta) : 0;
+      
       const loopDelay = this.eventLoopMonitor.mean / 1e6;
       let cacheCount = 0;
       for (let m of this.cachingModules) {
@@ -47,9 +50,9 @@ class ServerStats {
       this.eventLoopMonitor.reset();
       this.requestCountSnapshot = this.requestCount;
       this.requestTime = 0;
-      this.lastUsage = process.cpuUsage();
       this.lastTime = now;
-
+      this.lastUsage = currentCpu;
+      
       // Prune old data (keep 24 hours)
       const cutoff = now - (24 * 60 * 60 * 1000); // 24 hours ago
       this.history = this.history.filter(m => m.time > cutoff);
@@ -60,7 +63,7 @@ class ServerStats {
     this.started = true;
     this.startMem = process.memoryUsage().heapUsed;
     this.startTime = Date.now();
-    this.lastUsage = process.cpuUsage();
+    this.lastUsage = this.readSystemCpu();
     this.lastTime = this.startTime;
     this.eventLoopMonitor = monitorEventLoopDelay({ resolution: 20 });
     this.eventLoopMonitor.enable();
@@ -74,27 +77,34 @@ class ServerStats {
     this.requestTime = this.requestTime + tat;
   }
 
+  addTask(name, frequency) {
+    let info = {};
+    this.taskMap.set(name, info);
+    info.frequency = frequency;
+    info.state = "Started";
+  }
+
   task(name, state) {
     let info = this.taskMap.get(name);
-    if (!info) {
-      info = {};
-      this.taskMap.set(name, info);
+    if (info) {
+      info.date = Date.now();
+      info.state = state;
     }
-    info.date = Date.now();
-    info.state = state;
   }
 
   taskDetails() {
     if (this.taskMap.size == 0) {
       return "";
     }
-    let html = '<table class="grid"><tr><th colspan="3">Background Tasks</th></tr>';
-    html += "<tr><th>Task</th><th>Status</th><th>Last Seen</th></tr>";
+    let html = '<table class="grid"><tr style="background-color: #EEEEEE"><th colspan="4">Background Tasks</th></tr>';
+    html += "<tr><th>Task</th><th>Status</th><th>Frequency</th><th>Last Seen</th></tr>";
     for (let m of this.taskMap.keys()) {
       html += "<tr><td>";
-      html += Utilities.escapeHtml(m);
+      html += escape(m);
       html += "</td><td>";
-      html += Utilities.escapeHtml(this.taskMap.get(m).state);
+      html += escape(this.taskMap.get(m).state);
+      html += "</td><td>";
+      html += this.taskMap.get(m).frequency;
       html += "</td><td>";
       html += Utilities.formatDuration(this.taskMap.get(m).date, Date.now());
       html += "</td></tr>";
@@ -106,5 +116,17 @@ class ServerStats {
   finishStats() {
     clearInterval(this.timer);
   }
+
+  readSystemCpu() {
+    const os = require('os');
+    const cpus = os.cpus();
+    let idle = 0, total = 0;
+    for (const cpu of cpus) {
+      idle += cpu.times.idle;
+      total += cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq;
+    }
+    return { idle, total };
+  }
+
 }
 module.exports = ServerStats;
