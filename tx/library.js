@@ -2,7 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const yaml = require('yaml'); // npm install yaml
 const { PackageManager, PackageContentLoader } = require('../library/package-manager');
-const { CodeSystem } = require("./library/codesystem");
+const { CodeSystem, CodeSystemContentMode } = require("./library/codesystem");
 const {CountryCodeFactoryProvider} = require("./cs/cs-country");
 const {Iso4217FactoryProvider} = require("./cs/cs-currency");
 const {AreaCodeFactoryProvider} = require("./cs/cs-areacode");
@@ -31,6 +31,8 @@ const { Provider } = require("./provider");
 const {I18nSupport} = require("../library/i18nsupport");
 const folders = require('../library/folder-setup');
 const {VSACValueSetProvider} = require("./vs/vs-vsac");
+const { Extensions } = require("./library/extensions");
+const { CodeSystemProvider, CodeSystemFactoryProvider } = require("./cs/cs-api");
 
 
 const { ExtensibleProviderLoader } = require('./loaders/extensible-provider-loader');
@@ -87,11 +89,12 @@ class Library {
     }
   }
 
-  constructor(configFile, vsacCfg, log, stats) {
+  constructor(configFile, vsacCfg, log, stats, fallbackProxy = null) {
     this.configFile = configFile;
     this.vsacCfg = vsacCfg;
     this.log = log;
     this.stats = stats;
+    this.fallbackProxy = fallbackProxy;
 
     // Only synchronous initialization here
     this.codeSystemFactories = new Map();
@@ -480,11 +483,21 @@ class Library {
     let cp = new ListCodeSystemProvider();
     const resources = await contentLoader.getResourcesByType("CodeSystem");
     let csc = 0;
+    // PackageContentLoader uses fullPackagePath/package internally, so we need to add it for provider loading
+    const providerBasePath = path.join(fullPackagePath, 'package');
     for (const resource of resources) {
       const cs = new CodeSystem(await contentLoader.loadFile(resource, contentLoader.fhirVersion()));
       cs.sourcePackage = contentLoader.pid();
       cp.codeSystems.set(cs.url, cs);
       cp.codeSystems.set(cs.vurl, cs);
+      
+      // Register this CodeSystem URL as locally supported only when content is actually present
+      // (CodeSystems with content="not-present" must be served by a provider class or fallback)
+      if (this.fallbackProxy && cs.url && cs.content !== 'not-present') {
+        this.fallbackProxy.addSupportedSystem(cs.url);
+      }
+      
+      await this.loadProviderFromCodeSystem(cs, contentLoader, providerBasePath);
       csc++;
     }
     this.codeSystemProviders.push(cp);
@@ -499,6 +512,84 @@ class Library {
     }
 
     this.#logPackage(contentLoader.id(), contentLoader.version(), csc, vs ? vs.valueSetMap.size : 0);
+  }
+
+  async loadProviderFromCodeSystem(codeSystem, contentLoader, fullPackagePath) {
+    if (!codeSystem || !codeSystem.jsonObj) {
+      return;
+    }
+   if (codeSystem.jsonObj.content !== "not-present") {
+      return;
+    }
+
+    const providerModulePath = Extensions.readString(
+      codeSystem.jsonObj,
+      "http://hl7.org/fhir/StructureDefinition/codesystem-provider-class"
+    );
+
+    if (!providerModulePath) {
+      return;
+    }
+
+    let ProviderClass = null;
+    try {
+      global.__FHIRSMITH_BASE_CLASSES__ = {
+        CodeSystemProvider,
+        CodeSystemFactoryProvider
+      };
+
+      const resolvedPath = path.isAbsolute(providerModulePath)
+        ? providerModulePath
+        : path.join(fullPackagePath, providerModulePath);
+
+      const moduleExports = require(resolvedPath);
+      const exportName = path.basename(providerModulePath, path.extname(providerModulePath));
+
+      if (typeof moduleExports === "function") {
+        ProviderClass = moduleExports;
+      } else if (moduleExports && typeof moduleExports.default === "function") {
+        ProviderClass = moduleExports.default;
+      } else if (moduleExports && typeof moduleExports[exportName] === "function") {
+        ProviderClass = moduleExports[exportName];
+      }
+
+      if (!ProviderClass) {
+        this.log.warn(
+          `Unable to resolve provider class '${providerModulePath}' in package ${contentLoader.id()}#${contentLoader.version()}`
+        );
+        return;
+      }
+
+      const factory = new ProviderClass(this.i18n);
+      if (typeof factory.load === "function") {
+        await factory.load();
+      }
+
+      if (factory.system && factory.system() !== codeSystem.url) {
+        this.log.warn(
+          `Provider system mismatch for ${contentLoader.id()}#${contentLoader.version()}: ` +
+          `${factory.system()} does not match CodeSystem.url ${codeSystem.url}`
+        );
+        return;
+      }
+
+      this.registerProvider(`npm:${contentLoader.id()}`, factory);
+      this.log.info(
+        `Loaded provider ${providerModulePath} for ${codeSystem.url} from ${contentLoader.id()}#${contentLoader.version()}`
+      );
+      
+      // Register factory's system as locally supported (has API provider)
+      if (this.fallbackProxy && factory.system) {
+        const systemUrl = typeof factory.system === 'function' ? factory.system() : factory.system;
+        if (systemUrl) {
+          this.fallbackProxy.addSupportedSystem(systemUrl);
+        }
+      }
+    } catch (error) {
+      this.log.warn(
+        `Failed to load provider '${providerModulePath}' from ${contentLoader.id()}#${contentLoader.version()}: ${error.message}`
+      );
+    }
   }
 
   /**

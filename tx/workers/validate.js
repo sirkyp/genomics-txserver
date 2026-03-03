@@ -1899,6 +1899,23 @@ class ValidateWorker extends TerminologyWorker {
     return 'validate-code';
   }
 
+  /**
+   * Check if request should be proxied to fallback server
+   */
+  shouldProxy(params) {
+    if (!this.opContext.fallbackProxy?.enabled) {
+      return false;
+    }
+
+    const system = this.opContext.fallbackProxy.extractSystem(params);
+    
+    if (!system) {
+      return false; // No system specified, try local
+    }
+
+    return !this.opContext.fallbackProxy.isSupportedSystem(system);
+  }
+
   // ========== Entry Points ==========
 
   /**
@@ -1908,6 +1925,14 @@ class ValidateWorker extends TerminologyWorker {
   async handleCodeSystem(req, res) {
     try {
       const params = this.buildParameters(req);
+      
+      // Check if we should proxy to fallback server
+      if (this.shouldProxy(params)) {
+        const system = this.opContext.fallbackProxy.extractSystem(params);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
+      
       this.addHttpParams(req, params);
       this.log.debug('CodeSystem $validate-code with params:', params);
 
@@ -2001,6 +2026,14 @@ class ValidateWorker extends TerminologyWorker {
     try {
       const {id} = req.params;
       const params = this.buildParameters(req);
+      
+      // Check if we should proxy to fallback server
+      if (this.shouldProxy(params)) {
+        const system = this.opContext.fallbackProxy.extractSystem(params);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
+      
       this.log.debug(`CodeSystem/${id}/$validate-code with params:`, params);
 
       // Handle tx-resource and cache-id parameters
@@ -2045,6 +2078,30 @@ class ValidateWorker extends TerminologyWorker {
   async handleValueSet(req, res) {
     try {
       const params = this.buildParameters(req);
+      
+      // Check if we should proxy based on system parameter
+      if (this.shouldProxy(params)) {
+        const system = this.opContext.fallbackProxy.extractSystem(params);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
+
+      // Check if inline ValueSet contains external systems
+      const valueSetParam = this.getResourceParam(params, 'valueSet');
+      if (valueSetParam) {
+        this.log.debug('Found inline ValueSet parameter:', JSON.stringify(valueSetParam).substring(0, 200));
+        const valueSet = new ValueSet(valueSetParam);
+        if (this.shouldProxyValueSet(valueSet)) {
+          const systems = this.extractValueSetSystems(valueSet).join(', ');
+          this.log.info(`Inline ValueSet contains external systems (${systems}), proxying to fallback`);
+          return this.opContext.fallbackProxy.proxyRequest(req, res);
+        } else {
+          this.log.debug('Inline ValueSet does not require proxying');
+        }
+      } else {
+        this.log.debug('No inline ValueSet parameter found');
+      }
+      
       this.addHttpParams(req, params);
       this.log.debug('ValueSet $validate-code with params:', params);
 
@@ -2100,6 +2157,14 @@ class ValidateWorker extends TerminologyWorker {
     try {
       const {id} = req.params;
       const params = this.buildParameters(req);
+      
+      // Check if we should proxy based on system parameter
+      if (this.shouldProxy(params)) {
+        const system = this.opContext.fallbackProxy.extractSystem(params);
+        this.log.info(`System ${system} not locally supported, proxying to fallback`);
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
+      
       this.log.debug(`ValueSet/${id}/$validate-code with params:`, params);
 
       // Handle tx-resource and cache-id parameters
@@ -2115,6 +2180,13 @@ class ValidateWorker extends TerminologyWorker {
       if (!valueSet) {
         return res.status(422).json(this.operationOutcome('error', 'not-found',
           `ValueSet/${id} not found`));
+      }
+
+      // Check if the resolved ValueSet contains external systems
+      if (this.shouldProxyValueSet(valueSet)) {
+        const systems = this.extractValueSetSystems(valueSet).join(', ');
+        this.log.info(`ValueSet/${id} contains external systems (${systems}), proxying to fallback`);
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
 
       // Extract coded value
@@ -2518,6 +2590,69 @@ class ValidateWorker extends TerminologyWorker {
 
   isValidating() {
     return true;
+  }
+
+  /**
+   * Extract all unique system URLs from a ValueSet's compose and expansion
+   * @param {ValueSet} valueSet - The ValueSet to analyze
+   * @returns {Array<string>} Array of unique system URLs
+   */
+  extractValueSetSystems(valueSet) {
+    const systems = new Set();
+    const vs = valueSet.jsonObj || valueSet; // Handle both wrapper and raw JSON
+
+    // Check compose.include
+    if (vs.compose && vs.compose.include) {
+      for (const include of vs.compose.include) {
+        if (include.system) {
+          systems.add(include.system);
+        }
+      }
+    }
+
+    // Check expansion.contains
+    if (vs.expansion && vs.expansion.contains) {
+      const extractFromContains = (contains) => {
+        for (const item of contains) {
+          if (item.system) {
+            systems.add(item.system);
+          }
+          if (item.contains) {
+            extractFromContains(item.contains);
+          }
+        }
+      };
+      extractFromContains(vs.expansion.contains);
+    }
+
+    return Array.from(systems);
+  }
+
+  /**
+   * Check if a ValueSet should be proxied to the fallback server
+   * @param {ValueSet} valueSet - The ValueSet to check
+   * @returns {boolean} True if should proxy
+   */
+  shouldProxyValueSet(valueSet) {
+    if (!this.opContext.fallbackProxy?.enabled || !valueSet) {
+      return false;
+    }
+
+    const vs = valueSet.jsonObj || valueSet; // Handle both wrapper and raw JSON
+
+    // Proxy all HL7 core ValueSets
+    if (vs.url && vs.url.startsWith('http://hl7.org/fhir/ValueSet/')) {
+      return true;
+    }
+
+    // Extract systems from the ValueSet
+    const systems = this.extractValueSetSystems(valueSet);
+    if (systems.length === 0) {
+      return false;
+    }
+
+    // Check if any system is not supported locally (requires fallback)
+    return systems.some(system => !this.opContext.fallbackProxy.isSupportedSystem(system));
   }
 
 }
