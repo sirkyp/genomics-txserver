@@ -1,0 +1,7 @@
+base:
+  url: file:///Users/kmpower/Documents/GitHub/genomics-txserver/tx/data
+
+sources:
+  # Only load genomics-specific packages
+  # General terminologies (LOINC, SNOMED, etc.) are handled by tx.fhir.org via the fallback proxy
+  - npm:hl7.genomics.terminology#0.1.0
