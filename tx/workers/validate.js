@@ -23,6 +23,7 @@ const ValueSet = require("../library/valueset");
 const {ValueSetExpander} = require("./expand");
 const {FhirCodeSystemProvider} = require("../cs/cs-cs");
 const {CodeSystem} = require("../library/codesystem");
+const {FallbackProxy} = require('../library/fallback-proxy');
 
 const DEV_IGNORE_VALUESET = false; // todo: what's going on with this (ported from pascal)
 
@@ -1120,144 +1121,158 @@ class ValueSetChecker {
           pdisp = list.preferredDisplay(null);
         }
       } else if (!this.params.membershipOnly && ws) {
-        if (!isAbsoluteUrl(ws)) {
-          let m = this.worker.i18n.translate('Terminology_TX_System_Relative', this.params.HTTPLanguages, []);
-          let p;
-          if (mode === 'coding') {
-            p = issuePath + '.system';
-          } else if (mode === 'codeableConcept') {
-            p = issuePath + '.coding[' + i + '].system';
-          } else {
-            p = issuePath;
+        // Secondary check: validate the code exists in its own CodeSystem.
+        // Skip this when the coding's system is completely absent from the ValueSet's
+        // compose — the "not in VS" result is already definitive, and reporting
+        // x-unknown-system for an unrelated system would mislead TX clients (e.g.
+        // IG Publisher) into thinking the server cannot handle the ValueSet at all.
+        const vsComposeSystems = new Set(FallbackProxy.extractValueSetSystems(this.valueSet));
+        const wsBase = ws.includes('|') ? ws.split('|')[0] : ws;
+        const systemIsInCompose = vsComposeSystems.size === 0 ||
+          vsComposeSystems.has(ws) || vsComposeSystems.has(wsBase);
+        if (!systemIsInCompose) {
+          // Not a compose system — skip secondary lookup entirely.
+        } else {
+
+          if (!isAbsoluteUrl(ws)) {
+            let m = this.worker.i18n.translate('Terminology_TX_System_Relative', this.params.HTTPLanguages, []);
+            let p;
+            if (mode === 'coding') {
+              p = issuePath + '.system';
+            } else if (mode === 'codeableConcept') {
+              p = issuePath + '.coding[' + i + '].system';
+            } else {
+              p = issuePath;
+            }
+            mt.push(m);
+            op.addIssue(new Issue('error', 'invalid', p, 'Terminology_TX_System_Relative', m, 'invalid-data'));
           }
-          mt.push(m);
-          op.addIssue(new Issue('error', 'invalid', p, 'Terminology_TX_System_Relative', m, 'invalid-data'));
-        }
-        let prov = await this.worker.findCodeSystem(ws, c.version, this.params, ['complete', 'fragment'],  op,true, true, false, this.worker.requiredSupplements);
-        if (prov === null) {
-          let vss = await this.worker.findValueSet(ws, '');
-          if (vss !== null) {
-            vss = null;
-            let m = this.worker.i18n.translate('Terminology_TX_System_ValueSet2', this.params.HTTPLanguages, [ws]);
-            msg(m);
-            op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'Terminology_TX_System_ValueSet2', m, 'invalid-data'));
-            cause.value = 'invalid';
-          } else {
-            let provS = await this.worker.findCodeSystem(ws, c.version, this.params, ['supplement'], op,true, true, false, this.worker.requiredSupplements);
-            if (provS !== null) {
+          let prov = await this.worker.findCodeSystem(ws, c.version, this.params, ['complete', 'fragment'],  op,true, true, false, this.worker.requiredSupplements);
+          if (prov === null) {
+            let vss = await this.worker.findValueSet(ws, '');
+            if (vss !== null) {
               vss = null;
-              let m = this.worker.i18n.translate('CODESYSTEM_CS_NO_SUPPLEMENT', this.params.HTTPLanguages, [provS.vurl()]);
+              let m = this.worker.i18n.translate('Terminology_TX_System_ValueSet2', this.params.HTTPLanguages, [ws]);
               msg(m);
-              op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'CODESYSTEM_CS_NO_SUPPLEMENT', m, 'invalid-data'));
+              op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'Terminology_TX_System_ValueSet2', m, 'invalid-data'));
               cause.value = 'invalid';
             } else {
-              let prov2 = await this.worker.findCodeSystem(ws, '', this.params, ['complete', 'fragment'], op,true, true, false, this.worker.requiredSupplements);
-              let bAdd = true;
-              let m, mid, vn;
-              if (prov2 === null && !c.version) {
-                mid = 'UNKNOWN_CODESYSTEM';
-                m = this.worker.i18n.translate('UNKNOWN_CODESYSTEM', this.params.HTTPLanguages, [ws]);
-                bAdd = !unknownSystems.has(ws);
-                if (bAdd) {
-                  unknownSystems.add(ws);
-                }
-              } else {
-                let vl = await this.worker.listVersions(c.system);
-                if (vl.length == 0) {
-                  mid = 'UNKNOWN_CODESYSTEM_VERSION_NONE';
-                  vn = ws;
-                } else {
-                  mid = 'UNKNOWN_CODESYSTEM_VERSION';
-                  vn = ws + '|' + c.version;
-                }
-                m = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [ws, c.version,  this.worker.presentVersionList(vl)]);
-                bAdd = !unknownSystems.has(vn);
-                if (bAdd) {
-                  unknownSystems.add(vn);
-                }
-              }
-              if (bAdd) {
-                op.addIssue(new Issue('error', 'not-found', addToPath(path, 'system'), mid, m, 'not-found'));
-              }
-              msg(m);
-              cause.value = 'not-found';
-            }
-          }
-        } else {
-          this.checkCanonicalStatusCS(path, op, prov, this.valueSet);
-          let ctxt = await prov.locate(c.code);
-          if (!ctxt.context) {
-            // message can never be populated in pascal?
-            // if (ctxt.message) {
-            //   let p;
-            //   if (mode !== 'code') {
-            //     p = path + '.code';
-            //   }
-            //   op.addIssue(new Issue('information', cause.value, p, null, ctxt.message, 'invalid-code'));
-            //   message = '';
-            // }
-            if (vcc.coding) {
-              vcc.coding = vcc.coding.filter(ccc => ccc.system === prov.system() && (!prov.version() || ccc.version == prov.version()) && ccc.code === c.code);
-            }
-            let vs = ws + '|' + prov.version() + '#' + c.code;
-            if (!ts.includes(vs)) {
-              ts.push(vs);
-              let m;
-              if (prov.contentMode() === 'complete') {
-                m = this.worker.i18n.translate(Unknown_Code_in_VersionSCT(ws, prov.version()), this.params.HTTPLanguages, [c.code, ws, prov.version(), SCTVersion(ws, prov.version())]);
-                cause.value = 'code-invalid';
+              let provS = await this.worker.findCodeSystem(ws, c.version, this.params, ['supplement'], op,true, true, false, this.worker.requiredSupplements);
+              if (provS !== null) {
+                vss = null;
+                let m = this.worker.i18n.translate('CODESYSTEM_CS_NO_SUPPLEMENT', this.params.HTTPLanguages, [provS.vurl()]);
                 msg(m);
-                op.addIssue(new Issue('error', 'code-invalid', addToPath(path, 'code'), 'Unknown_Code_in_Version', m, 'invalid-code'), true);
+                op.addIssue(new Issue('error', 'invalid', addToPath(path, 'system'), 'CODESYSTEM_CS_NO_SUPPLEMENT', m, 'invalid-data'));
+                cause.value = 'invalid';
               } else {
-                m = this.worker.i18n.translate('UNKNOWN_CODE_IN_FRAGMENT', this.params.HTTPLanguages, [c.code, ws, prov.version()]);
-                cause.value = 'code-invalid';
-                // msg(m); - it's just a warning
-                op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'UNKNOWN_CODE_IN_FRAGMENT', m, 'invalid-code'), true);
+                let prov2 = await this.worker.findCodeSystem(ws, '', this.params, ['complete', 'fragment'], op,true, true, false, this.worker.requiredSupplements);
+                let bAdd = true;
+                let m, mid, vn;
+                if (prov2 === null && !c.version) {
+                  mid = 'UNKNOWN_CODESYSTEM';
+                  m = this.worker.i18n.translate('UNKNOWN_CODESYSTEM', this.params.HTTPLanguages, [ws]);
+                  bAdd = !unknownSystems.has(ws);
+                  if (bAdd) {
+                    unknownSystems.add(ws);
+                  }
+                } else {
+                  let vl = await this.worker.listVersions(c.system);
+                  if (vl.length == 0) {
+                    mid = 'UNKNOWN_CODESYSTEM_VERSION_NONE';
+                    vn = ws;
+                  } else {
+                    mid = 'UNKNOWN_CODESYSTEM_VERSION';
+                    vn = ws + '|' + c.version;
+                  }
+                  m = this.worker.i18n.translate(mid, this.params.HTTPLanguages, [ws, c.version,  this.worker.presentVersionList(vl)]);
+                  bAdd = !unknownSystems.has(vn);
+                  if (bAdd) {
+                    unknownSystems.add(vn);
+                  }
+                }
+                if (bAdd) {
+                  op.addIssue(new Issue('error', 'not-found', addToPath(path, 'system'), mid, m, 'not-found'));
+                }
+                msg(m);
+                cause.value = 'not-found';
               }
             }
           } else {
-            if (!c.version && mode == 'codeableConcept' && prov.version()) {
-              c.version = prov.version();
-            }
-            await this.worker.listDisplaysFromCodeSystem(list, prov, ctxt.context);
-            let pd = list.preferredDisplay(this.params.workingLanguages());
-            if (pd) {
-              pdisp = pd;
-            }
-            if (!pdisp) {
-              pdisp = list.preferredDisplay(null);
-            }
-            let severity = this.dispWarning();
-            if (c.display && list.designations.length > 0 && !list.hasDisplay(this.params.workingLanguages(), defLang.value, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE).found) {
-              let baseMsg;
-              if (list.hasDisplay(this.params.workingLanguages(), defLang.value, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE).difference === DisplayDifference.Normalized) {
-                baseMsg = 'Display_Name_WS_for__should_be_one_of__instead_of';
-              } else {
-                baseMsg = 'Display_Name_for__should_be_one_of__instead_of';
+            this.checkCanonicalStatusCS(path, op, prov, this.valueSet);
+            let ctxt = await prov.locate(c.code);
+            if (!ctxt.context) {
+              // message can never be populated in pascal?
+              // if (ctxt.message) {
+              //   let p;
+              //   if (mode !== 'code') {
+              //     p = path + '.code';
+              //   }
+              //   op.addIssue(new Issue('information', cause.value, p, null, ctxt.message, 'invalid-code'));
+              //   message = '';
+              // }
+              if (vcc.coding) {
+                vcc.coding = vcc.coding.filter(ccc => ccc.system === prov.system() && (!prov.version() || ccc.version == prov.version()) && ccc.code === c.code);
               }
+              let vs = ws + '|' + prov.version() + '#' + c.code;
+              if (!ts.includes(vs)) {
+                ts.push(vs);
+                let m;
+                if (prov.contentMode() === 'complete') {
+                  m = this.worker.i18n.translate(Unknown_Code_in_VersionSCT(ws, prov.version()), this.params.HTTPLanguages, [c.code, ws, prov.version(), SCTVersion(ws, prov.version())]);
+                  cause.value = 'code-invalid';
+                  msg(m);
+                  op.addIssue(new Issue('error', 'code-invalid', addToPath(path, 'code'), 'Unknown_Code_in_Version', m, 'invalid-code'), true);
+                } else {
+                  m = this.worker.i18n.translate('UNKNOWN_CODE_IN_FRAGMENT', this.params.HTTPLanguages, [c.code, ws, prov.version()]);
+                  cause.value = 'code-invalid';
+                  // msg(m); - it's just a warning
+                  op.addIssue(new Issue('warning', 'code-invalid', addToPath(path, 'code'), 'UNKNOWN_CODE_IN_FRAGMENT', m, 'invalid-code'), true);
+                }
+              }
+            } else {
+              if (!c.version && mode == 'codeableConcept' && prov.version()) {
+                c.version = prov.version();
+              }
+              await this.worker.listDisplaysFromCodeSystem(list, prov, ctxt.context);
+              let pd = list.preferredDisplay(this.params.workingLanguages());
+              if (pd) {
+                pdisp = pd;
+              }
+              if (!pdisp) {
+                pdisp = list.preferredDisplay(null);
+              }
+              let severity = this.dispWarning();
+              if (c.display && list.designations.length > 0 && !list.hasDisplay(this.params.workingLanguages(), defLang.value, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE).found) {
+                let baseMsg;
+                if (list.hasDisplay(this.params.workingLanguages(), defLang.value, c.display, false, DisplayCheckingStyle.CASE_INSENSITIVE).difference === DisplayDifference.Normalized) {
+                  baseMsg = 'Display_Name_WS_for__should_be_one_of__instead_of';
+                } else {
+                  baseMsg = 'Display_Name_for__should_be_one_of__instead_of';
+                }
 
-              let dc = list.displayCount(this.params.workingLanguages(), null, true);
-              let m;
-              if (dc === 0) {
-                severity = 'warning';
-                baseMsg = 'NO_VALID_DISPLAY_AT_ALL';
-                m = this.worker.i18n.translate('NO_VALID_DISPLAY_AT_ALL', this.params.HTTPLanguages,
-                  [c.display, prov.system(), c.code, this.params.langSummary()]);
-              } else if (dc === 1) {
-                m = this.worker.i18n.translate(baseMsg + '_one', this.params.HTTPLanguages,
-                  ['', prov.system(), c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
-              } else {
-                m = this.worker.i18n.translate(baseMsg + '_other', this.params.HTTPLanguages,
-                  [dc.toString(), prov.system(), c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
+                let dc = list.displayCount(this.params.workingLanguages(), null, true);
+                let m;
+                if (dc === 0) {
+                  severity = 'warning';
+                  baseMsg = 'NO_VALID_DISPLAY_AT_ALL';
+                  m = this.worker.i18n.translate('NO_VALID_DISPLAY_AT_ALL', this.params.HTTPLanguages,
+                    [c.display, prov.system(), c.code, this.params.langSummary()]);
+                } else if (dc === 1) {
+                  m = this.worker.i18n.translate(baseMsg + '_one', this.params.HTTPLanguages,
+                    ['', prov.system(), c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
+                } else {
+                  m = this.worker.i18n.translate(baseMsg + '_other', this.params.HTTPLanguages,
+                    [dc.toString(), prov.system(), c.code, list.present(this.params.workingLanguages(), defLang.value, true), c.display, this.params.langSummary()]);
+                }
+                msg(m);
+                op.addIssue(new Issue(severity, 'invalid', addToPath(path, 'display'), baseMsg, m, 'invalid-display'));
               }
-              msg(m);
-              op.addIssue(new Issue(severity, 'invalid', addToPath(path, 'display'), baseMsg, m, 'invalid-display'));
-            }
-            if (prov.version() && mode != 'codeableConcept') {
-              result.addParamStr('version', prov.version());
+              if (prov.version() && mode != 'codeableConcept') {
+                result.addParamStr('version', prov.version());
+              }
             }
           }
-        }
+        } // closes: if (systemIsInCompose) else { ... }
       }
       i++;
     }
@@ -1300,9 +1315,21 @@ class ValueSetChecker {
       result.addParamUri('system', tsys);
     }
 
+    // Only report x-unknown-system for systems that are actually referenced in the
+    // ValueSet's compose/expansion. If a coding's system isn't part of the ValueSet
+    // at all, the "not in VS" result is definitive and there's no value in telling
+    // the client "I don't know system X" — that would cause TX clients (e.g. IG
+    // Publisher) to incorrectly treat a clean failure as an unresolvable lookup.
+    const vsComposeSystems = new Set(FallbackProxy.extractValueSetSystems(this.valueSet));
     for (let us of unknownSystems) {
       if (ok === false) {
-        result.addParamCanonical('x-unknown-system', us);
+        // Strip version suffix to match the base system URL in the compose
+        const usBase = us.includes('|') ? us.split('|')[0] : us;
+        if (vsComposeSystems.has(us) || vsComposeSystems.has(usBase)) {
+          result.addParamCanonical('x-unknown-system', us);
+        }
+        // else: system is not in the ValueSet compose, so the "not in VS" answer
+        // is already complete; suppress the unknown-system noise.
       } else {
         result.addParamCanonical('x-caused-by-unknown-system', us);
       }
@@ -1837,23 +1864,6 @@ class ValidateWorker extends TerminologyWorker {
     return 'validate-code';
   }
 
-  /**
-   * Check if request should be proxied to fallback server
-   */
-  shouldProxy(params) {
-    if (!this.opContext.fallbackProxy?.enabled) {
-      return false;
-    }
-
-    const system = this.opContext.fallbackProxy.extractSystem(params);
-    
-    if (!system) {
-      return false; // No system specified, try local
-    }
-
-    return !this.opContext.fallbackProxy.isSupportedSystem(system);
-  }
-
   // ========== Entry Points ==========
 
   /**
@@ -1864,13 +1874,6 @@ class ValidateWorker extends TerminologyWorker {
     try {
       const params = this.buildParameters(req);
       
-      // Check if we should proxy to fallback server
-      if (this.shouldProxy(params)) {
-        const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not locally supported, proxying to fallback`);
-        return this.opContext.fallbackProxy.proxyRequest(req, res);
-      }
-      
       this.addHttpParams(req, params);
       this.log.debug('CodeSystem $validate-code with params:', params);
 
@@ -1879,6 +1882,10 @@ class ValidateWorker extends TerminologyWorker {
       return res.status(200).json(result);
 
     } catch (error) {
+      if (this.opContext.fallbackProxy?.enabled && error instanceof Issue && error.unknownSystem) {
+        this.log.info(`System ${error.unknownSystem} not locally supported, proxying to fallback`);
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
       this.log.error(error);
       this.debugLog(error);
       if (error instanceof Issue) {
@@ -1941,6 +1948,10 @@ class ValidateWorker extends TerminologyWorker {
       this.log.error(error);
       this.debugLog(error);
       if (error instanceof Issue && !error.isHandleAsOO()) {
+        // Re-throw unknown-system errors so the top-level handler can proxy to fallback
+        if (this.opContext.fallbackProxy?.enabled && error.unknownSystem) {
+          throw error;
+        }
         return await this.handlePrepareError(error, coded, mode.mode, txp);
       } else {
         throw error;
@@ -1967,13 +1978,6 @@ class ValidateWorker extends TerminologyWorker {
       const {id} = req.params;
       const params = this.buildParameters(req);
       
-      // Check if we should proxy to fallback server
-      if (this.shouldProxy(params)) {
-        const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not locally supported, proxying to fallback`);
-        return this.opContext.fallbackProxy.proxyRequest(req, res);
-      }
-      
       this.log.debug(`CodeSystem/${id}/$validate-code with params:`, params);
 
       // Handle tx-resource and cache-id parameters
@@ -1986,6 +1990,9 @@ class ValidateWorker extends TerminologyWorker {
       // Get the CodeSystem by id
       const codeSystem = await this.provider.getCodeSystemById(this.opContext, id);
       if (!codeSystem) {
+        if (this.opContext.fallbackProxy?.enabled) {
+          return this.opContext.fallbackProxy.proxyRequest(req, res);
+        }
         return res.status(422).json(this.operationOutcome('error', 'not-found',
           `CodeSystem/${id} not found`));
       }
@@ -2020,20 +2027,13 @@ class ValidateWorker extends TerminologyWorker {
     try {
       const params = this.buildParameters(req);
       
-      // Check if we should proxy based on system parameter
-      if (this.shouldProxy(params)) {
-        const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not locally supported, proxying to fallback`);
-        return this.opContext.fallbackProxy.proxyRequest(req, res);
-      }
-
       // Check if inline ValueSet contains external systems
       const valueSetParam = this.getResourceParam(params, 'valueSet');
       if (valueSetParam) {
         this.log.debug('Found inline ValueSet parameter:', JSON.stringify(valueSetParam).substring(0, 200));
         const valueSet = new ValueSet(valueSetParam);
-        if (this.shouldProxyValueSet(valueSet)) {
-          const systems = this.extractValueSetSystems(valueSet).join(', ');
+        if (await FallbackProxy.shouldProxyValueSet(valueSet, this.provider, this.opContext)) {
+          const systems = FallbackProxy.extractValueSetSystems(valueSet).join(', ');
           this.log.info(`Inline ValueSet contains external systems (${systems}), proxying to fallback`);
           return this.opContext.fallbackProxy.proxyRequest(req, res);
         } else {
@@ -2050,6 +2050,9 @@ class ValidateWorker extends TerminologyWorker {
       return res.json(result);
 
     } catch (error) {
+      if (this.opContext.fallbackProxy?.enabled && error instanceof Issue && error.code === 'not-found') {
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
       this.log.error(error);
       this.debugLog(error);
       if (error instanceof Issue) {
@@ -2100,13 +2103,6 @@ class ValidateWorker extends TerminologyWorker {
       const {id} = req.params;
       const params = this.buildParameters(req);
       
-      // Check if we should proxy based on system parameter
-      if (this.shouldProxy(params)) {
-        const system = this.opContext.fallbackProxy.extractSystem(params);
-        this.log.info(`System ${system} not locally supported, proxying to fallback`);
-        return this.opContext.fallbackProxy.proxyRequest(req, res);
-      }
-      
       this.log.debug(`ValueSet/${id}/$validate-code with params:`, params);
 
       // Handle tx-resource and cache-id parameters
@@ -2120,13 +2116,16 @@ class ValidateWorker extends TerminologyWorker {
       const valueSet = await this.provider.getValueSetById(this.opContext, id);
       this.seeSourceVS(valueSet, id);
       if (!valueSet) {
+        if (this.opContext.fallbackProxy?.enabled) {
+          return this.opContext.fallbackProxy.proxyRequest(req, res);
+        }
         return res.status(422).json(this.operationOutcome('error', 'not-found',
           `ValueSet/${id} not found`));
       }
 
       // Check if the resolved ValueSet contains external systems
-      if (this.shouldProxyValueSet(valueSet)) {
-        const systems = this.extractValueSetSystems(valueSet).join(', ');
+      if (await FallbackProxy.shouldProxyValueSet(valueSet, this.provider, this.opContext)) {
+        const systems = FallbackProxy.extractValueSetSystems(valueSet).join(', ');
         this.log.info(`ValueSet/${id} contains external systems (${systems}), proxying to fallback`);
         return this.opContext.fallbackProxy.proxyRequest(req, res);
       }
@@ -2544,68 +2543,6 @@ class ValidateWorker extends TerminologyWorker {
     return true;
   }
 
-  /**
-   * Extract all unique system URLs from a ValueSet's compose and expansion
-   * @param {ValueSet} valueSet - The ValueSet to analyze
-   * @returns {Array<string>} Array of unique system URLs
-   */
-  extractValueSetSystems(valueSet) {
-    const systems = new Set();
-    const vs = valueSet.jsonObj || valueSet; // Handle both wrapper and raw JSON
-
-    // Check compose.include
-    if (vs.compose && vs.compose.include) {
-      for (const include of vs.compose.include) {
-        if (include.system) {
-          systems.add(include.system);
-        }
-      }
-    }
-
-    // Check expansion.contains
-    if (vs.expansion && vs.expansion.contains) {
-      const extractFromContains = (contains) => {
-        for (const item of contains) {
-          if (item.system) {
-            systems.add(item.system);
-          }
-          if (item.contains) {
-            extractFromContains(item.contains);
-          }
-        }
-      };
-      extractFromContains(vs.expansion.contains);
-    }
-
-    return Array.from(systems);
-  }
-
-  /**
-   * Check if a ValueSet should be proxied to the fallback server
-   * @param {ValueSet} valueSet - The ValueSet to check
-   * @returns {boolean} True if should proxy
-   */
-  shouldProxyValueSet(valueSet) {
-    if (!this.opContext.fallbackProxy?.enabled || !valueSet) {
-      return false;
-    }
-
-    const vs = valueSet.jsonObj || valueSet; // Handle both wrapper and raw JSON
-
-    // Proxy all HL7 core ValueSets
-    if (vs.url && vs.url.startsWith('http://hl7.org/fhir/ValueSet/')) {
-      return true;
-    }
-
-    // Extract systems from the ValueSet
-    const systems = this.extractValueSetSystems(valueSet);
-    if (systems.length === 0) {
-      return false;
-    }
-
-    // Check if any system is not supported locally (requires fallback)
-    return systems.some(system => !this.opContext.fallbackProxy.isSupportedSystem(system));
-  }
 
 }
 

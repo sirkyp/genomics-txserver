@@ -19,6 +19,8 @@ const crypto = require('crypto');
 const ValueSet = require("../library/valueset");
 const {VersionUtilities} = require("../../library/version-utilities");
 
+const {FallbackProxy} = require('../library/fallback-proxy');
+
 // Expansion limits (from Pascal constants)
 const EXTERNAL_DEFAULT_LIMIT = 1000;
 const INTERNAL_DEFAULT_LIMIT = 10000;
@@ -1655,65 +1657,6 @@ class ExpandWorker extends TerminologyWorker {
   }
 
   /**
-   * Check if a ValueSet expansion should be proxied to fallback server
-   * @param {Object} valueSet - ValueSet resource
-   * @returns {boolean}
-   */
-  shouldProxyValueSet(valueSet) {
-    if (!this.opContext.fallbackProxy?.enabled || !valueSet) {
-      return false;
-    }
-
-    const rawValueSet = valueSet.jsonObj || valueSet;
-
-    if (rawValueSet.url && rawValueSet.url.startsWith('http://hl7.org/fhir/ValueSet/')) {
-      return true;
-    }
-
-    const systems = this.extractValueSetSystems(rawValueSet);
-    if (systems.length === 0) {
-      return false;
-    }
-
-    return systems.some(system => !this.opContext.fallbackProxy.isSupportedSystem(system));
-  }
-
-  /**
-   * Extract code system URLs from a ValueSet
-   * @param {Object} valueSet - ValueSet resource
-   * @returns {string[]}
-   */
-  extractValueSetSystems(valueSet) {
-    const rawValueSet = valueSet?.jsonObj || valueSet;
-    const systems = new Set();
-
-    if (rawValueSet?.compose?.include?.length) {
-      for (const include of rawValueSet.compose.include) {
-        if (include.system) {
-          systems.add(include.system);
-        }
-      }
-    }
-
-    const collectFromContains = (contains) => {
-      for (const entry of contains || []) {
-        if (entry.system) {
-          systems.add(entry.system);
-        }
-        if (entry.contains?.length) {
-          collectFromContains(entry.contains);
-        }
-      }
-    };
-
-    if (rawValueSet?.expansion?.contains?.length) {
-      collectFromContains(rawValueSet.expansion.contains);
-    }
-
-    return Array.from(systems);
-  }
-
-  /**
    * Handle a type-level $expand request
    * GET/POST /ValueSet/$expand
    * @param {express.Request} req - Express request
@@ -1846,14 +1789,17 @@ class ExpandWorker extends TerminologyWorker {
       valueSet = await this.findValueSet(url, version);
       this.seeSourceVS(valueSet, url);
       if (!valueSet) {
+        if (this.opContext.fallbackProxy?.enabled) {
+          return this.opContext.fallbackProxy.proxyRequest(req, res);
+        }
         return res.status(422).json(this.operationOutcome('error', 'not-found',
           version ? `ValueSet not found: ${url} version ${version}` : `ValueSet not found: ${url}`));
       }
     }
 
     // Proxy expansion to fallback server when ValueSet uses external systems
-    if (this.shouldProxyValueSet(valueSet)) {
-      const systems = this.extractValueSetSystems(valueSet).join(', ');
+    if (await FallbackProxy.shouldProxyValueSet(valueSet, this.provider, this.opContext)) {
+      const systems = FallbackProxy.extractValueSetSystems(valueSet).join(', ');
       this.log.info(`ValueSet expansion includes external systems (${systems}), proxying to fallback`);
       return this.opContext.fallbackProxy.proxyRequest(req, res);
     }
@@ -1918,6 +1864,9 @@ class ExpandWorker extends TerminologyWorker {
     const valueSet = await this.provider.getValueSetById(this.opContext, id);
 
     if (!valueSet) {
+      if (this.opContext.fallbackProxy?.enabled) {
+        return this.opContext.fallbackProxy.proxyRequest(req, res);
+      }
       return res.status(422).json(this.operationOutcome('error', 'not-found',
         `ValueSet/${id} not found`));
     }
@@ -1950,8 +1899,8 @@ class ExpandWorker extends TerminologyWorker {
     txp.readParams(params);
 
     // Proxy expansion to fallback server when ValueSet uses external systems
-    if (this.shouldProxyValueSet(valueSet)) {
-      const systems = this.extractValueSetSystems(valueSet).join(', ');
+    if (await FallbackProxy.shouldProxyValueSet(valueSet, this.provider, this.opContext)) {
+      const systems = FallbackProxy.extractValueSetSystems(valueSet).join(', ');
       this.log.info(`ValueSet expansion includes external systems (${systems}), proxying to fallback`);
       return this.opContext.fallbackProxy.proxyRequest(req, res);
     }

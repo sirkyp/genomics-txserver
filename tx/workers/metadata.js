@@ -350,9 +350,7 @@ class MetadataHandler {
       const fallbackEntries = await this.fallbackProxy.getFallbackCodeSystemEntries(endpoint?.fhirVersion);
       for (const entry of fallbackEntries) {
         const url = entry.uri;
-        if (!url) {
-          continue;
-        }
+        if (!url) continue;
         if (Array.isArray(entry.version) && entry.version.length > 0) {
           for (const ver of entry.version) {
             this.addCodeSystemEntry(seenSystems, url, ver?.code || null);

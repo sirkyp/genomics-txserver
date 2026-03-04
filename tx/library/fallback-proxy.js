@@ -10,88 +10,120 @@ class FallbackProxy {
   constructor(config) {
     this.enabled = config?.fallback?.enabled || false;
     this.server = config?.fallback?.server || 'https://tx.fhir.org';
-    this.supportedSystems = new Set();
     this.termCapsCache = new Map();
     this.termCapsCacheTtlMs = (config?.fallback?.metadataCacheMinutes || 30) * 60 * 1000;
-    
+
     if (this.enabled) {
       log.info(`Fallback proxy enabled: ${this.server}`);
     }
   }
 
   /**
-   * Normalize a CodeSystem URL for consistent matching.
-   * - trims whitespace
-   * - drops version suffix after '|'
-   * - removes trailing slash
-   * - lowercases scheme/host when parseable
-   * @param {string} url
-   * @returns {string|null}
+   * Check whether the system is directly handled by one of the locally
+   * registered CodeSystem factory providers or static CodeSystem providers.
+   * As a last resort, asks the Provider to resolve a CodeSystemProvider
+   * instance for the URL.
+   *
+   * @param {string}           system
+   * @param {Provider}         provider
+   * @param {OperationContext} opContext
+   * @returns {Promise<boolean>}
    */
-  normalizeSystemUrl(url) {
-    if (url === null || url === undefined) {
-      return null;
+  static async isLocallySupportedSystem(system, provider, opContext) {
+    if (!system || !provider) {
+      return false;
     }
 
-    let normalized = String(url).trim();
-    if (!normalized) {
-      return null;
+    // Fast-path: exact key match (with or without trailing version separator)
+    const hasKey = (map, key) => map && (map.has(key) || map.has(`${key}|`));
+    if (
+      hasKey(provider.codeSystemFactories, system) ||
+      hasKey(provider.codeSystems, system)
+    ) {
+      return true;
     }
 
-    const versionSeparator = normalized.indexOf('|');
-    if (versionSeparator >= 0) {
-      normalized = normalized.substring(0, versionSeparator);
-    }
-
-    normalized = normalized.replace(/\/+$/, '');
-
+    // Final fallback: ask the provider to resolve the system
     try {
-      const parsed = new URL(normalized);
-      parsed.protocol = parsed.protocol.toLowerCase();
-      parsed.hostname = parsed.hostname.toLowerCase();
-      normalized = parsed.toString().replace(/\/+$/, '');
+      const csp = await provider.getCodeSystemProvider(opContext, system, null, []);
+      return !!csp;
     } catch {
-      // Keep original normalized string for non-URL canonicals
-    }
-
-    return normalized;
-  }
-
-  /**
-   * Register a locally-supported CodeSystem URL (called by Library after loading)
-   * @param {string} url - CodeSystem URL
-   */
-  addSupportedSystem(url) {
-    const normalized = this.normalizeSystemUrl(url);
-    if (normalized && !this.supportedSystems.has(normalized)) {
-      this.supportedSystems.add(normalized);
+      return false;
     }
   }
 
   /**
-   * Get count of registered locally-supported systems
-   * @returns {number}
+   * Extract code system URLs declared in a ValueSet resource.
+   * Handles both compose.include and expansion.contains.
+   *
+   * @param {Object} valueSet - ValueSet resource (raw JSON or wrapped)
+   * @returns {string[]}
    */
-  getSupportedSystemCount() {
-    return this.supportedSystems.size;
+  static extractValueSetSystems(valueSet) {
+    const raw = valueSet?.jsonObj || valueSet;
+    const systems = new Set();
+
+    for (const include of raw?.compose?.include || []) {
+      if (include.system) systems.add(include.system);
+    }
+
+    const collectFromContains = (contains) => {
+      for (const entry of contains || []) {
+        if (entry.system) systems.add(entry.system);
+        if (entry.contains?.length) collectFromContains(entry.contains);
+      }
+    };
+    collectFromContains(raw?.expansion?.contains);
+
+    return Array.from(systems);
   }
 
-  getFallbackTermCapsPath(fhirVersion) {
-    const version = String(fhirVersion || '5.0');
-    const major = version.split('.')[0];
-    return major === '4' ? 'r4' : 'r5';
+  /**
+   * Check whether a ValueSet should be proxied to the fallback server.
+   * Returns true when proxy is enabled and the ValueSet either is an HL7
+   * core ValueSet or references at least one system not handled locally.
+   *
+   * @param {Object}          valueSet  - ValueSet resource (raw or wrapped)
+   * @param {Provider}        provider
+   * @param {OperationContext} opContext
+   * @returns {Promise<boolean>}
+   */
+  static async shouldProxyValueSet(valueSet, provider, opContext) {
+    if (!opContext?.fallbackProxy?.enabled || !valueSet) {
+      return false;
+    }
+
+    const raw = valueSet.jsonObj || valueSet;
+    if (raw.url?.startsWith('http://hl7.org/fhir/ValueSet/')) {
+      return true;
+    }
+
+    const systems = FallbackProxy.extractValueSetSystems(valueSet);
+    if (systems.length === 0) {
+      return false;
+    }
+
+    for (const system of systems) {
+      if (!await FallbackProxy.isLocallySupportedSystem(system, provider, opContext)) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  normalizeServerUrl() {
-    return (this.server || '').replace(/\/+$/, '');
-  }
-
+  /**
+   * Fetch the list of CodeSystem entries from the fallback server's
+   * TerminologyCapabilities (cached per FHIR version).
+   *
+   * @param {string} fhirVersion - e.g. '5.0.0' or '4.0.1'
+   * @returns {Promise<Array>}
+   */
   async getFallbackCodeSystemEntries(fhirVersion) {
     if (!this.enabled) {
       return [];
     }
 
-    const fhirPath = this.getFallbackTermCapsPath(fhirVersion);
+    const fhirPath = this._fallbackFhirPath(fhirVersion);
     const cacheKey = fhirPath;
     const now = Date.now();
     const cached = this.termCapsCache.get(cacheKey);
@@ -99,14 +131,12 @@ class FallbackProxy {
       return cached.entries;
     }
 
-    const url = `${this.normalizeServerUrl()}/${fhirPath}/metadata?mode=terminology`;
+    const url = `${(this.server || '').replace(/\/+$/, '')}/${fhirPath}/metadata?mode=terminology`;
 
     try {
       const response = await axios.get(url, {
         timeout: 30000,
-        headers: {
-          Accept: 'application/fhir+json'
-        },
+        headers: { Accept: 'application/fhir+json' },
         validateStatus: () => true
       });
 
@@ -118,18 +148,11 @@ class FallbackProxy {
 
       const entries = [];
       for (const cs of response.data.codeSystem || []) {
-        if (!cs || !cs.uri) {
-          continue;
-        }
+        if (!cs?.uri) continue;
         const entry = { uri: cs.uri };
         if (Array.isArray(cs.version) && cs.version.length > 0) {
-          const versions = cs.version
-            .map(v => v && v.code)
-            .filter(Boolean)
-            .map(code => ({ code }));
-          if (versions.length > 0) {
-            entry.version = versions;
-          }
+          const versions = cs.version.map(v => v?.code).filter(Boolean).map(code => ({ code }));
+          if (versions.length > 0) entry.version = versions;
         }
         entries.push(entry);
       }
@@ -144,73 +167,9 @@ class FallbackProxy {
     }
   }
 
-  /**
-   * Check if a code system is supported locally (not requiring fallback)
-   */
-  isSupportedSystem(systemUrl) {
-    const originalInput = systemUrl === null || systemUrl === undefined
-      ? null
-      : String(systemUrl).trim();
-    const normalizedInput = this.normalizeSystemUrl(systemUrl);
-    if (!normalizedInput) {
-      return false;
-    }
-
-    if (originalInput && originalInput !== normalizedInput) {
-      log.warn(`Normalized incoming system URL from '${originalInput}' to '${normalizedInput}'`);
-    }
-
-    return this.supportedSystems.has(normalizedInput);
-  }
-
-  /**
-   * Extract the system parameter from FHIR Parameters resource or query params
-   */
-  extractSystem(params) {
-    // Check direct parameter (from query string)
-    if (params.system) {
-      return params.system;
-    }
-
-    // CodeSystem/$validate-code commonly uses 'url' for the target code system
-    if (params.url) {
-      return params.url;
-    }
-
-    // Check FHIR Parameters resource (from POST body)
-    if (params.parameter && Array.isArray(params.parameter)) {
-      const systemParam = params.parameter.find(p => p.name === 'system');
-      if (systemParam) {
-        return systemParam.valueUri || systemParam.valueString;
-      }
-
-      const urlParam = params.parameter.find(p => p.name === 'url');
-      if (urlParam) {
-        return urlParam.valueUri || urlParam.valueCanonical || urlParam.valueString;
-      }
-
-      const codingParam = params.parameter.find(p => p.name === 'coding');
-      if (codingParam?.valueCoding?.system) {
-        return codingParam.valueCoding.system;
-      }
-
-      const codeableConceptParam = params.parameter.find(p => p.name === 'codeableConcept');
-      if (codeableConceptParam?.valueCodeableConcept?.coding?.[0]?.system) {
-        return codeableConceptParam.valueCodeableConcept.coding[0].system;
-      }
-    }
-
-    // Check Coding
-    if (params.coding) {
-      return params.coding.system;
-    }
-
-    // Check CodeableConcept
-    if (params.codeableConcept?.coding?.[0]) {
-      return params.codeableConcept.coding[0].system;
-    }
-
-    return null;
+  _fallbackFhirPath(fhirVersion) {
+    const major = String(fhirVersion || '5.0').split('.')[0];
+    return major === '4' ? 'r4' : 'r5';
   }
 
   /**

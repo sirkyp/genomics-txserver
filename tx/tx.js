@@ -197,12 +197,6 @@ class TXModule {
     await this.library.load();
     this.log.info('Library loaded successfully');
 
-    // Log locally-supported systems registered with fallback proxy
-    if (this.fallbackProxy) {
-      const count = this.fallbackProxy.getSupportedSystemCount();
-      this.log.info(`Fallback proxy initialized with ${count} locally-supported code system(s)`);
-    }
-
     // Set up each endpoint
     for (const endpoint of config.endpoints) {
       await this.setupEndpoint(endpoint, app);
